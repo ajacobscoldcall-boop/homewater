@@ -33,6 +33,8 @@ Add `?debug=1` to the URL for the playtest panel.
 
 `window.__hw` is always available for tests (see `src/debug/debug.ts`).
 
+Add `?gallery=1` for the model gallery (every fish look and animal on a neutral background, for review screenshots). `?gallery=salmon`, `?gallery=animals` or one item id (e.g. `?gallery=spawnMale`) narrows it; `spin`, `angle` and `tilt` set the view. Saved shots live in `docs/gallery/`.
+
 ## Architecture
 
 ```
@@ -46,8 +48,12 @@ src/sim/      pure TypeScript simulation. No three.js, DOM or browser APIs (a un
   rng.ts        seeded random numbers; all chance goes through World.rng
 src/render/   three.js; reads sim state, never writes it
   Renderer.ts   scenes per arena, entity meshes, camera
-  fishMesh.ts   procedural salmon: lofted body, vertex-shader swimming, colours by stage
+  fishMesh.ts   procedural salmon: lofted body, separate fins, jaws, teeth, eye, colours by stage, vertex-shader swimming
+  animals.ts    procedural bear, orca, salmon shark, harbor seal, gull, merganser, Dolly Varden, with update(pose) hooks
+  geo.ts        geometry helpers: vertex-coloured builder, lofts, fin patches, surface decals
+  gallery.ts    the ?gallery model viewer
 src/app/App.ts  screens, the main loop, saving, life-to-life flow
+src/audio/    Web Audio: ambience, cues, adaptive score in music slots (see docs/audio.md); reads sim state via App
 src/save/     IndexedDB saves with schema version, migrations, export/import
 src/input/    keyboard and mouse to Intent
 src/ui/       DOM helpers, player-facing text, styles
@@ -132,3 +138,26 @@ GitHub Pages, deployed by `.github/workflows/pages.yml` on pushes to `main`. The
   - `npm run narration:manifest` lists recorded files.
 - **Public repo:** the advisor is cited only through published papers. The briefs written to them are kept out of the repo.
 - **Hosting:** relative base path. The public site lives in the separate `homewater` repo as clean snapshots; `sales-sparring` stays private.
+- **Habitats:**
+  - Creek, river and lake beach (`Habitat` type).
+  - Per-habitat jack base rate, population size/depth offsets (`habitat.*Offset.*`), bear rate and hiding spots.
+  - Chosen when founding a lineage; offspring inherit it; strays can come from any habitat.
+  - The saved `habitat` field only gained values, so there is no schema change.
+- **Bet hedging:** `yearEffects()` and `yearFavours()` in `genetics.ts` make year conditions interact with run timing, body depth and male strategy. The parameters are under `year.*` (game mechanics, marked placeholder). Year captions are `year.*`.
+- **Anglers:** lures (`lure` entities) swing across the home river's pools. A hooked fish must burst `return.hookPulls` times before `return.hookTime` runs out, or be landed (`angler`).
+- **Sound:** procedural Web Audio in `src/audio/`, with no files and no new dependencies. Details are in `docs/audio.md`.
+  - The app feeds it world state and sim events; `src/sim` stays silent.
+  - It has ambience per stage, cues for warnings and strikes, a swim rush and a weak-fish heartbeat.
+  - A calm score sits in named music slots (`music.<stage>`, `music.danger`, `music.end`, `music.title`). A recording listed in `public/audio/manifest.json` replaces a slot.
+  - Music and ambience duck under narration.
+  - The context starts on the first user gesture.
+  - Volume and mute (M) are saved with the settings.
+  - Audio tuning lives in `src/audio/config.ts`, not params.json, because it is presentation, not simulation.
+- **Field journal and guided first life:** journal entries live in `src/data/journal.json` and unlock from SimEvent caption, warning and death keys; unlocks are kept per browser in localStorage, not in the save (no schema change). The guide (`src/ui/tutorial.ts`) shows step-by-step objectives in a Field guide first life, reading the sim only through public helpers; G or the pause menu skips it.
+- **Fry and ocean as moments:** both stages are authored moments joined by time skips (fry: weed-edge lesson, dusk feeding, winter under ice, spring choice to leave or stay a second year; ocean: bait ball, orca, seal, crowded pink year, salmon shark, autumn maturation reveal). Lake growth stays in `fryBites`/`fryRichBites` (no save change); `decideMaturation` turns it into a freshwater score.
+- **Animals and fish models:**
+  - Everything is built in code (no downloaded models): the salmon has separate fins, jaws, a kype and teeth on spawning males, and an eye with iris and pupil.
+  - Predators come from `src/render/animals.ts`, merged into one to five draw calls each.
+  - `?gallery=1` shows them all for the advisor's screenshot review; shots are in `docs/gallery/`.
+  - The spawning bed is drawn with gravel banks past its edges so bears have somewhere to stand. This is render only.
+  - Smoke tests run their own preview server on port 4173 (`PW_PORT` overrides it) and never reuse another one.

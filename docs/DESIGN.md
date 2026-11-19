@@ -26,7 +26,8 @@ A "life as a sockeye salmon" simulator. Realism comes from tactile detail and th
 - **Place:** For now, a fictional watershed modeled on Bristol Bay's lake systems: bay, then river, then a large lake, then spawning habitat. Bristol Bay's names, words and imagery belong to the Yup'ik, Dena'ina and Alutiiq/Sugpiaq communities who live there. Use none of them without consultation.
 - **Human presence:** Present but not preachy.
   - **v1:** Size-selective commercial gillnets at the river mouth, plus subsistence set nets shown neutrally, as part of the landscape rather than a threat to dodge. A caption explains that the fishery is managed to let enough fish through to spawn (escapement goals).
-  - **Later:** Anglers upriver, and a rare trawl sweep at sea. Sockeye are rarely caught in trawl fisheries, which mostly catch Chinook and chum.
+  - **Anglers** in the home river's pools (added after milestone 1). Their lures can hook a fish, which must fight free.
+  - **Dropped:** a rare trawl sweep at sea. Sockeye are rarely caught in trawl fisheries, which mostly catch Chinook and chum.
   - **No dams**, true to Bristol Bay.
 
 ## Structure: one full life per run (about 30 minutes)
@@ -111,7 +112,14 @@ Each generation is born into a randomly varied world:
 - Water temperature, including warm years
 - River flow: low-water or flood years
 
-The same traits can thrive in one generation and fail in the next.
+The same traits can thrive in one generation and fail in the next. That is bet hedging, as the advisor described it. The year interacts with traits:
+- **Warm years** favour early-run fish; **cool years** favour late-run fish.
+- **High water** is harder on early-run and deep-bodied fish.
+- **Low water** lets bears reach deep-bodied fish more easily.
+- **Big runs** bring more big males: harder for large males, more openings for jacks. **Small runs** are the reverse.
+- **Crowded ocean years** (pink salmon) mean smaller fish.
+
+The year card and the recap say what the year favoured.
 
 ## End-of-life summary
 
@@ -235,12 +243,10 @@ Playable end to end:
 Rough edges are acceptable.
 
 **Deferred to a later version:**
-- The adaptive generated score
-- The field journal and the recording-script export
 - Cinematic camera moments
 - More graphics levels
-- Anglers, the trawl and salmon sharks
-- Lake-beach and river spawning
+
+Since added: anglers, salmon sharks, lake-beach and river spawning, and the recording script. In progress: the adaptive score and the field journal. The trawl was dropped on the advisor's advice.
 
 ## Milestones
 

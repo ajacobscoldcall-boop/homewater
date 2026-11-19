@@ -67,6 +67,8 @@ button.choice span { font-weight: 400; font-size: 13px; color: var(--muted); }
 @media (max-width: 640px) { .grid3 { grid-template-columns: 1fr; } }
 input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 9px 12px; width: min(280px, 100%); }
 .sliders { display: grid; gap: 8px; }
+.sound .volume { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+.sound input[type='range'] { width: min(220px, 50vw); accent-color: var(--sockeye); }
 .slider { display: grid; grid-template-columns: 140px 1fr 110px; gap: 10px; align-items: center; font-size: 14px; }
 .slider output { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; }
@@ -94,3 +96,39 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 .threat.opening { color: var(--kype); }
 @keyframes pulse { from { transform: scale(0.85); opacity: 0.7; } to { transform: scale(1.1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .threat .ring { animation: none; } }
+
+/* Field journal */
+.journal { gap: 16px; }
+.journal .tabs { display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; }
+.journal .tab { font-size: 12.5px; padding: 6px 9px; display: inline-flex; gap: 6px; align-items: baseline; }
+.journal .tab span { font: 400 11px var(--f-mono); color: var(--muted); }
+.journal .tab[aria-pressed='true'] { border-color: var(--kype); box-shadow: inset 0 -2px 0 var(--kype); }
+.journal-body { max-height: max(200px, min(520px, calc(100vh - 330px))); overflow-y: auto; padding-right: 4px; }
+.journal-body.entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; }
+@media (max-width: 720px) { .journal-body.entries { grid-template-columns: 1fr; } }
+.entry { border: 1px solid var(--rule); border-left: 3px solid var(--kype); border-radius: 6px; padding: 12px 14px; background: rgba(21, 67, 77, 0.35); display: grid; gap: 6px; align-content: start; }
+.entry h3, .facts h3 { font-family: var(--f-display); font-weight: 600; font-size: 19px; letter-spacing: -0.01em; margin: 0; }
+.entry p { font-size: 14px; line-height: 1.5; }
+.entry.locked { border-left-color: var(--rule); background: transparent; border-style: dashed; }
+.entry.locked h3 { color: var(--muted); font-family: var(--f-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.entry.locked p { color: var(--muted); font-size: 13px; }
+.facts { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: fact; display: grid; gap: 16px; }
+.facts li { counter-increment: fact; display: grid; grid-template-columns: 44px 1fr; gap: 4px 14px; border-top: 1px solid var(--rule); padding-top: 14px; }
+.facts li::before { content: counter(fact); grid-row: span 2; font: 800 34px/1 var(--f-display); color: var(--sockeye); }
+.facts p { font-size: 15px; max-width: none; }
+
+#journal-toasts { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; pointer-events: none; z-index: 5; }
+.journal-toast { display: grid; gap: 2px; text-align: center; background: rgba(8, 26, 30, 0.88); border: 1px solid var(--rule); border-top: 2px solid var(--kype); border-radius: 6px; padding: 7px 14px; font: 600 14px var(--f-body); animation: fadein 0.5s ease both; transition: opacity 0.6s; }
+.journal-toast .label { font-size: 10px; }
+.journal-toast.fade { opacity: 0; }
+
+/* Guided first life */
+#guide { position: absolute; top: 64px; left: 16px; width: min(380px, calc(100% - 32px)); background: rgba(8, 26, 30, 0.82); border-left: 3px solid var(--kype); border-radius: 4px; padding: 10px 14px 12px; display: grid; gap: 6px; pointer-events: none; text-shadow: none; }
+#guide p { margin: 0; font-size: 15px; line-height: 1.45; }
+#guide .guide-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#guide .guide-skip { pointer-events: auto; font: 500 11px var(--f-mono); padding: 3px 8px; color: var(--muted); background: transparent; }
+#guide .guide-skip:hover { color: var(--fg); background: var(--surface); }
+#guide .guide-progress { font: 500 12px var(--f-mono); color: var(--kype); }
+#guide.advance { animation: guide-step 0.6s ease both; }
+@keyframes guide-step { from { opacity: 0.2; transform: translateX(-6px); box-shadow: inset 3px 0 0 var(--kype); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #guide.advance, .journal-toast { animation: none; } }

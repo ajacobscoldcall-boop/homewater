@@ -46,7 +46,7 @@ Status markers: **Applied** (in the M1 build), **Planned** (affects a later mile
 - **Redd site:** gravel quality matters most. Cobble that is too large is hard to dig; too small and the eggs get less oxygen. **Planned:** gravel-size cues.
 - **Guarding:** females guard against other females digging up their eggs, and against egg predators like trout, until they die. **Applied:** rival females. **Planned:** egg predators.
 - **Clutch:** 2,000-5,000 eggs is normal. **Applied.**
-- **Habitat:** river fish are larger and deeper-bodied than creek fish, and beach fish more so. Bears feed most easily in creeks, less in rivers and on beaches. **Planned** with the lake-beach and river habitats.
+- **Habitat:** river fish are larger and deeper-bodied than creek fish, and beach fish more so. Bears feed most easily in creeks, less in rivers and on beaches. **Applied:** creek, river and lake-beach habitats, with population size and depth, bear frequency and cover by habitat.
 - **Female choice:** mostly comes down to which male wins the fights. **Planned.**
 
 ## Homing, humans and the ocean
@@ -101,7 +101,7 @@ The moments the advisor would most want players to experience at each stage:
 **Survival**
 - Eggs: about 10-20% survive to emerge. Fry: about 5-10% survive to leave the lake. **Applied:** in end-of-stage captions.
 - Visible deaths the player can react to, with chance showing up through floods, bad years and siblings lost off-screen, is "good for balancing scientific validity with player experience". **Applied:** this is the design.
-- Bet hedging: traits that thrive one generation can fail the next. For example, all your jack offspring do well one year and not the next. **Planned:** year effects that favour different traits.
+- Bet hedging: traits that thrive one generation can fail the next. For example, all your jack offspring do well one year and not the next. **Applied:** year conditions interact with traits. Warm years favour early runs and cool years late runs; high water is harder on early-run and deep-bodied fish; low water exposes deep bodies to bears; big runs give jacks more openings and large males more rivals. The recap says what each year favoured.
 
 **Early life**
 - Alevin orient toward the light and into the current (positive rheotaxis), to stay upright, keep oxygen flowing, and prepare to feed. **Applied:** the alevin faces the current and swims up toward the light when ready. The earlier "light means being seen" rule was removed.
@@ -139,3 +139,14 @@ The moments the advisor would most want players to experience at each stage:
 **Appearance**
 - Spots matter for telling species apart. Tail shape and eye size change across the life cycle. **Applied:** tail fork and eye size vary by stage, and sockeye have no spots. **Open:** screenshot review.
 
+
+## Open questions from the fry and ocean rebuild
+
+These are game choices made without advisor input. They are marked placeholder in params.json where they are numbers. Ask in the next round.
+
+- **Dusk feeding:** the fry stage has plankton rising toward the surface at dusk, and the `fry.dusk` caption states it. **Open:** is this right for sockeye nursery lakes?
+- **Winter:** cold slows the fry and food is scarce. Predators are slower but still active under the ice. **Open:** is this a fair picture?
+- **Weeds in winter:** they still shelter the fry. **Open:** do the weed beds die back in winter?
+- **A second lake year:** the game says a fish that stays leaves bigger, at the cost of another year among predators. **Open:** is that the real trade-off?
+- **When a male's path is set:** `ocean.autumnMale` says it is thought to be set in the first autumn at sea, by genes and growth. **Open:** is that wording right?
+- **Seals at sea:** a seal lunges at where the fish is going. This is a game mechanic. **Open:** anything to correct about how seals take salmon at sea?

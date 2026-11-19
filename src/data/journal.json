@@ -1,0 +1,444 @@
+{
+  "schema": 1,
+  "notes": "Field journal entries. Each unlocks the first time the player meets any of its triggers: a caption id (as in captions.json), 'warning.<kind>', 'death.<cause>', 'spawned.<habitat>' or 'life.complete'. Science text must agree with docs/ADVISOR_NOTES.md; where the notes are silent, stay general. Unlocks are kept per browser, not in the save file.",
+  "facts": {
+    "title": "Facts to remember",
+    "intro": "Three things the scientist advising this game most wants players to take away.",
+    "items": [
+      {
+        "title": "Many ways to be a sockeye",
+        "text": "There is a lot of life-history diversity at every stage. Some fish spend one year in the lake and some two; some spend two years at sea and some three; a few males come home early as jacks. Populations keep this diversity as a bet hedge: a path that thrives one generation can fail the next."
+      },
+      {
+        "title": "Death is common, and mostly chance",
+        "text": "Mortality can be very high and largely random. Only about 10 to 20 percent of eggs survive to emerge, about 5 to 10 percent of fry leave the lake, and about 5 percent survival at sea is not unusual. Floods, bad years and hungry predators take fish no matter how well they swim."
+      },
+      {
+        "title": "A spawner is close to a miracle",
+        "text": "Multiply those odds together and well under one egg in a hundred comes home to spawn. A fish that survives and passes on its genes is close to a miracle. The game is kinder than the river, so remember that the real odds are far longer."
+      }
+    ]
+  },
+  "entries": [
+    {
+      "id": "egg.redd",
+      "stage": "egg",
+      "title": "An egg in the gravel",
+      "text": "Sockeye eggs are buried in a nest of gravel, the redd. An egg can do little but wait while cold water seeps between the stones. Only about 10 to 20 percent of eggs survive to emerge as fry.",
+      "unlock": [
+        "egg.intro"
+      ]
+    },
+    {
+      "id": "egg.rheotaxis",
+      "stage": "egg",
+      "title": "Facing the current",
+      "text": "Newly hatched alevin live on their yolk sac, hidden in the gravel. They turn to face into the current, a behaviour called positive rheotaxis. It keeps them upright, keeps oxygen-rich water flowing over their gills, and prepares them to feed. As the yolk runs out they swim up toward the light.",
+      "unlock": [
+        "egg.hatch",
+        "egg.flow",
+        "warning.flow"
+      ]
+    },
+    {
+      "id": "egg.scour",
+      "stage": "egg",
+      "title": "Scouring floods",
+      "text": "Floods are the great killer of eggs and alevin. High flows can scour the gravel and tear them out of the redd before they ever emerge. How many survive depends heavily on the year's water, which no fish can control.",
+      "unlock": [
+        "death.scour",
+        "egg.loosening"
+      ]
+    },
+    {
+      "id": "egg.emerge",
+      "stage": "egg",
+      "title": "Emergence",
+      "text": "When the yolk is nearly used, the young fish wriggles up out of the stones and into open water, ready to feed. Most of its brothers and sisters never get this far.",
+      "unlock": [
+        "egg.emerge"
+      ]
+    },
+    {
+      "id": "fry.lake",
+      "stage": "fry",
+      "title": "A year in the lake",
+      "text": "Young sockeye rear in a lake, feeding on zooplankton. About 60 percent spend one year there before going to sea; others stay longer. Only about 5 to 10 percent of fry survive to leave the lake.",
+      "unlock": [
+        "fry.intro"
+      ]
+    },
+    {
+      "id": "fry.char",
+      "stage": "fry",
+      "title": "Dolly Varden and trout",
+      "text": "Larger fish are the main predators of sockeye fry. In the lake these are Dolly Varden, a kind of char, and trout.",
+      "unlock": [
+        "fry.trout",
+        "fry.safeWeeds",
+        "death.trout"
+      ]
+    },
+    {
+      "id": "fry.winter",
+      "stage": "fry",
+      "title": "Winter under the ice",
+      "text": "Through the winter, growth slows to a crawl. How fast a young fish grows matters later: for a male, fast early growth raises the odds that he will mature early as a jack.",
+      "unlock": [
+        "fry.winter"
+      ]
+    },
+    {
+      "id": "smolt.run",
+      "stage": "smolt",
+      "title": "Smolts on the move",
+      "text": "In spring the young fish turn silver and become smolts. They leave the lake in large groups and tend to travel at night. Going together swamps the predators: they cannot eat everyone. Predation early in the move to sea is usually the bottleneck that shapes how many adults return.",
+      "unlock": [
+        "smolt.intro"
+      ]
+    },
+    {
+      "id": "smolt.char",
+      "stage": "smolt",
+      "title": "Char at the outlet",
+      "text": "Char hit smolts where they leave the lake and at stream mouths. In a school, a char may take a neighbour instead.",
+      "unlock": [
+        "smolt.char",
+        "warning.char",
+        "death.char"
+      ]
+    },
+    {
+      "id": "smolt.birds",
+      "stage": "smolt",
+      "title": "Birds",
+      "text": "Birds take more smolts the nearer they get to the sea. Diving birds and gulls hunt from above, so a shadow on the surface is the only warning. Deeper water and overhanging banks give some shelter.",
+      "unlock": [
+        "smolt.bird",
+        "smolt.gulls",
+        "warning.bird",
+        "death.bird"
+      ]
+    },
+    {
+      "id": "smolt.merganser",
+      "stage": "smolt",
+      "title": "Mergansers",
+      "text": "Mergansers are diving ducks that chase smolts underwater for a few seconds at a time.",
+      "unlock": [
+        "smolt.merganser",
+        "warning.merganser",
+        "death.merganser"
+      ]
+    },
+    {
+      "id": "smolt.seal",
+      "stage": "smolt",
+      "title": "Seals",
+      "text": "Once the smolts reach salt water, seals join the hunt. They gather at river mouths when the smolts run, and seals and sea lions keep hunting salmon throughout their ocean life.",
+      "unlock": [
+        "smolt.seal",
+        "warning.seal",
+        "death.seal"
+      ]
+    },
+    {
+      "id": "smolt.salt",
+      "stage": "smolt",
+      "title": "Into salt water",
+      "text": "At the estuary a smolt's gills and kidneys rework themselves for salt water. Of the school that left the lake together, many never reach this point.",
+      "unlock": [
+        "smolt.salt"
+      ]
+    },
+    {
+      "id": "ocean.sea",
+      "stage": "ocean",
+      "title": "The North Pacific",
+      "text": "Sockeye stay near the surface at sea, within about 20 to 40 metres, and do most of their growing there. Predation early in the marine phase is usually the bottleneck that shapes returns: about 5 percent marine survival is not unusual.",
+      "unlock": [
+        "ocean.intro"
+      ]
+    },
+    {
+      "id": "ocean.orca",
+      "stage": "ocean",
+      "title": "Orcas",
+      "text": "Whales hunt salmon throughout their ocean life, and orcas are among them, along with seals, sea lions and seabirds.",
+      "unlock": [
+        "ocean.orca",
+        "warning.orca",
+        "death.orca"
+      ]
+    },
+    {
+      "id": "ocean.shark",
+      "stage": "ocean",
+      "title": "Salmon sharks",
+      "text": "Salmon sharks hunt salmon in the North Pacific. Together with orcas and seals, they are among the dangers of every year at sea.",
+      "unlock": [
+        "ocean.shark",
+        "warning.shark",
+        "death.shark"
+      ]
+    },
+    {
+      "id": "ocean.crowded",
+      "stage": "ocean",
+      "title": "A crowded ocean",
+      "text": "Competition for food at sea, for example with pink salmon, is a commonly implicated reason for slow growth. Pink salmon are abundant every other year, so a sockeye's growth can depend on which year it went to sea.",
+      "unlock": [
+        "ocean.crowded"
+      ]
+    },
+    {
+      "id": "ocean.lateYears",
+      "stage": "ocean",
+      "title": "Another year at sea",
+      "text": "Survival in later years at sea is much higher than in the first, but still perhaps only around half each year. An extra year means a bigger fish, at the risk of never coming home at all. Jacks, returning after one year, skip this risk.",
+      "unlock": [
+        "ocean.yearsAtSea",
+        "death.sea"
+      ]
+    },
+    {
+      "id": "ocean.paths",
+      "stage": "ocean",
+      "title": "Many life histories",
+      "text": "Fish from the same stream follow different paths: one or two years in the lake, one, two or three at sea. Ocean ages of two and three years are close to an even split. This diversity is a bet hedge: traits that thrive one generation can fail the next.",
+      "unlock": [
+        "ocean.revealFemale",
+        "ocean.revealLarge",
+        "ocean.revealJack"
+      ]
+    },
+    {
+      "id": "ocean.jack",
+      "stage": "ocean",
+      "title": "Jacks",
+      "text": "A few males mature after a single year at sea and return small, about 300 millimetres, less than half the length of most males. The pathway is thought to be set after the first fall at sea and depends heavily on both genes and growth. Jacks are rare: in a typical Bristol Bay run only 1 or 2 males in 100. They have lower reproductive success than large males, balanced by better survival from leaving the sea early.",
+      "unlock": [
+        "ocean.revealJack"
+      ]
+    },
+    {
+      "id": "ocean.largeMale",
+      "stage": "ocean",
+      "title": "Large males",
+      "text": "Males that stay two or three years at sea return at about 500 millimetres after two years and 700 to 800 after three. On the way to the spawning grounds they grow a hump, a large hooked upper jaw and big teeth. Females change only their colour.",
+      "unlock": [
+        "ocean.revealLarge"
+      ]
+    },
+    {
+      "id": "return.homing",
+      "stage": "return",
+      "title": "Finding home",
+      "text": "At sea, salmon navigate by the Earth's magnetic field. From the river mouth they follow smell, the scent of the stream where they were born. The commonest mistakes are overshooting and entering the wrong river. A few percent always stray to other streams; hatchery fish stray more.",
+      "unlock": [
+        "return.intro",
+        "return.track"
+      ]
+    },
+    {
+      "id": "return.fasting",
+      "stage": "return",
+      "title": "Living on reserves",
+      "text": "Returning salmon stop eating. Their mass changes little but their fat is used up. They stay fit while actively migrating, then turn sluggish and ragged after weeks on the spawning grounds.",
+      "unlock": [
+        "return.fatHint",
+        "return.lowFat",
+        "death.exhaustion"
+      ]
+    },
+    {
+      "id": "return.gillnet",
+      "stage": "return",
+      "title": "Gillnets",
+      "text": "A gillnet catches a fish by the head: it swims in, its head and teeth tangle, and it cannot back out. Larger males are caught most, while small jacks often slip through the mesh. The fishery is managed to let enough fish through to spawn.",
+      "unlock": [
+        "return.netSlip",
+        "return.pastNets",
+        "death.gillnet"
+      ]
+    },
+    {
+      "id": "return.anglers",
+      "stage": "return",
+      "title": "Anglers",
+      "text": "Commercial gillnets on the approach and anglers in the rivers are the two human pressures on returning sockeye in this game. A lure that hooks a fish can be fought free, but the struggle costs fat the fish cannot replace.",
+      "unlock": [
+        "return.angler",
+        "return.hooked",
+        "warning.hooked",
+        "death.angler"
+      ]
+    },
+    {
+      "id": "return.wrongRiver",
+      "stage": "return",
+      "title": "Testing the river",
+      "text": "Near home, a salmon tests a river or a branch by its smell and backs out if it is wrong. Overshooting the mouth and entering the wrong river are the usual mistakes.",
+      "unlock": [
+        "return.wrongRiver",
+        "return.wrongBranch",
+        "return.overshoot"
+      ]
+    },
+    {
+      "id": "return.lowWater",
+      "stage": "return",
+      "title": "Warm, low water",
+      "text": "Rivers vary from year to year. In warm, low-water years, heat stress and low oxygen kill fish before they can spawn. In flood years the danger shifts to the eggs.",
+      "unlock": [
+        "return.heat"
+      ]
+    },
+    {
+      "id": "return.betHedging",
+      "stage": "return",
+      "title": "Every year is different",
+      "text": "Water temperature, flow, the size of the run and conditions at sea change from year to year. Traits that thrive one year can fail the next, so a population that keeps its variety does better over time than one that bets on a single strategy. Biologists call this bet hedging.",
+      "unlock": [
+        "year.betHedging",
+        "year.warm",
+        "year.cool",
+        "year.highWater",
+        "year.lowWater",
+        "year.bigRun",
+        "year.smallRun",
+        "year.crowded"
+      ]
+    },
+    {
+      "id": "return.bear",
+      "stage": "return",
+      "title": "Bears",
+      "text": "Bears fish where the water is shallow. They feed most easily in creeks, less in rivers and on lake beaches. On the spawning grounds they take males first, then large females, and small jacks last.",
+      "unlock": [
+        "return.bear",
+        "spawn.bear",
+        "warning.bear",
+        "death.bear"
+      ]
+    },
+    {
+      "id": "return.colour",
+      "stage": "return",
+      "title": "Turning red",
+      "text": "In fresh water a sockeye blushes from silver toward red. Only at its home stream does it turn fully red with a green head.",
+      "unlock": [
+        "return.rightRiver",
+        "return.arrive"
+      ]
+    },
+    {
+      "id": "spawn.grounds",
+      "stage": "spawn",
+      "title": "The spawning grounds",
+      "text": "A sockeye spawns in the stream where it hatched, now fully red with a green head. Males carry a hump, a hooked upper jaw and big teeth. Fish stay fit while they migrate, but after weeks on the spawning grounds they turn sluggish and ragged.",
+      "unlock": [
+        "spawn.intro"
+      ]
+    },
+    {
+      "id": "spawn.gravel",
+      "stage": "spawn",
+      "title": "Choosing gravel",
+      "text": "For a female, gravel quality matters most. She judges it by cobble size: cobble that is too large is hard to dig, and gravel that is too fine lets less oxygen reach the eggs. A normal clutch is 2,000 to 5,000 eggs.",
+      "unlock": [
+        "spawn.female",
+        "spawn.digging",
+        "spawn.cobbleLarge",
+        "spawn.cobbleSmall",
+        "spawn.needGravel"
+      ]
+    },
+    {
+      "id": "spawn.guarding",
+      "stage": "spawn",
+      "title": "Guarding the redd",
+      "text": "After spawning, a female guards her redd against other females that would dig up her eggs, and against egg predators like trout, until she dies. Females live several weeks after spawning, rarely more than a month.",
+      "unlock": [
+        "spawn.femaleSpawned",
+        "spawn.rivalFemale",
+        "spawn.reddDisturbed"
+      ]
+    },
+    {
+      "id": "spawn.fights",
+      "stage": "spawn",
+      "title": "Large-male fights",
+      "text": "Large males ram each other at right angles with their mouths open, and may lock jaws. Fights are settled fast, mostly by size; timing and position decide the rest. Which male a female spawns with mostly comes down to who wins.",
+      "unlock": [
+        "spawn.largeMale",
+        "spawn.rivalMale",
+        "spawn.fightWon",
+        "spawn.fightWonSide",
+        "spawn.fightLost",
+        "warning.rival"
+      ]
+    },
+    {
+      "id": "spawn.sneaker",
+      "stage": "spawn",
+      "title": "Sneaking",
+      "text": "Jacks are too small to win fights. They hide under logs, rocks and undercut banks, approach indirectly, and dart in while the pair is distracted. More bank cover means more hiding places; when cover is scarce, jacks fight each other for it.",
+      "unlock": [
+        "spawn.jack",
+        "spawn.jackWindow",
+        "spawn.jackSuccess",
+        "spawn.jackScarce",
+        "spawn.jackSpotTaken",
+        "warning.opening"
+      ]
+    },
+    {
+      "id": "spawn.creek",
+      "stage": "spawn",
+      "title": "Spawning in a creek",
+      "text": "Sockeye spawn in creeks, on lake beaches and in rivers. Creek fish tend to be smaller and more streamlined than river fish, and beach fish are deeper-bodied still. Jacks are most common in small creeks with bank cover, and bears feed most easily there too.",
+      "unlock": [
+        "spawned.creek"
+      ]
+    },
+    {
+      "id": "spawn.river",
+      "stage": "spawn",
+      "title": "Spawning in a river",
+      "text": "River spawners meet deeper, faster water over coarser gravel. River sockeye are larger and deeper-bodied than creek fish, and bears find them harder to catch than in a small creek.",
+      "unlock": [
+        "spawned.river",
+        "spawn.habitat.river"
+      ]
+    },
+    {
+      "id": "spawn.beach",
+      "stage": "spawn",
+      "title": "Spawning on a lake beach",
+      "text": "Some sockeye spawn on lake beaches, in still water along the shore. Beach spawners are the largest and deepest-bodied of all. Bears rarely reach them, and there is little cover for jacks.",
+      "unlock": [
+        "spawned.beach",
+        "spawn.habitat.beach"
+      ]
+    },
+    {
+      "id": "spawn.noSpawn",
+      "stage": "spawn",
+      "title": "So close",
+      "text": "The spawning season is short, and every fish that arrives competes for gravel and mates. Some reach the grounds after the whole long journey and still fail to spawn.",
+      "unlock": [
+        "death.noSpawn"
+      ]
+    },
+    {
+      "id": "spawn.afterlife",
+      "stage": "spawn",
+      "title": "After spawning",
+      "text": "Like every Pacific salmon, a sockeye dies after spawning. Its body feeds the stream, the insects, the bears and the trees along the bank, and under the gravel the next generation is already growing.",
+      "unlock": [
+        "life.complete"
+      ]
+    }
+  ]
+}

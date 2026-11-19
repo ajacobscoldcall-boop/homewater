@@ -1,13 +1,13 @@
 import paramFile from '../../src/data/params.json';
 import { foundLineage } from '../../src/sim/lineage';
 import { Params, type Difficulty, type ParamFile } from '../../src/sim/params';
-import { NO_INTENT, type Intent, type Sex } from '../../src/sim/types';
+import { NO_INTENT, type Habitat, type Intent, type Sex } from '../../src/sim/types';
 import { World } from '../../src/sim/world';
 
 export const FILE = paramFile as ParamFile;
 export const params = (d: Difficulty = 'fieldGuide') => new Params(FILE, d);
 
-export function newWorld(opts: { seed?: number; sex?: Sex; preset?: 'quick' | 'jack'; difficulty?: Difficulty; startStage?: number } = {}) {
+export function newWorld(opts: { seed?: number; sex?: Sex; preset?: 'quick' | 'jack'; difficulty?: Difficulty; startStage?: number; habitat?: Habitat } = {}) {
   const p = params(opts.difficulty);
   const lineage = foundLineage(p, {
     preset: opts.preset ?? 'quick',
@@ -15,6 +15,7 @@ export function newWorld(opts: { seed?: number; sex?: Sex; preset?: 'quick' | 'j
     name: 'Test',
     difficulty: opts.difficulty ?? 'fieldGuide',
     seed: opts.seed ?? 1234,
+    ...(opts.habitat ? { habitat: opts.habitat } : {}),
   });
   const w = new World(p, {
     fish: lineage.current,

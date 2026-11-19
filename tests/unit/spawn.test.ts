@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { bearWeight, fightWinChance, spawnState } from '../../src/sim/stages/spawn';
 import type { World } from '../../src/sim/world';
+import { foundLineage } from '../../src/sim/lineage';
+import type { Habitat } from '../../src/sim/types';
 import { intent, newWorld, params, run, steerTo } from './helpers';
 
 const SEC = 60;
@@ -29,9 +31,9 @@ describe('bears on the spawning grounds', () => {
 });
 
 /** Play a spawning stage with a simple, sensible bot. Returns the outcome. */
-function playSpawn(role: 'female' | 'largeMale' | 'jack', seed: number): { status: string; cause: string | null; detail?: string } {
+function playSpawn(role: 'female' | 'largeMale' | 'jack', seed: number, habitat: Habitat = 'creek'): { status: string; cause: string | null; detail?: string } {
   const opts = role === 'female' ? { sex: 'F' as const } : role === 'jack' ? { sex: 'M' as const, preset: 'jack' as const } : { sex: 'M' as const };
-  const { w } = newWorld({ ...opts, seed, startStage: 5 });
+  const { w } = newWorld({ ...opts, seed, startStage: 5, habitat });
   if (role === 'largeMale') {
     w.progress.isJack = false;
     w.progress.adultSize = 0.9;
@@ -52,7 +54,7 @@ function playSpawn(role: 'female' | 'largeMale' | 'jack', seed: number): { statu
       if (rival && s?.spawned) return steerTo(ww, rival.pos.x, rival.pos.z, { burst: Math.hypot(rival.pos.x - ww.body.pos.x, rival.pos.z - ww.body.pos.z) < 2 });
       if (!best) return intent();
       const d = Math.hypot(best.pos.x - ww.body.pos.x, best.pos.z - ww.body.pos.z);
-      return d > 1.5 ? steerTo(ww, best.pos.x, best.pos.z) : intent({ action: true, hold: true });
+      return d > 1.5 ? steerTo(ww, best.pos.x, best.pos.z, { forward: Math.max(0.6, Math.min(1, d / 3)) }) : intent({ action: true, hold: true });
     }
     const female = ww.live('female')[0];
     if (!female) return intent();
@@ -98,5 +100,55 @@ describe('spawning playthroughs', () => {
     run(w, 12 * SEC, () => intent({ hold: true }));
     const s = spawnState(w);
     expect(s?.owners.filter((o) => o > 0).length).toBe(s?.spots.length);
+  });
+});
+
+describe('spawning habitats', () => {
+  for (const habitat of ['river', 'beach'] as const) {
+    it(`each role can spawn in a ${habitat}`, () => {
+      for (const role of ['female', 'largeMale', 'jack'] as const) {
+        const results = Array.from({ length: 8 }, (_, i) => playSpawn(role, 200 + i, habitat));
+        const spawned = results.filter((r) => r.status === 'lifeComplete').length;
+        console.log(`${habitat}/${role}: spawned ${spawned}/8`);
+        expect(spawned, `${habitat}/${role}`).toBeGreaterThanOrEqual(4);
+      }
+    });
+  }
+
+  it('river and beach populations are larger and deeper-bodied than creek fish', () => {
+    const p = params();
+    const mean = (habitat: Habitat, t: 'size' | 'bodyDepth') => {
+      let sum = 0;
+      for (let i = 0; i < 400; i++) sum += foundLineage(p, { preset: 'quick', sex: 'F', name: 'x', difficulty: 'fieldGuide', seed: 1000 + i, habitat }).current.z[t];
+      return sum / 400;
+    };
+    expect(mean('river', 'bodyDepth')).toBeGreaterThan(mean('creek', 'bodyDepth'));
+    expect(mean('beach', 'bodyDepth')).toBeGreaterThan(mean('river', 'bodyDepth'));
+    expect(mean('beach', 'size')).toBeGreaterThan(mean('creek', 'size'));
+  });
+
+  it('bears come least often on a beach and most often in a creek', () => {
+    const p = params();
+    expect(p.get('spawn.bearRate.creek')).toBeGreaterThan(p.get('spawn.bearRate.river'));
+    expect(p.get('spawn.bearRate.river')).toBeGreaterThan(p.get('spawn.bearRate.beach'));
+  });
+});
+
+describe('bet hedging on the spawning grounds', () => {
+  it('big runs give jacks more openings than small runs', () => {
+    const openings = (runSize: number) => {
+      let total = 0;
+      for (let seed = 0; seed < 6; seed++) {
+        const { w } = newWorld({ sex: 'M', preset: 'jack', seed: 300 + seed, startStage: 5 });
+        (w as unknown as { conditions: { runSize: number } }).conditions.runSize = runSize;
+        run(w, 44 * SEC, (ww) => {
+          for (const b of ww.live('bear')) b.alive = false;
+          return intent({ hold: true });
+        });
+        total += w.events.filter((e) => e.type === 'warning' && e.key === 'opening').length;
+      }
+      return total;
+    };
+    expect(openings(1.4)).toBeGreaterThan(openings(0.7));
   });
 });

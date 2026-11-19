@@ -26,3 +26,7 @@ Lines marked "not recorded" contain a number that changes from game to game, suc
 Send the files to whoever maintains the game. They go into `public/audio/`, and then `node scripts/recording-script.mjs --manifest` updates the list of recorded lines. Nothing else needs to change.
 
 If captions change later, run `node scripts/recording-script.mjs` to rebuild the script.
+
+## Music
+
+The game's music is generated in the browser, in named slots such as `music.ocean`. A composer's recording can replace any slot. Save it as `public/audio/<slot>.mp3` and run the manifest command above. See `docs/audio.md`.

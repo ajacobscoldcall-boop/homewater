@@ -169,6 +169,7 @@ describe('stage tuning sanity', () => {
         run(w, 240 * SEC, (ww) => {
           steps++;
           for (const b of ww.live('bear')) b.alive = false;
+          for (const l of ww.live('lure')) l.alive = false;
           return navigator(ww);
         });
         expect(w.status, `${difficulty}/${seed}: ${w.deathCause ?? ''} at x=${w.body.pos.x.toFixed(0)}`).toBe('stageComplete');
@@ -176,6 +177,25 @@ describe('stage tuning sanity', () => {
         expect(steps / SEC).toBeLessThan(130);
       }
     }
+  });
+
+  it('a hooked fish that fights escapes; one that does not is landed', () => {
+    const hook = (fight: boolean) => {
+      const { w } = newWorld({ startStage: 4, seed: 41 });
+      const lure = w.live('lure')[0];
+      if (!lure) throw new Error('no lure');
+      for (const b of w.live('bear')) b.alive = false;
+      w.step(intent());
+      w.body.pos = { ...lure.pos };
+      w.body.vel = { x: 0, y: 0, z: 0 };
+      let k = 0;
+      run(w, 8 * SEC, () => intent({ forward: fight ? 1 : 0, burst: fight && k++ % 12 < 6 }));
+      return { status: w.status, cause: w.deathCause, lure: lure.state };
+    };
+    expect(hook(false).cause).toBe('angler');
+    const fought = hook(true);
+    expect(fought.cause).not.toBe('angler');
+    expect(fought.lure).not.toBe('hooked');
   });
 
   it('the magnetic track leads to the home mouth', () => {

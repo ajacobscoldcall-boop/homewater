@@ -86,3 +86,28 @@ test('a death hands over to a sibling, and the save survives a reload', async ({
   expect(r?.siblingsLeft).toBe(4);
   expect(errors).toEqual([]);
 });
+
+test('sound settings: mute with M and the pause menu, and they persist', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !/fonts\.(googleapis|gstatic)/.test(m.text())) errors.push(m.text());
+  });
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('./');
+  const mute = page.locator('[data-sound-mute]');
+  await expect(mute).toHaveAttribute('aria-pressed', 'false');
+  await page.click('#btn-new');
+  await page.click('#btn-setup-next');
+  await page.click('#btn-accept-name');
+  await page.click('#btn-play');
+  // Play a few seconds of the egg stage with sound running (if this browser has any).
+  await page.evaluate(() => window.__hw?.step(120));
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#screen')).toContainText('Paused');
+  await page.keyboard.press('KeyM');
+  await expect(mute).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await expect(page.locator('[data-sound-mute]')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+});

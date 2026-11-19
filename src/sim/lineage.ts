@@ -2,10 +2,10 @@
  * The bloodline across lives: founding fish, records of each life,
  * offspring choice and extinction. Pure data so it can be saved.
  */
-import { makeFish, makeOffspring, populationBv, rollYear } from './genetics';
+import { habitatOffset, makeFish, makeOffspring, populationBv, rollYear } from './genetics';
 import type { Difficulty, Params } from './params';
 import { Rng } from './rng';
-import { TRAIT_IDS, type DeathCause, type FishIdentity, type Sex, type SpawnResult, type StageId, type TraitValues, type YearConditions } from './types';
+import { HABITATS, TRAIT_IDS, type DeathCause, type Habitat, type FishIdentity, type Sex, type SpawnResult, type StageId, type TraitValues, type YearConditions } from './types';
 
 export const NAMES = [
   'Alder', 'Tamarack', 'Silt', 'Ember', 'Sedge', 'Rill', 'Shale', 'Willow', 'Tern', 'Fern', 'Cobble', 'Riffle', 'Birch', 'Spruce',
@@ -59,19 +59,22 @@ export interface FoundOptions {
   name: string;
   difficulty: Difficulty;
   seed: number;
+  habitat?: Habitat;
   /** For custom starts: trait z-scores the player chose (-2..2). */
   custom?: Partial<TraitValues>;
 }
 
 export function foundLineage(p: Params, o: FoundOptions): Lineage {
   const rng = new Rng(o.seed);
-  let bv = populationBv(p, rng);
+  const habitat = o.habitat ?? 'creek';
+  let bv = populationBv(p, rng, habitat);
   if (o.preset === 'custom' && o.custom) {
-    bv = Object.fromEntries(TRAIT_IDS.map((t) => [t, o.custom?.[t] ?? bv[t]])) as TraitValues;
+    // Custom values are relative to the chosen habitat's population.
+    bv = Object.fromEntries(TRAIT_IDS.map((t) => [t, o.custom?.[t] !== undefined ? o.custom[t] + habitatOffset(p, habitat, t) : bv[t]])) as TraitValues;
   }
   const lockedJack = o.preset === 'jack';
   if (lockedJack) bv.jack = p.get('genetics.jackStartBreedingValue');
-  const fish = makeFish(p, rng, { sex: lockedJack ? 'M' : o.sex, name: o.name, generation: 1, bv, lockedJack });
+  const fish = makeFish(p, rng, { sex: lockedJack ? 'M' : o.sex, name: o.name, generation: 1, bv, lockedJack, habitat });
   return {
     id: `L${o.seed.toString(36)}`,
     createdAt: new Date().toISOString(),
@@ -129,7 +132,9 @@ export function advanceGeneration(p: Params, l: Lineage, chosen: FishIdentity, n
 export function strayRescue(p: Params, l: Lineage, name: string): void {
   const rng = lineageRng(l);
   const sex: Sex = rng.chance(0.5) ? 'F' : 'M';
-  l.current = makeFish(p, rng, { sex, name, generation: l.generation + 1, bv: populationBv(p, rng), isStray: true });
+  // A stray comes from another population, possibly from a different kind of spawning ground.
+  const habitat = rng.pick(HABITATS);
+  l.current = makeFish(p, rng, { sex, name, generation: l.generation + 1, bv: populationBv(p, rng, habitat), isStray: true, habitat });
   l.generation += 1;
   l.conditions = rollYear(p, rng, l.generation);
   l.usedNames.push(name);

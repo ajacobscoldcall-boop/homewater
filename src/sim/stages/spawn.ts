@@ -186,7 +186,7 @@ function stepBears(w: World, dt: number, playerHidden: boolean): void {
   s.bearTimer -= dt;
   const role = s.role;
   if (s.bearTimer <= 0 && w.live('bear').length === 0) {
-    s.bearTimer = p.get('spawn.bearInterval') * w.rng.range(0.7, 1.3);
+    s.bearTimer = (p.get('spawn.bearInterval') * w.rng.range(0.7, 1.3)) / Math.max(0.05, p.get(`spawn.bearRate.${w.fish.habitat}`));
     const playerKind = role === 'largeMale' ? 'male' : role === 'female' ? 'female' : 'jack';
     const candidates: { pos: Vec3; weight: number; entity: Entity | null }[] = [];
     if (!playerHidden) candidates.push({ pos: w.body.pos, weight: bearWeight(p, playerKind), entity: null });
@@ -201,7 +201,7 @@ function stepBears(w: World, dt: number, playerHidden: boolean): void {
     let pick = w.rng.range(0, total);
     const chosen = candidates.find((c) => (pick -= c.weight) <= 0) ?? candidates[0];
     if (!chosen) return;
-    const side = chosen.pos.z > 0 ? 1 : -1;
+    const side = w.fish.habitat === 'beach' || chosen.pos.z > 0 ? 1 : -1;
     const warn = p.get('spawn.bearWarning');
     w.spawn('bear', v3(chosen.pos.x, 0.8, side * 8.6), { radius: 1.2, state: 'warn', timer: warn, home: v3(chosen.pos.x, 0, chosen.pos.z), value: chosen.entity?.id ?? 0 });
     w.emit('warning', 'bear');
@@ -294,21 +294,52 @@ function stepCover(w: World, intent: { burst: boolean; actionPressed: boolean },
 
 export const spawnStage: StageDef = {
   id: 'spawn',
-  arena: () => ({
-    kind: 'spawnBed',
-    min: v3(0, -4, -8),
-    max: v3(40, 0, 8),
-    surfaceY: 0,
-    water: 'fresh',
-    floor: (x, z) => -2.3 + 0.25 * Math.sin(x * 0.4) * Math.cos(z * 0.5) + 0.7 * Math.max(0, (Math.abs(z) - 5) / 3),
-    current: () => v3(-0.8, 0, 0),
-  }),
+  arena: (w) => {
+    const habitat = w.fish.habitat;
+    if (habitat === 'river') {
+      // Deeper, faster water over coarser gravel.
+      return {
+        kind: 'spawnRiver',
+        min: v3(0, -6, -8),
+        max: v3(40, 0, 8),
+        surfaceY: 0,
+        water: 'fresh',
+        floor: (x, z) => -3.6 + 0.3 * Math.sin(x * 0.3) * Math.cos(z * 0.4) + 1.6 * Math.max(0, (Math.abs(z) - 5) / 3),
+        current: () => v3(-2.0, 0, 0),
+      };
+    }
+    if (habitat === 'beach') {
+      // A lake shore: still water, shallow at the shore (z = +8), deepening offshore.
+      return {
+        kind: 'lakeBeach',
+        min: v3(0, -6, -8),
+        max: v3(40, 0, 8),
+        surfaceY: 0,
+        water: 'fresh',
+        floor: (x, z) => -0.9 - 4.2 * ((8 - z) / 16) + 0.15 * Math.sin(x * 0.5),
+        current: (pos) => v3(0, 0, 0.25 * Math.sin(pos.x * 0.2 + pos.z)),
+      };
+    }
+    return {
+      kind: 'spawnBed',
+      min: v3(0, -4, -8),
+      max: v3(40, 0, 8),
+      surfaceY: 0,
+      water: 'fresh',
+      floor: (x, z) => -2.3 + 0.25 * Math.sin(x * 0.4) * Math.cos(z * 0.5) + 0.7 * Math.max(0, (Math.abs(z) - 5) / 3),
+      current: () => v3(-0.8, 0, 0),
+    };
+  },
   init(w) {
     const p = w.p;
     const role = roleOf(w);
-    const nSpots = p.get('spawn.coverSpots');
+    const habitat = w.fish.habitat;
+    const nSpots = p.get(`spawn.coverSpots.${habitat}`);
     const spots: Vec3[] = [];
-    for (let i = 0; i < nSpots; i++) spots.push(v3(16 + (14 * (i + 0.5)) / nSpots, -1.5, SPOT_Z));
+    for (let i = 0; i < nSpots; i++) {
+      const x = 16 + (14 * (i + 0.5)) / nSpots;
+      spots.push(habitat === 'beach' ? v3(x, -1.4, 4.2) : v3(x, -1.5, SPOT_Z));
+    }
     const s: SpawnState = {
       role,
       dig: 0,
@@ -325,7 +356,7 @@ export const spawnStage: StageDef = {
       stunned: 0,
       fightsWon: 0,
       fightsLost: 0,
-      bearTimer: p.get('spawn.bearInterval') * 0.8,
+      bearTimer: (p.get('spawn.bearInterval') * 0.8) / Math.max(0.05, p.get(`spawn.bearRate.${habitat}`)),
       spots,
       owners: spots.map(() => -1),
       contest: 0,
@@ -333,14 +364,22 @@ export const spawnStage: StageDef = {
     };
     w.stage = s as unknown as Record<string, unknown>;
     w.body.scale = w.progress.adultSize ?? 1;
-    w.spawn('cover', v3(23, -0.4, 6.8), { radius: 2, size: v3(18, 0.8, 2.6) });
+    if (habitat === 'beach') {
+      // Boulders are the only cover on an open beach.
+      for (const sp of spots) w.spawn('cover', v3(sp.x, w.arena.floor(sp.x, sp.z) + 0.9, sp.z + 1.2), { radius: 1.2, size: v3(2.2, 1.6, 1.6) });
+    } else {
+      const len = habitat === 'river' ? 10 : 18;
+      w.spawn('cover', v3(23, -0.4, 6.8), { radius: 2, size: v3(len, 0.8, 2.6) });
+    }
     // Advisor: gravel quality is mostly cobble size. Too large is hard to dig;
     // too small and the eggs get less oxygen. Medium cobble is best.
     const ideal = 0.2;
     for (let i = 0; i < 6; i++) {
-      const cobble = w.rng.range(0.07, 0.42);
+      const cobble = habitat === 'river' ? w.rng.range(0.12, 0.5) : w.rng.range(0.07, 0.42);
       const quality = Math.max(0.25, 1 - Math.abs(cobble - ideal) / 0.22);
-      w.spawn('gravelPatch', v3(w.rng.range(8, 34), -2.2, w.rng.range(-4.5, 3.5)), { radius: 2.2, value: quality, size: v3(cobble, 0, 0) });
+      const pz = habitat === 'beach' ? w.rng.range(-1, 4) : w.rng.range(-4.5, 3.5);
+      const px = w.rng.range(8, 34);
+      w.spawn('gravelPatch', v3(px, w.arena.floor(px, pz), pz), { radius: 2.2, value: quality, size: v3(cobble, 0, 0) });
     }
     if (role === 'female') {
       w.body.pos = v3(4, -1.5, 0);
@@ -350,18 +389,23 @@ export const spawnStage: StageDef = {
       const at = patch ? v3(patch.pos.x, -1.7, patch.pos.z) : v3(22, -1.7, 0);
       w.spawn('female', at, { radius: 0.6, state: 'dig' });
     } else {
-      w.body.pos = v3(10, -1.4, 6.4);
+      w.body.pos = v3(10, -1.4, habitat === 'beach' ? 4.5 : 6.4);
       w.spawn('female', v3(24, -1.7, -1), { radius: 0.6, state: 'dig' });
       w.spawn('guardMale', v3(26, -1.6, -1), { radius: 0.8, state: 'guard', value: 1 });
       s.rivalTimer = p.get('spawn.jackFightInterval') * 0.6;
       const n = p.get('spawn.rivalJacks');
-      for (let i = 0; i < n; i++) w.spawn('jackAI', v3(32 + i * 3, -1.5, 6), { radius: 0.4, state: 'seek' });
+      for (let i = 0; i < n; i++) w.spawn('jackAI', v3(32 + i * 3, -1.5, habitat === 'beach' ? 4 : 6), { radius: 0.4, state: 'seek' });
       if (n >= nSpots) w.emit('caption', 'spawn.jackScarce');
     }
-    w.emit('caption', `spawn.${role}`);
+    w.emit('caption', `spawn.habitat.${habitat}`);
+    w.emit('caption', role === 'jack' && habitat === 'beach' ? 'spawn.jackBeach' : `spawn.${role}`);
   },
   step(w, intent, dt) {
     swimStep(w, intent, dt);
+    // Keep the other fish just above the bottom, whatever the habitat's depth.
+    for (const e of w.entities) {
+      if (e.alive && (e.kind === 'rival' || e.kind === 'guardMale' || e.kind === 'jackAI' || e.kind === 'female')) e.pos.y = w.arena.floor(e.pos.x, e.pos.z) + 0.6;
+    }
     const p = w.p;
     const s = st(w);
     const fish = w.body.pos;
@@ -402,7 +446,7 @@ export const spawnStage: StageDef = {
         if (s.rivalTimer <= 0) {
           spawnRival(w, redd, 0.7);
           w.emitOnce('caption', 'spawn.rivalFemale');
-          s.rivalTimer = p.get('spawn.rivalInterval') * w.rng.range(0.8, 1.2);
+          s.rivalTimer = (p.get('spawn.rivalInterval') * w.rng.range(0.8, 1.2)) / w.conditions.runSize;
         }
       }
       femaleCharges(w, intent);
@@ -427,7 +471,7 @@ export const spawnStage: StageDef = {
       if (s.rivalTimer <= 0 && !s.spawned) {
         spawnRival(w, female, rivalSize(w));
         w.emitOnce('caption', 'spawn.rivalMale');
-        s.rivalTimer = p.get('spawn.rivalInterval') * w.rng.range(0.8, 1.2);
+        s.rivalTimer = (p.get('spawn.rivalInterval') * w.rng.range(0.8, 1.2)) / w.conditions.runSize;
       }
       maleFights(w, intent, dt, female);
       stepRivals(w, dt, female, () => {
@@ -491,7 +535,8 @@ export const spawnStage: StageDef = {
     s.rivalTimer -= dt;
     if (s.rivalTimer <= 0 && female) {
       spawnRival(w, female, rivalSize(w));
-      s.rivalTimer = p.get('spawn.jackFightInterval') * w.rng.range(0.8, 1.2);
+      // Big runs mean more big males, more fights, more openings for jacks.
+      s.rivalTimer = (p.get('spawn.jackFightInterval') * w.rng.range(0.8, 1.2)) / w.conditions.runSize;
     }
     for (const r of w.live('rival')) {
       if (r.state === 'approach' && female && dist(r.pos, female.pos) < 5) {

@@ -11,6 +11,7 @@
  *   COAST..L     the home river: riffles with bears, then a fork
  *   wrong mouths lead into short channels that dead-end
  */
+import { yearEffects } from '../genetics';
 import { depthOf, swimStep } from '../swim';
 import type { Entity } from '../types';
 import { distXZ, v3 } from '../vec';
@@ -38,6 +39,8 @@ interface ReturnState {
   /** Bend of the magnetic track: start z and a mid-course offset. */
   trackStartZ: number;
   trackBend: number;
+  hookPulls?: number;
+  wasBursting?: boolean;
 }
 
 const st = (w: World) => w.stage as unknown as ReturnState;
@@ -108,6 +111,54 @@ function crossNet(w: World, lineX: number): void {
   else w.emitOnce('caption', 'return.netSlip');
 }
 
+/**
+ * Anglers' lures swing across the pools. A fish that touches one is hooked
+ * and must burst repeatedly (Shift) to break free before it is landed.
+ */
+function stepLures(w: World, intent: { burst: boolean; actionPressed: boolean }, dt: number): void {
+  const p = w.p;
+  const fish = w.body.pos;
+  const s = st(w);
+  for (const lure of w.live('lure')) {
+    const home = lure.home ?? lure.pos;
+    if (lure.state === 'swing') {
+      // An arc across the current, then a recast.
+      lure.value = (lure.value ?? 0) + dt * p.get('return.lureSpeed');
+      const a = Math.sin(lure.value);
+      lure.pos = v3(home.x - 2 + 1.5 * Math.cos(lure.value * 0.5), -1.0 - 0.8 * (1 - Math.abs(a)), s.homeMouth + a * (RIVER_HALF - 1.5));
+      if (Math.hypot(lure.pos.x - fish.x, lure.pos.y - fish.y, lure.pos.z - fish.z) < p.get('return.lureRadius')) {
+        lure.state = 'hooked';
+        lure.timer = p.get('return.hookTime');
+        s.hookPulls = 0;
+        w.emit('warning', 'hooked');
+        w.emitOnce('caption', 'return.hooked');
+      } else if (Math.hypot(lure.pos.x - fish.x, lure.pos.z - fish.z) < 7) {
+        w.emitOnce('caption', 'return.angler');
+      }
+    } else if (lure.state === 'hooked') {
+      lure.timer -= dt;
+      lure.pos = v3(fish.x + 0.4, fish.y, fish.z);
+      // Each fresh burst is a pull against the line.
+      const pulling = intent.burst && !s.wasBursting;
+      s.wasBursting = intent.burst;
+      if (pulling || intent.actionPressed) s.hookPulls = (s.hookPulls ?? 0) + 1;
+      w.progress.fat = Math.max(0, w.progress.fat - p.get('return.hookFatCost') * dt);
+      if ((s.hookPulls ?? 0) >= p.get('return.hookPulls')) {
+        lure.state = 'free';
+        lure.timer = p.get('return.lureRest');
+        w.emit('caption', 'return.unhooked');
+      } else if (lure.timer <= 0) {
+        w.die('angler');
+        return;
+      }
+    } else {
+      lure.timer -= dt;
+      lure.pos = v3(home.x, 1, home.z);
+      if (lure.timer <= 0) lure.state = 'swing';
+    }
+  }
+}
+
 function stepBear(w: World, bear: Entity, dt: number): void {
   const p = w.p;
   const fish = w.body.pos;
@@ -128,7 +179,7 @@ function stepBear(w: World, bear: Entity, dt: number): void {
     bear.state = 'strike';
     bear.timer = 0.6;
     const target = bear.home ?? fish;
-    const bonus = p.get('return.bearDepthBodyBonus') * Math.max(0, w.fish.z.bodyDepth);
+    const bonus = p.get('return.bearDepthBodyBonus') * Math.max(0, w.fish.z.bodyDepth) + yearEffects(p, w.fish, w.conditions).bearReach;
     const radius = p.get('return.bearStrikeRadius') * (0.75 + 0.35 * (w.progress.adultSize ?? 1));
     if (distXZ(target, fish) < radius && depthOf(w) < p.get('return.bearReachDepth') + bonus) w.die('bear');
   } else if (bear.state === 'strike' && bear.timer <= 0) {
@@ -158,7 +209,8 @@ export const returnStage: StageDef = {
         const inHome = Math.abs(pos.z - homeMouth) <= RIVER_HALF;
         const edge = inHome ? 1 - 0.5 * (Math.abs(pos.z - homeMouth) / RIVER_HALF) ** 2 : 0.6;
         const lowWater = w.conditions.flow < 0.9 ? 1.1 : 1;
-        return v3(-c * (isRiffle(pos.x) ? 1.25 : 0.8) * edge * lowWater, 0, 0);
+        const timing = yearEffects(w.p, w.fish, w.conditions).flowFactor;
+        return v3(-c * (isRiffle(pos.x) ? 1.25 : 0.8) * edge * lowWater * timing, 0, 0);
       },
       walls: walls(L, homeMouth, s.homeSide ?? 1),
     };
@@ -201,6 +253,13 @@ export const returnStage: StageDef = {
       const side = w.rng.chance(0.5) ? 1 : -1;
       w.spawn('bear', v3(x, 0.8, homeMouth + side * (RIVER_HALF + 0.6)), { radius: 1.2 });
     }
+    // Anglers fish the pools between riffles (advisor: gillnets and anglers are the human pressures).
+    const anglers = p.get('return.anglers');
+    for (let i = 0; i < anglers; i++) {
+      const x = RIFFLE_PHASE + RIFFLE_PERIOD * (i + 0.5);
+      if (x > FORK - 6) break;
+      w.spawn('lure', v3(x, -1.2, homeMouth), { radius: 0.5, state: 'swing', home: v3(x, -1.2, homeMouth), value: w.rng.range(0, 6) });
+    }
     if (marker === 0) {
       w.emit('caption', 'return.track');
       if (w.firstLife) w.emit('caption', 'return.fatHint');
@@ -211,12 +270,13 @@ export const returnStage: StageDef = {
     const p = w.p;
     const s = st(w);
     const lowFat = w.progress.fat < 0.15;
-    const r = swimStep(w, intent, dt, { thrustScale: lowFat ? 0.7 : 1 });
+    const ye = yearEffects(p, w.fish, w.conditions);
+    const r = swimStep(w, intent, dt, { thrustScale: (lowFat ? 0.7 : 1) * ye.thrustFactor });
     const fish = w.body.pos;
     const L = p.get('return.length');
 
     // Fat: salmon stop eating on the return. Warm, low water is harder.
-    const heat = w.conditions.temperature * (w.conditions.flow < 0.9 && fish.x > COAST ? 1.2 : 1);
+    const heat = ye.temperature * (w.conditions.flow < 0.9 && fish.x > COAST ? 1.2 : 1);
     const drain = p.get('return.fatDrainBase') * heat + p.get('return.fatDrainSwim') * r.thrust + (r.burst ? p.get('return.fatDrainBurst') : 0);
     w.progress.fat = Math.max(0, w.progress.fat - drain * dt);
     if (w.progress.fat < 0.25) w.emitOnce('caption', 'return.lowFat');
@@ -265,6 +325,8 @@ export const returnStage: StageDef = {
       stepBear(w, bear, dt);
       if (w.status !== 'playing') return;
     }
+    stepLures(w, intent, dt);
+    if (w.status !== 'playing') return;
 
     // Home scent drifts down the home river and out of its mouth.
     s.scentTimer -= dt;

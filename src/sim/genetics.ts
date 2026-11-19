@@ -19,8 +19,16 @@ export const h2 = (p: Params, t: TraitId): number => p.get(`genetics.h2.${t}`);
 const mapTraits = (f: (t: TraitId) => number): TraitValues =>
   Object.fromEntries(TRAIT_IDS.map((t) => [t, f(t)])) as TraitValues;
 
-export function populationBv(p: Params, rng: Rng): TraitValues {
-  return mapTraits((t) => rng.normal(0, Math.sqrt(h2(p, t))));
+/** Population differences between habitats: river and beach fish are larger and deeper-bodied. */
+export function habitatOffset(p: Params, habitat: Habitat, t: TraitId): number {
+  if (habitat === 'creek') return 0;
+  if (t === 'bodyDepth') return p.get(`habitat.depthOffset.${habitat}`);
+  if (t === 'size') return p.get(`habitat.sizeOffset.${habitat}`);
+  return 0;
+}
+
+export function populationBv(p: Params, rng: Rng, habitat: Habitat = 'creek'): TraitValues {
+  return mapTraits((t) => habitatOffset(p, habitat, t) + rng.normal(0, Math.sqrt(h2(p, t))));
 }
 
 export function express(p: Params, rng: Rng, bv: TraitValues): TraitValues {
@@ -118,7 +126,7 @@ export function makeOffspring(
   count: number,
   names: () => string,
 ): FishIdentity[] {
-  const mate = populationBv(p, rng);
+  const mate = populationBv(p, rng, parent.habitat);
   // A jack father passes on jack-leaning genes; the mate is a typical population fish.
   const [mother, father] = parent.sex === 'F' ? [parent.bv, mate] : [mate, parent.bv];
   const sexes: Sex[] = [];
@@ -159,4 +167,43 @@ export function makeSibling(p: Params, rng: Rng, fish: FishIdentity, name: strin
 /** A trait shown to players as a word, from its z-score. */
 export function describeZ(z: number, low: string, mid: string, high: string): string {
   return z < -0.6 ? low : z > 0.6 ? high : mid;
+}
+
+/**
+ * Bet hedging: the year's conditions interact with a fish's traits, so the
+ * same traits can thrive one year and fail the next (advisor).
+ */
+export interface YearEffects {
+  /** Temperature this fish meets on the return. Later runs meet warmer water. */
+  temperature: number;
+  /** Multiplier on river current. Earlier runs meet higher flows. */
+  flowFactor: number;
+  /** Multiplier on thrust. Deep bodies work harder in high water. */
+  thrustFactor: number;
+  /** Extra bear reach in low water for deep-bodied fish. */
+  bearReach: number;
+}
+
+export function yearEffects(p: Params, fish: FishIdentity, cond: YearConditions): YearEffects {
+  const timing = Math.max(-2, Math.min(2, fish.z.runTiming));
+  const depth = Math.max(0, Math.min(2, fish.z.bodyDepth));
+  return {
+    temperature: cond.temperature * Math.max(0.5, 1 + p.get('year.timingTemp') * timing * Math.sign(cond.temperature - 1 || 1)),
+    flowFactor: Math.max(0.5, 1 - p.get('year.timingFlow') * timing * (cond.flow > 1 ? 1 : 0)),
+    thrustFactor: Math.max(0.6, 1 - p.get('year.depthFlowDrag') * depth * Math.max(0, cond.flow - 1)),
+    bearReach: p.get('year.lowWaterBear') * Math.max(0, 1 - cond.flow) * depth,
+  };
+}
+
+/** Caption ids describing which kinds of fish this year favours. */
+export function yearFavours(cond: YearConditions): string[] {
+  const out: string[] = [];
+  if (cond.temperature > 1.1) out.push('year.warm');
+  if (cond.temperature < 0.9) out.push('year.cool');
+  if (cond.flow > 1.1) out.push('year.highWater');
+  if (cond.flow < 0.9) out.push('year.lowWater');
+  if (cond.runSize > 1.15) out.push('year.bigRun');
+  if (cond.runSize < 0.85) out.push('year.smallRun');
+  if (cond.oceanCrowding > 1.08) out.push('year.crowded');
+  return out.length ? out : ['year.ordinary'];
 }

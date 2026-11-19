@@ -39,13 +39,25 @@ The advisor said eggs can do little, but alevin orient into the current (positiv
 
 ## 2. Fry in the lake
 
-| | M1 | Full game |
+Built from authored moments joined by time skips (the scene fades to dark water, a caption names the new season, and the next moment opens). The advisor named Dolly Varden and trout as the fry predators, and said about 60% of sockeye spend one year in fresh water.
+
+| Moment | What happens |
+|---|---|
+| **Weed-edge lesson** (early summer) | A plankton patch just outside the weeds. After a few seconds a Dolly Varden notices the fry, warns (rings, a longer warning than later ones), then chases. Darting into the weeds ends the chase. |
+| **Dusk feeding** (midsummer) | The light fades and the open-water plankton rises toward the surface. The richest food is high in open water, where Dolly Varden and trout patrol. Sparse food stays near the weeds. |
+| **Winter under the ice** | Cold slows the fish, energy barely recovers, and every movement costs reserves. Food is a few drifting specks. Winter starts with more reserves after a good summer. With reserves empty, the fry burns its own growth. A slow predator still patrols. |
+| **Spring decision** | The ice breaks up. Follow the drifting current to the outlet to leave (most fish do), or wait in the weeds to stay another year. A hint says whether this year's growth was good. |
+| **Second summer** (if the fish stayed) | Another dusk feeding with an extra predator, then another winter passes off-screen. |
+
+| | Now | Full game |
 |---|---|---|
-| **Verb** | Swim through glowing plankton patches to feed | Feed, school, and migrate up and down through the water each day |
-| **Decision** | Open-water patches are rich but exposed. The weed edge is safe but sparse. | Same, plus when to rise at dusk to feed |
-| **Threats** | **Trout:** a ripple ring pulses from it when it starts a chase. Trout won't enter the weeds. | Plus diving birds, char, and surviving winter under ice |
-| **Failure** | Caught by a trout | Same, plus starving over winter |
-| **Length** | About 60 s (growth target reached, then winter passes in a time skip) | 5 min first life, shorter after |
+| **Verb** | Feed, read warnings, hide in the weeds, rise at dusk, rest in winter | Same, plus schooling |
+| **Decision** | Open water is rich but exposed; the weeds are safe but sparse. In winter, rest or spend reserves. In spring, leave now or stay a second year (bigger when it leaves, more risk). | Same |
+| **Threats** | **Dolly Varden and trout:** rings warn of a chase; they won't enter the weeds. Slower in winter. | Plus diving birds |
+| **Failure** | Caught by a Dolly Varden. Starving in winter costs growth, which carries into adult size and jack odds; it does not kill outright yet (that needs a death cause and title). | Plus starving over winter |
+| **Checkpoints** | Start of the stage, start of winter, start of the second summer | Same |
+| **Growth** | Lake growth is recorded as bites (`fryBites`, `fryRichBites`; starving removes plain bites). The ocean stage turns it into a freshwater score: one good year is about half, two years nearly all. | Same |
+| **Length** | About 1.5-2 min first life (later lives use 0.75 of the timed moments); add about 30 s for a second year | 5 min first life, shorter after |
 
 ## 3. Smolt run: the gauntlet
 
@@ -62,14 +74,25 @@ The advisor said predation during outmigration is the key bottleneck, and pictur
 
 ## 4. Ocean years
 
-| | M1 | Full game |
+A sequence of moments joined by time skips, kept within 20-40 m of the surface (advisor). The advisor named seals and sea lions, seabirds and whales as the main ocean predators, and said yes to salmon sharks.
+
+| Moment | What happens |
+|---|---|
+| **Bait ball** | Feed on a drifting herring ball. No predators. |
+| **Orca pass** (weeks later) | A smaller ball, and an orca: a dark silhouette and a warning, then a straight charge. Keep feeding or break off; swim across its path. |
+| **Seal ambush** (near the surface) | Feeding near the surface. A seal shows as bubbles and a dark shape, then lunges at where the fish is going. Turn hard as it comes. |
+| **Crowded year** (only when `oceanCrowding` is high, the pink-salmon years) | Pink salmon swarm the same food and eat it first. Fewer bites for the player. |
+| **Salmon shark** (months later, deeper) | A fast grey shape below, then a straight strike. Swim across its path. |
+| **Maturation reveal** (the first autumn at sea) | Advisor: the pathway is thought to be set after the first fall at sea, by genes and growth. `decideMaturation` runs here: jack or not, ocean years and adult size. Each extra year at sea is then survived with the late-ocean chance; jacks skip it. |
+
+| | Now | Full game |
 |---|---|---|
-| **Verb** | Feed on a herring ball, then evade an orca pass | A set of separate events with time skips between them |
-| **Decision** | Keep feeding as the orca nears (more growth), or break off early (safer) | Same, plus a crowded-ocean year and seal ambushes |
-| **Threats** | **Orca:** a dark silhouette and a low sound pulse before it charges | Plus seals, salmon sharks, and a rare trawl |
-| **Failure** | Caught by the orca | Same |
-| **Maturation reveal** | Genes and growth decide whether a male becomes a jack. The player is told; it is not their choice. Jacks return after one ocean year; others get another year (time skip). | Same, shown with more weight |
-| **Length** | About 45 s | 6 min |
+| **Verb** | Feed, then dodge each predator in its own moment | Same, longer moments |
+| **Decision** | Keep feeding as a predator nears (more growth), or break off early (safer). In a crowded year, get to the food before the pinks. | Same |
+| **Threats** | **Orca:** silhouette and warning, then a charge. **Seal:** bubbles and a dark shape, then a lunge aimed ahead. **Salmon shark:** a grey shape below, then a strike. | Plus seabirds at the surface |
+| **Failure** | Taken by an orca, seal or salmon shark; lost at sea in a later year | Same |
+| **Growth** | Ocean bites plus the lake's freshwater score make `growthPerf`, which sets adult size and raises jack odds | Same |
+| **Length** | About 1.5-2 min first life (later lives use 0.75 of the timed moments) | 6 min |
 
 ## 5. The return: navigation
 
@@ -79,8 +102,8 @@ The advisor said navigation is the most interesting challenge. Salmon follow the
 |---|---|---|
 | **Verb** | Follow a faint magnetic track across open water to the coast, then pick the right river mouth and swim upstream following the scent | Same, longer, with a lake crossing |
 | **Decision** | **At sea:** stay on the track. It only shows when you are near it, so sweep to find it again. **At the nets:** find a gap; small fish slip through. **At the coast:** which mouth? Wrong rivers dead-end, so back out. **Upstream:** spend fat to burst, or rest in slack water. **At the fork:** test a branch and back out if the scent fades. | Same, plus timing against tides and fishery openings |
-| **Threats** | **Gillnets** across the approach. **Bears** at the riffles (a shadow and a splash first). **Fat** running out, faster in warm, low-water years. | Plus anglers, eagles, heat stress |
-| **Failure** | Caught in a net, taken by a bear, or exhausted | Same |
+| **Threats** | **Gillnets** across the approach. **Bears** at the riffles (a shadow and a splash first). **Anglers' lures** swinging across the pools: if hooked, burst repeatedly to tear free. **Fat** running out, faster in warm, low-water years. | Plus eagles, heat stress |
+| **Failure** | Caught in a net, taken by a bear, landed by an angler, or exhausted | Same |
 | **Checkpoint** | Inside the home river | After each encounter |
 | **Length** | About 80-120 s | 7 min |
 
@@ -102,6 +125,16 @@ The advisor's answers that shape this stage:
 | **Result** | **Female:** eggs laid × redd quality. **Male:** share of the eggs fertilized. Both are scored against the cohort. | Same |
 | **Then** | Death and decay as fades, then the eggs hatch, the recap and score, and the pick of the next fish from three offspring | Same, longer |
 | **Length** | About 45 s | 5 min |
+
+**Habitats.** The advisor confirmed creek, lake beach and river. Each lineage belongs to one, and it is chosen for the first fish.
+
+| | Creek | River | Lake beach |
+|---|---|---|---|
+| **Water** | Shallow, slow current | Deeper, fast current, coarse gravel | Still lake shore, shallow to deep |
+| **Fish** | Baseline | Larger, deeper-bodied | Largest, deepest-bodied |
+| **Bears** | Most frequent | Less often | Least often |
+| **Jack cover** | 3 spots under the bank | 2 spots | 1 boulder |
+| **Jack base rate** | 4% | 2% | 1.5% |
 
 ## Siblings
 

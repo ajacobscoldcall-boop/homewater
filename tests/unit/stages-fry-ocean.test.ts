@@ -1,0 +1,420 @@
+import { describe, expect, it } from 'vitest';
+import { freshwaterScore, fryView, lakeGrowth } from '../../src/sim/stages/fry';
+import { crowdedYear, decideMaturation, oceanView } from '../../src/sim/stages/ocean';
+import type { Entity, Intent } from '../../src/sim/types';
+import { dist } from '../../src/sim/vec';
+import type { World } from '../../src/sim/world';
+import { intent, newWorld, run, steerTo } from './helpers';
+
+const SEC = 60;
+
+/** Steer toward a point in 3D: yaw with the keyboard, depth with rise/dive. */
+function swimTo(w: World, x: number, y: number, z: number, over: Partial<Intent> = {}): Intent {
+  const dy = y - w.body.pos.y;
+  return steerTo(w, x, z, { rise: dy > 0.4, dive: dy < -0.4, ...over });
+}
+
+function nearest(w: World, list: Entity[], score: (e: Entity) => number = (e) => dist(e.pos, w.body.pos)): Entity | null {
+  let best: Entity | null = null;
+  let bs = Infinity;
+  for (const e of list) {
+    const s = score(e);
+    if (s < bs) {
+      bs = s;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/** A sensible fry: feed, read the warnings, run for the weeds, rest in winter. */
+const fryBot =
+  (choice: 'leave' | 'stay' = 'leave') =>
+  (w: World): Intent => {
+    const v = fryView(w);
+    if (!v || v.phase === 'skip') return intent();
+    const fish = w.body.pos;
+    if (v.phase === 'decide') {
+      if (choice === 'leave') return swimTo(w, 29, -3, 0);
+      return fish.x > v.weedEdge - 4 ? swimTo(w, v.weedEdge - 6, -2, fish.z) : intent();
+    }
+    const threat = w.live('trout').find((t) => t.state === 'warn' || t.state === 'chase' || dist(t.pos, fish) < 7);
+    if (threat) {
+      if (v.inWeeds && fish.x < v.weedEdge - 2) return intent();
+      const close = dist(threat.pos, fish) < 9;
+      return swimTo(w, v.weedEdge - 5, -2.5, fish.z, { burst: threat.state === 'chase' && close && w.body.energy > 0.15 });
+    }
+    const food = w.live('plankton');
+    if (v.phase === 'winter') {
+      const f = nearest(w, food);
+      if (f && dist(f.pos, fish) < 9 && w.body.energy > 0.12) return swimTo(w, f.pos.x, f.pos.y, f.pos.z, { forward: 0.7 });
+      return intent();
+    }
+    // Prefer rich plankton, but not far from the weeds.
+    const f = nearest(w, food, (e) => dist(e.pos, fish) - (e.value === 1 ? 6 : 0) + Math.max(0, e.pos.x - 12) * 0.5);
+    if (!f) return intent();
+    return swimTo(w, f.pos.x, f.pos.y, f.pos.z);
+  };
+
+const captionsOf = (w: World): string[] => w.events.filter((e) => e.type === 'caption' || e.type === 'reveal').map((e) => e.key ?? '');
+
+describe('fry in the lake', () => {
+  it('a sensible fry gets through every moment and leaves after one year (Field guide)', () => {
+    const times: number[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const { w } = newWorld({ startStage: 1, seed });
+      const phases = new Set<string>();
+      let steps = 0;
+      run(w, 300 * SEC, (ww) => {
+        steps++;
+        const v = fryView(ww);
+        if (v) phases.add(v.phase);
+        return fryBot('leave')(ww);
+      });
+      expect(w.status, `seed ${seed}: ${w.deathCause ?? ''} in ${fryView(w)?.phase}`).toBe('stageComplete');
+      for (const ph of ['lesson', 'dusk', 'winter', 'decide', 'skip']) expect(phases.has(ph), ph).toBe(true);
+      const caps = captionsOf(w);
+      for (const id of ['fry.lesson', 'fry.dusk', 'fry.winter', 'fry.winterHint', 'fry.iceOut', 'fry.decide', 'fry.leave']) expect(caps, id).toContain(id);
+      expect(w.progress.fryBites).toBeGreaterThan(0);
+      times.push(steps / SEC);
+    }
+    console.log(`fry (later life) seconds: ${times.map((t) => t.toFixed(0)).join(', ')}`);
+    for (const t of times) expect(t).toBeLessThan(150);
+  });
+
+  it('the first life is near two minutes', () => {
+    const { w } = newWorld({ startStage: 1, seed: 3 });
+    (w as { firstLife: boolean }).firstLife = true;
+    w.debugJumpTo(1);
+    let steps = 0;
+    run(w, 400 * SEC, (ww) => (steps++, fryBot('leave')(ww)));
+    expect(w.status, String(w.deathCause)).toBe('stageComplete');
+    console.log(`fry first life: ${(steps / SEC).toFixed(0)} s`);
+    expect(steps / SEC).toBeGreaterThan(80);
+    expect(steps / SEC).toBeLessThan(170);
+  });
+
+  it('the lesson Dolly Varden warns, then chases, and the weeds end the chase', () => {
+    const { w } = newWorld({ startStage: 1, seed: 8 });
+    const saw = new Set<string>();
+    run(w, 30 * SEC, (ww) => {
+      for (const t of ww.live('trout')) saw.add(t.state);
+      if (fryView(ww)?.phase !== 'lesson') ww.status = 'stageComplete';
+      return fryBot()(ww);
+    });
+    expect(saw.has('warn')).toBe(true);
+    expect(saw.has('chase')).toBe(true);
+    const caps = captionsOf(w);
+    expect(caps).toContain('fry.trout');
+    expect(caps).toContain('fry.lessonDone');
+  });
+
+  it('a fry that ignores the Dolly Varden in the open is caught', () => {
+    let caught = 0;
+    for (const seed of [1, 2, 3, 4]) {
+      const { w } = newWorld({ startStage: 1, seed });
+      // Feed outside the weeds and never react.
+      run(w, 40 * SEC, (ww) => swimTo(ww, -12, -3, 0, { forward: ww.body.pos.x < -13 ? 1 : 0 }));
+      if (w.deathCause === 'trout') caught++;
+    }
+    expect(caught).toBeGreaterThanOrEqual(3);
+  });
+
+  it('winter rewards resting: a fish that swims hard all winter starves and loses growth', () => {
+    const winterRun = (policy: 'rest' | 'thrash') => {
+      const { w } = newWorld({ startStage: 1, seed: 5 });
+      w.restore({ stageIndex: 1, marker: 1, progress: { ...w.progress, fryBites: 12, fryRichBites: 5 } });
+      const start = lakeGrowth(w.p, w.progress);
+      for (const t of w.live('trout')) t.alive = false;
+      run(w, 20 * SEC, (ww) => (policy === 'rest' ? intent() : intent({ forward: 1, burst: true, turn: Math.sin(ww.stageTime) })));
+      return { w, start, end: lakeGrowth(w.p, w.progress), energy: w.body.energy };
+    };
+    const rest = winterRun('rest');
+    const thrash = winterRun('thrash');
+    expect(fryView(rest.w)?.phase).toBe('winter');
+    expect(rest.energy).toBeGreaterThan(0.2);
+    expect(thrash.energy).toBeLessThan(0.1);
+    expect(thrash.end).toBeLessThan(thrash.start);
+    expect(rest.end).toBeGreaterThanOrEqual(rest.start - 1e-9);
+    expect(captionsOf(thrash.w)).toContain('fry.starving');
+  });
+
+  it('cold slows the fish under the ice', () => {
+    const speed = (marker: number) => {
+      const { w } = newWorld({ startStage: 1, seed: 6 });
+      w.restore({ stageIndex: 1, marker, progress: { ...w.progress, fryBites: 12, fryRichBites: 5 } });
+      for (const t of w.live('trout')) t.alive = false;
+      run(w, 2 * SEC, () => intent({ forward: 1 }));
+      return Math.hypot(w.body.vel.x, w.body.vel.z);
+    };
+    expect(speed(1)).toBeLessThan(speed(2) * 0.8);
+  });
+
+  it('staying a second year means a bigger fish and a higher freshwater score, with more predators', () => {
+    const outcomes = (choice: 'leave' | 'stay') => {
+      const res: { score: number; years: number; trout: number }[] = [];
+      for (const seed of [11, 12, 13, 14, 15, 16]) {
+        const { w } = newWorld({ startStage: 1, seed });
+        let years = 1;
+        let trout = 0;
+        run(w, 400 * SEC, (ww) => {
+          const v = fryView(ww);
+          if (v) years = Math.max(years, v.lakeYears);
+          trout = Math.max(trout, ww.live('trout').length);
+          return fryBot(choice)(ww);
+        });
+        if (w.status === 'stageComplete') res.push({ score: freshwaterScore(w.p, w.progress), years, trout });
+      }
+      return res;
+    };
+    const leave = outcomes('leave');
+    const stay = outcomes('stay');
+    expect(leave.length).toBeGreaterThanOrEqual(4);
+    expect(stay.length).toBeGreaterThanOrEqual(3);
+    for (const r of leave) expect(r.years).toBe(1);
+    for (const r of stay) expect(r.years).toBe(2);
+    const mean = (rs: { score: number }[]) => rs.reduce((s, r) => s + r.score, 0) / rs.length;
+    expect(mean(stay)).toBeGreaterThan(mean(leave) + 0.15);
+    expect(Math.max(...stay.map((r) => r.trout))).toBeGreaterThan(Math.max(...leave.map((r) => r.trout)));
+    console.log(`freshwater score: one year ${mean(leave).toFixed(2)}, two years ${mean(stay).toFixed(2)}`);
+  });
+
+  it('a sibling resumes at the winter checkpoint with the summer growth kept', () => {
+    const { w } = newWorld({ startStage: 1, seed: 21 });
+    run(w, 300 * SEC, (ww) => {
+      if (fryView(ww)?.phase === 'winter') ww.die('trout');
+      return fryBot()(ww);
+    });
+    expect(w.status).toBe('dead');
+    const bites = w.checkpoint.progress.fryBites;
+    expect(w.checkpoint.marker).toBe(1);
+    expect(bites).toBeGreaterThan(0);
+    w.continueWithSibling('Sib');
+    expect(fryView(w)?.phase).toBe('winter');
+    expect(w.progress.fryBites).toBe(bites);
+  });
+});
+
+/** A sensible ocean fish: feed on the herring, cross the path of chargers, turn away from lunges. */
+const oceanBot = (w: World): Intent => {
+  const v = oceanView(w);
+  if (!v || v.phase === 'skip') return intent();
+  const b = w.body;
+  const fish = b.pos;
+  const hunter = [...w.live('orca'), ...w.live('shark'), ...w.live('seal')].find((o) => o.state === 'charge' || o.state === 'lunge' || o.state === 'warn');
+  if (hunter && (hunter.state !== 'warn' || dist(hunter.pos, fish) < 25)) {
+    // Swim across its line of approach: perpendicular to the line from it to us.
+    const dx = fish.x - hunter.pos.x;
+    const dz = fish.z - hunter.pos.z;
+    const l = Math.hypot(dx, dz) || 1;
+    let px = -dz / l;
+    let pz = dx / l;
+    // Pick the side we are already heading toward.
+    if (px * Math.cos(b.yaw) + pz * Math.sin(b.yaw) < 0) {
+      px = -px;
+      pz = -pz;
+    }
+    const hot = hunter.state !== 'warn';
+    return swimTo(w, fish.x + px * 20, Math.max(-25, Math.min(-2, fish.y)), fish.z + pz * 20, { burst: hot && b.energy > 0.15 });
+  }
+  const f = nearest(w, w.live('herring'));
+  if (!f) return intent({ forward: 0.4 });
+  return swimTo(w, f.pos.x, f.pos.y, f.pos.z);
+};
+
+describe('ocean years', () => {
+  const crowd = (w: World, c: number) => ((w.conditions as { oceanCrowding: number }).oceanCrowding = c);
+
+  it('a sensible fish gets through every moment, uncrowded and crowded (Field guide)', () => {
+    const times: number[] = [];
+    let finished = 0;
+    for (const crowding of [1, 1.3]) {
+      for (const seed of [1, 2, 3, 4, 5]) {
+        const { w } = newWorld({ startStage: 3, seed, sex: 'F' });
+        crowd(w, crowding);
+        w.debugJumpTo(3);
+        expect(crowdedYear(w)).toBe(crowding > 1.1);
+        let steps = 0;
+        const moments = new Set<string>();
+        run(w, 300 * SEC, (ww) => {
+          steps++;
+          const v = oceanView(ww);
+          if (v?.phase && v.phase !== 'skip') moments.add(v.phase);
+          return oceanBot(ww);
+        });
+        const label = `crowding ${crowding} seed ${seed}: ${w.deathCause ?? ''} in ${oceanView(w)?.phase}`;
+        // Only the extra-years-at-sea roll may end a sensible fish.
+        expect(w.status === 'stageComplete' || w.deathCause === 'sea', label).toBe(true);
+        const want = ['baitball', 'orca', 'seal', 'shark', 'reveal', ...(crowding > 1.1 ? ['pinks'] : [])];
+        for (const m of want) expect(moments.has(m), `${label} ${m}`).toBe(true);
+        if (crowding <= 1.1) expect(moments.has('pinks')).toBe(false);
+        const caps = captionsOf(w);
+        for (const id of ['ocean.orca', 'ocean.seal', 'ocean.shark', 'ocean.autumn']) expect(caps, `${label} ${id}`).toContain(id);
+        if (crowding > 1.1) for (const id of ['ocean.crowded', 'ocean.pinks', 'ocean.pinksGone']) expect(caps, id).toContain(id);
+        expect(caps.some((c) => c.startsWith('ocean.reveal'))).toBe(true);
+        expect(w.progress.isJack).not.toBeNull();
+        if (w.status === 'stageComplete') finished++;
+        times.push(steps / SEC);
+      }
+    }
+    console.log(`ocean (later life) seconds: ${times.map((t) => t.toFixed(0)).join(', ')}`);
+    expect(finished).toBeGreaterThanOrEqual(4);
+    for (const t of times) expect(t).toBeLessThan(150);
+  });
+
+  it('the first life is near two minutes', () => {
+    const { w } = newWorld({ startStage: 3, seed: 4, sex: 'M', preset: 'jack' });
+    (w as { firstLife: boolean }).firstLife = true;
+    crowd(w, 1.3);
+    w.debugJumpTo(3);
+    let steps = 0;
+    run(w, 400 * SEC, (ww) => (steps++, oceanBot(ww)));
+    expect(w.status, String(w.deathCause)).toBe('stageComplete');
+    console.log(`ocean first life (crowded): ${(steps / SEC).toFixed(0)} s, bites ${w.progress.oceanBites}`);
+    expect(steps / SEC).toBeGreaterThan(80);
+    expect(steps / SEC).toBeLessThan(170);
+  });
+
+  it('a fish that ignores the predators is taken', () => {
+    let taken = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const { w } = newWorld({ startStage: 3, seed });
+      // Drift straight ahead, never turning.
+      run(w, 200 * SEC, () => intent({ forward: 0.5 }));
+      if (w.deathCause && ['orca', 'seal', 'shark'].includes(w.deathCause)) taken++;
+    }
+    expect(taken).toBeGreaterThanOrEqual(4);
+  });
+
+  it('pink salmon take food that would have been the player’s', () => {
+    const bitesIn = (crowding: number) => {
+      let total = 0;
+      for (const seed of [1, 2, 3]) {
+        const { w } = newWorld({ startStage: 3, seed, sex: 'F' });
+        crowd(w, crowding);
+        w.debugJumpTo(3);
+        let before = 0;
+        let during = 0;
+        run(w, 300 * SEC, (ww) => {
+          const v = oceanView(ww);
+          if (v?.moment === 'pinks' && v.phase === 'skip') before = ww.progress.oceanBites;
+          if (v?.phase === 'pinks') during = ww.progress.oceanBites - before;
+          for (const o of [...ww.live('orca'), ...ww.live('shark'), ...ww.live('seal')]) o.alive = false;
+          return oceanBot(ww);
+        });
+        total += during;
+        expect(w.live('pink').length).toBe(0);
+      }
+      return total;
+    };
+    // Compare against the same moment's food with the pinks removed.
+    const withPinks = bitesIn(1.3);
+    const without = (() => {
+      let total = 0;
+      for (const seed of [1, 2, 3]) {
+        const { w } = newWorld({ startStage: 3, seed, sex: 'F' });
+        crowd(w, 1.3);
+        w.debugJumpTo(3);
+        let before = 0;
+        let during = 0;
+        run(w, 300 * SEC, (ww) => {
+          const v = oceanView(ww);
+          if (v?.moment === 'pinks' && v.phase === 'skip') before = ww.progress.oceanBites;
+          if (v?.phase === 'pinks') {
+            for (const pk of ww.live('pink')) pk.alive = false;
+            during = ww.progress.oceanBites - before;
+          }
+          for (const o of [...ww.live('orca'), ...ww.live('shark'), ...ww.live('seal')]) o.alive = false;
+          return oceanBot(ww);
+        });
+        total += during;
+      }
+      return total;
+    })();
+    console.log(`bites in the pink moment: with pinks ${withPinks}, without ${without}`);
+    expect(withPinks).toBeLessThan(without * 0.8);
+  });
+
+  it('stays within the 20-40 m band', () => {
+    const { w } = newWorld({ startStage: 3, seed: 2 });
+    let deepest = 0;
+    run(w, 200 * SEC, (ww) => {
+      deepest = Math.min(deepest, ww.body.pos.y, ...ww.entities.filter((e) => e.alive).map((e) => e.pos.y));
+      return intent({ forward: 1, dive: true });
+    });
+    expect(w.arena.min.y).toBe(-30);
+    expect(deepest).toBeGreaterThanOrEqual(-30);
+  });
+
+  it('extra years at sea are survived only with the late-ocean chance; jacks skip the roll', () => {
+    let lost = 0;
+    let rolled = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const { w } = newWorld({ startStage: 3, seed, sex: 'F', difficulty: 'wild' });
+      const v = () => oceanView(w);
+      // Jump straight to the reveal.
+      run(w, 400 * SEC, (ww) => {
+        for (const e of ww.entities) if (e.kind !== 'herring') e.alive = false;
+        return v()?.phase === 'reveal' ? intent() : oceanBot(ww);
+      });
+      if ((w.progress.oceanYears ?? 1) > 1) rolled++;
+      if (w.deathCause === 'sea') lost++;
+    }
+    expect(rolled).toBe(60);
+    // Wild: 0.5 per extra year, 1-2 extra years.
+    expect(lost / rolled).toBeGreaterThan(0.35);
+    expect(lost / rolled).toBeLessThan(0.85);
+
+    const { w: jack } = newWorld({ startStage: 3, seed: 3, sex: 'M', preset: 'jack', difficulty: 'wild' });
+    run(jack, 400 * SEC, (ww) => {
+      for (const e of ww.entities) if (e.kind !== 'herring') e.alive = false;
+      return oceanBot(ww);
+    });
+    expect(jack.status).toBe('stageComplete');
+    expect(jack.progress.oceanYears).toBe(1);
+    expect(captionsOf(jack)).not.toContain('ocean.yearsAtSea');
+  });
+});
+
+describe('growth contract: lake and ocean feeding feed growthPerf', () => {
+  it('more lake growth and more ocean bites both raise growthPerf and adult size', () => {
+    const perf = (fryBites: number, fryRichBites: number, oceanBites: number) => {
+      const { w } = newWorld({ startStage: 3, seed: 5, sex: 'F' });
+      Object.assign(w.progress, { fryBites, fryRichBites, oceanBites });
+      decideMaturation(w);
+      return { g: w.progress.growthPerf, size: w.progress.adultSize ?? 0 };
+    };
+    const base = perf(10, 5, 12);
+    expect(perf(20, 10, 12).g).toBeGreaterThan(base.g);
+    expect(perf(10, 5, 24).g).toBeGreaterThan(base.g);
+    expect(perf(10, 5, 24).size).toBeGreaterThan(base.size);
+    expect(perf(0, 0, 12).g).toBeLessThan(perf(20, 10, 12).g);
+    for (const r of [perf(0, 0, 0), perf(200, 200, 200)]) {
+      expect(r.g).toBeGreaterThanOrEqual(0);
+      expect(r.g).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('the old fry record still reads sensibly (rich bites count for more)', () => {
+    const { p, w } = newWorld();
+    const plain = { ...w.progress, fryBites: 14, fryRichBites: 0 };
+    const rich = { ...w.progress, fryBites: 14, fryRichBites: 8 };
+    expect(lakeGrowth(p, rich)).toBeGreaterThan(lakeGrowth(p, plain));
+    expect(freshwaterScore(p, { ...w.progress, fryBites: 0, fryRichBites: 0 })).toBe(0);
+  });
+
+  it('a fry that fed well matures with a higher growthPerf than one that fed poorly', () => {
+    const lakeThenSea = (feed: boolean) => {
+      const { w } = newWorld({ startStage: 1, seed: 31, sex: 'M' });
+      run(w, 400 * SEC, (ww) => {
+        if (!feed) for (const e of ww.live('plankton')) e.alive = false;
+        return fryBot()(ww);
+      });
+      expect(w.status, String(w.deathCause)).toBe('stageComplete');
+      w.progress.oceanBites = 12;
+      decideMaturation(w);
+      return w.progress.growthPerf;
+    };
+    expect(lakeThenSea(true)).toBeGreaterThan(lakeThenSea(false) + 0.05);
+  });
+});

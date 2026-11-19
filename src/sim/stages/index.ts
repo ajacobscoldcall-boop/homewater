@@ -7,7 +7,7 @@ import { returnStage } from './return';
 import { smoltStage } from './smolt';
 import { spawnStage } from './spawn';
 
-export type ArenaKind = 'gravel' | 'lake' | 'river' | 'ocean' | 'bayCreek' | 'spawnBed';
+export type ArenaKind = 'gravel' | 'lake' | 'river' | 'ocean' | 'bayCreek' | 'spawnBed' | 'spawnRiver' | 'lakeBeach';
 
 export interface Box {
   min: Vec3;

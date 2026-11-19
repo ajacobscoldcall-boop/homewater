@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { becomesJack, childBv, express, h2, makeFish, populationBv } from '../../src/sim/genetics';
+import { becomesJack, childBv, express, h2, makeFish, populationBv, yearEffects, yearFavours } from '../../src/sim/genetics';
 import { Rng } from '../../src/sim/rng';
 import { params } from './helpers';
 
@@ -77,5 +77,35 @@ describe('jack maturation', () => {
     expect(becomesJack(p, makeFish(p, r, { sex: 'F', name: 'x', generation: 1, bv }), 1)).toBe(false);
     bv.jack = -4;
     expect(becomesJack(p, makeFish(p, r, { sex: 'M', name: 'x', generation: 1, bv, lockedJack: true }), 0)).toBe(true);
+  });
+});
+
+describe('bet hedging: year effects', () => {
+  const p = params();
+  const fishWith = (runTiming: number, bodyDepth: number) => {
+    const f = makeFish(p, new Rng(1), { sex: 'F', name: 'x', generation: 1, bv: populationBv(p, new Rng(2)) });
+    f.z.runTiming = runTiming;
+    f.z.bodyDepth = bodyDepth;
+    return f;
+  };
+  const year = (o: Partial<{ flow: number; temperature: number; oceanCrowding: number; runSize: number }>) => ({ flow: 1, temperature: 1, oceanCrowding: 1, runSize: 1, ...o });
+
+  it('warm years favour early-run fish; cool years favour late-run fish', () => {
+    const early = fishWith(-1.5, 0);
+    const late = fishWith(1.5, 0);
+    expect(yearEffects(p, early, year({ temperature: 1.3 })).temperature).toBeLessThan(yearEffects(p, late, year({ temperature: 1.3 })).temperature);
+    expect(yearEffects(p, late, year({ temperature: 0.8 })).temperature).toBeLessThan(yearEffects(p, early, year({ temperature: 0.8 })).temperature);
+  });
+
+  it('high water is harder on early-run and deep-bodied fish; low water exposes deep bodies to bears', () => {
+    expect(yearEffects(p, fishWith(-1.5, 0), year({ flow: 1.3 })).flowFactor).toBeGreaterThan(yearEffects(p, fishWith(1.5, 0), year({ flow: 1.3 })).flowFactor);
+    expect(yearEffects(p, fishWith(0, 1.5), year({ flow: 1.3 })).thrustFactor).toBeLessThan(1);
+    expect(yearEffects(p, fishWith(0, 1.5), year({ flow: 0.7 })).bearReach).toBeGreaterThan(0);
+    expect(yearEffects(p, fishWith(0, -1), year({ flow: 0.7 })).bearReach).toBe(0);
+  });
+
+  it('describes what each year favours', () => {
+    expect(yearFavours(year({}))).toEqual(['year.ordinary']);
+    expect(yearFavours(year({ temperature: 1.3, runSize: 1.4 }))).toEqual(['year.warm', 'year.bigRun']);
   });
 });

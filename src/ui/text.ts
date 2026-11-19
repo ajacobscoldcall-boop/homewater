@@ -1,6 +1,6 @@
 /** Player-facing wording for traits, stages and results. */
 import captionsFile from '../data/captions.json';
-import { describeZ } from '../sim/genetics';
+import { describeZ, yearFavours } from '../sim/genetics';
 import type { DeathCause, FishIdentity, StageId, TraitValues, YearConditions } from '../sim/types';
 
 const CAPTIONS = (captionsFile as { captions: Record<string, string> }).captions;
@@ -27,7 +27,7 @@ export function stageCardLine(stage: StageId, oceanYears: number | null): string
     case 'fry':
       return 'Spring. Out of the gravel and into the lake.';
     case 'smolt':
-      return 'A year later, the fry is ready to leave.';
+      return 'Spring. The young fish leaves the lake.';
     case 'ocean':
       return 'Out past the estuary, into the open sea.';
     case 'return':
@@ -39,7 +39,7 @@ export function stageCardLine(stage: StageId, oceanYears: number | null): string
 
 export const OBJECTIVES: Record<StageId, string> = {
   egg: 'Face into the current (A/D or mouse). Stay low (C) in surges. When the yolk is nearly used, swim up (Space).',
-  fry: 'Feed on plankton until you have grown enough. The weeds are safe from Dolly Varden.',
+  fry: 'Feed on the plankton, and dart into the weeds when a Dolly Varden chases. Rest through the winter. In spring, follow the current out or stay another year.',
   smolt: 'Ride the current to the sea with the school. Go deep for birds, burst from mergansers, swim across a seal\'s path.',
   ocean: 'Feed on the herring. When an orca or shark charges, swim across its path.',
   return: 'Follow the faint magnetic track to the coast. Slip through the nets, find the right river mouth, then swim upstream and follow the scent.',
@@ -55,6 +55,7 @@ export const DEATH_TITLES: Record<DeathCause, string> = {
   seal: 'Taken by a seal',
   sea: 'Lost at sea',
   shark: 'Taken by a salmon shark',
+  angler: 'Landed by an angler',
   trout: 'Taken by a Dolly Varden',
   bird: 'Taken by a bird',
   orca: 'Taken by an orca',
@@ -65,7 +66,9 @@ export const DEATH_TITLES: Record<DeathCause, string> = {
 };
 
 export function traitLines(fish: FishIdentity, z: TraitValues = fish.z): string[] {
+  const home = fish.habitat === 'beach' ? 'lake beach' : fish.habitat;
   const lines = [
+    `Home: ${home}`,
     `Size: ${describeZ(z.size, 'small', 'average', 'large')}`,
     `Body: ${describeZ(z.bodyDepth, 'streamlined', 'average depth', 'deep-bodied')}`,
     `Run timing: ${describeZ(z.runTiming, 'early', 'mid-season', 'late')}`,
@@ -82,9 +85,10 @@ export function traitLines(fish: FishIdentity, z: TraitValues = fish.z): string[
 }
 
 export function yearLine(c: YearConditions): string {
-  const w = (v: number, lo: string, hi: string) => (v < 0.88 ? lo : v > 1.12 ? hi : '');
-  const parts = [w(c.flow, 'low water', 'high water'), w(c.temperature, 'a cool year', 'a warm year'), w(c.oceanCrowding, 'an open ocean', 'a crowded ocean'), w(c.runSize, 'a small run', 'a big run')].filter(Boolean);
-  return parts.length ? `This year: ${parts.join(', ')}.` : 'An ordinary year.';
+  return yearFavours(c)
+    .map((id) => caption(id) ?? '')
+    .filter(Boolean)
+    .join(' ');
 }
 
 export const sexSymbol = (s: 'F' | 'M') => (s === 'F' ? '♀ female' : '♂ male');

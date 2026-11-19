@@ -11,7 +11,8 @@ export type TraitId = (typeof TRAIT_IDS)[number];
 export type TraitValues = Record<TraitId, number>;
 
 export type Sex = 'F' | 'M';
-export type Habitat = 'creek';
+export const HABITATS = ['creek', 'river', 'beach'] as const;
+export type Habitat = (typeof HABITATS)[number];
 
 export const STAGE_IDS = ['egg', 'fry', 'smolt', 'ocean', 'return', 'spawn'] as const;
 export type StageId = (typeof STAGE_IDS)[number];
@@ -80,7 +81,12 @@ export type EntityKind =
   | 'seal'
   | 'shark'
   | 'track'
-  | 'jackAI';
+  | 'jackAI'
+  | 'lure'
+  /** Lake ice in winter (fry stage). */
+  | 'ice'
+  /** Pink salmon competing for food in a crowded ocean year. */
+  | 'pink';
 
 export interface Entity {
   id: number;
@@ -155,7 +161,7 @@ export const NO_INTENT: Intent = {
   risePressed: false,
 };
 
-export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'noSpawn';
+export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'noSpawn';
 
 export interface SpawnResult {
   /** Eggs laid (female) or eggs fertilized (male). */

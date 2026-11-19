@@ -2,6 +2,9 @@
  * The game shell: screens, the fixed-step loop, saving, and the flow from
  * one life to the next. The simulation lives in src/sim; drawing in src/render.
  */
+import { AUDIO } from '../audio/config';
+import { AudioEngine } from '../audio/engine';
+import type { Phase } from '../audio/mood';
 import paramFile from '../data/params.json';
 import { Input } from '../input/input';
 import { Renderer } from '../render/Renderer';
@@ -21,12 +24,15 @@ import {
 import { Params, type Difficulty, type ParamFile } from '../sim/params';
 import { alevinView } from '../sim/stages/egg';
 import { fryGrowth } from '../sim/stages/fry';
-import { TRAIT_IDS, type FishIdentity, type SimEvent, type Sex, type StageId, type TraitValues } from '../sim/types';
+import { TRAIT_IDS, type FishIdentity, type Habitat, type SimEvent, type Sex, type StageId, type TraitValues } from '../sim/types';
 import { World } from '../sim/world';
 import { clearSave, exportSave, importSave, readSave, requestPersistence, writeSave, SCHEMA_VERSION, type LifeSave, type SaveFile } from '../save/save';
 import { $, h, show } from '../ui/dom';
-import { loadNarration, narrate } from '../ui/narration';
+import { hasRecording, loadNarration, narrate, onSpeaking, recordingUrl, setNarrationVolume } from '../ui/narration';
 import { caption, DEATH_TITLES, OBJECTIVES, sexSymbol, STAGE_TITLES, stageCardLine, traitLines, yearLine } from '../ui/text';
+// Field journal and guided first life: see the section of the same name below.
+import { FieldJournal, journalPanel, showJournalToast } from '../ui/journal';
+import { Guide } from '../ui/tutorial';
 
 const FILE = paramFile as ParamFile;
 
@@ -34,14 +40,20 @@ type Mode = 'menu' | 'playing' | 'paused';
 
 interface Settings {
   gore: 'unflinching' | 'documentary';
+  /** Sound volume, 0..1. */
+  volume: number;
+  muted: boolean;
 }
+
+const DEFAULT_VOLUME: number = AUDIO.master.defaultVolume;
 
 function loadSettings(): Settings {
   try {
     const s = JSON.parse(localStorage.getItem('homewater.settings') ?? '{}') as Partial<Settings>;
-    return { gore: s.gore === 'documentary' ? 'documentary' : 'unflinching' };
+    const volume = typeof s.volume === 'number' && s.volume >= 0 && s.volume <= 1 ? s.volume : DEFAULT_VOLUME;
+    return { gore: s.gore === 'documentary' ? 'documentary' : 'unflinching', volume, muted: s.muted === true };
   } catch {
-    return { gore: 'unflinching' };
+    return { gore: 'unflinching', volume: DEFAULT_VOLUME, muted: false };
   }
 }
 
@@ -56,6 +68,7 @@ function saveSettings(s: Settings): void {
 export class App {
   readonly renderer: Renderer;
   readonly input: Input;
+  readonly audio = new AudioEngine({ has: hasRecording, url: recordingUrl });
   params: Params = new Params(FILE, 'fieldGuide');
   mode: Mode = 'menu';
   lineage: Lineage | null = null;
@@ -70,6 +83,10 @@ export class App {
   private fps = 0;
   private captionEls: HTMLElement[] = [];
   private flashTimer = 0;
+  /** On the title screen (or setting up a new lineage from it). */
+  private atTitle = true;
+  /** In the end-of-life sequence and recap. */
+  private ending = false;
   readonly debug = new URLSearchParams(location.search).has('debug');
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -84,6 +101,12 @@ export class App {
       this.wasLocked = !!document.pointerLockElement;
     });
     window.addEventListener('resize', () => this.resize());
+    // Browsers only allow sound after a user gesture: start it on the first one.
+    const unlock = () => this.audio.unlock();
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('keydown', (e) => e.key !== 'Escape' && unlock(), true);
+    onSpeaking((on) => this.audio.setDucked(on));
+    this.applySound();
     this.resize();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -127,6 +150,7 @@ export class App {
       this.renderer.render(w, frameDt);
       this.updateHud(w, frameDt);
     }
+    this.audio.update(frameDt, w, this.audioPhase());
     if (this.debug) this.updateDebug();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -141,6 +165,8 @@ export class App {
   }
 
   private handleEvents(events: SimEvent[]): void {
+    this.audio.onEvents(events);
+    this.journalAndGuideEvents(events);
     for (const ev of events) {
       if (ev.type === 'caption' || ev.type === 'reveal' || ev.type === 'spawned') {
         if (ev.key) {
@@ -209,8 +235,9 @@ export class App {
       `siblings ${sibs || 'none'}`,
     );
     const guided = w.firstLife && this.lineage?.difficulty === 'fieldGuide';
-    $('hud-objective').textContent = guided || this.hudDetailed ? OBJECTIVES[w.stageId] : '';
-    $('hud-hint').textContent = this.mode === 'playing' ? (this.input.locked ? 'V view · H details · Esc pause' : 'Click to steer with the mouse · V view · H details · Esc pause') : '';
+    this.guideFrame(w, _frameDt);
+    $('hud-objective').textContent = (guided && !this.guided(w)) || this.hudDetailed ? OBJECTIVES[w.stageId] : '';
+    $('hud-hint').textContent = this.mode === 'playing' ? (this.input.locked ? 'V view · H details · M sound · Esc pause' : 'Click to steer with the mouse · V view · H details · M sound · Esc pause') : '';
 
     // Immersive state: the edges darken as the fish weakens.
     const alevin = alevinView(w);
@@ -243,8 +270,8 @@ export class App {
       layer.replaceChildren();
       return;
     }
-    const LABEL: Partial<Record<string, string>> = { shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival' };
-    const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive']);
+    const LABEL: Partial<Record<string, string>> = { lure: 'hooked', shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival' };
+    const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooked']);
     const WARN = new Set(['warn', ...HOT]);
     const items: { x: number; y: number; label: string; hot: boolean; opening?: boolean; off: boolean; angle: number }[] = [];
     const add = (px: number, py: number, pz: number, label: string, hot: boolean, opening = false) => {
@@ -288,10 +315,50 @@ export class App {
   }
 
   private onKey(code: string): void {
+    if (this.journalKey(code)) return;
     if (code === 'Escape' && this.mode === 'playing') this.pause();
     else if (code === 'Escape' && this.mode === 'paused') this.resume();
     else if (code === 'KeyV') this.renderer.cameraMode = this.renderer.cameraMode === 'third' ? 'first' : 'third';
     else if (code === 'KeyH') this.hudDetailed = !this.hudDetailed;
+    else if (code === 'KeyM') this.toggleMute();
+  }
+
+  // ---------- Sound ----------
+
+  private audioPhase(): Phase {
+    if (this.ending) return 'end';
+    if (this.atTitle) return 'title';
+    return this.mode === 'playing' ? 'playing' : this.mode === 'paused' ? 'paused' : 'menu';
+  }
+
+  private applySound(): void {
+    const { volume, muted } = this.settings;
+    this.audio.setVolume(volume);
+    this.audio.setMuted(muted);
+    setNarrationVolume(muted ? 0 : volume);
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-sound-mute]')) {
+      b.setAttribute('aria-pressed', String(muted));
+      b.textContent = muted ? 'Sound off (M)' : 'Sound on (M)';
+    }
+  }
+
+  toggleMute(): void {
+    this.settings.muted = !this.settings.muted;
+    saveSettings(this.settings);
+    this.applySound();
+  }
+
+  /** Volume slider and mute toggle, for the title screen and the pause menu. */
+  private soundControls(): HTMLElement {
+    const muted = this.settings.muted;
+    const volume = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(this.settings.volume), 'aria-label': 'Volume', id: 'sound-volume' });
+    volume.addEventListener('input', () => {
+      this.settings.volume = Number(volume.value);
+      saveSettings(this.settings);
+      this.applySound();
+    });
+    const mute = h('button', { 'data-sound-mute': true, 'aria-pressed': String(muted), onclick: () => this.toggleMute() }, muted ? 'Sound off (M)' : 'Sound on (M)');
+    return h('div', { class: 'row sound' }, mute, h('label', { class: 'volume' }, 'Volume', volume));
   }
 
   // ---------- Screens ----------
@@ -306,6 +373,8 @@ export class App {
 
   showTitle(save: SaveFile | null): void {
     this.mode = 'menu';
+    this.atTitle = true;
+    this.ending = false;
     this.input.releaseLock();
     $('hud').hidden = true;
     const goreBtn = (g: Settings['gore'], label: string, desc: string) =>
@@ -360,10 +429,13 @@ export class App {
           { class: 'row' },
           h('button', { onclick: () => fileInput.click() }, 'Import lineage file'),
           save ? h('button', { onclick: () => exportSave(save) }, 'Export lineage file') : null,
+          h('button', { id: 'btn-journal', onclick: () => this.openJournal(() => this.showTitle(save)) }, 'Field journal'),
           fileInput,
         ),
         h('p', { class: 'label' }, 'Gore'),
         h('div', { class: 'grid3' }, goreBtn('unflinching', 'Unflinching', 'Predation and decay shown plainly.'), goreBtn('documentary', 'Documentary', 'Deaths cut away before the worst of it.')),
+        h('p', { class: 'label' }, 'Sound'),
+        this.soundControls(),
         h('p', { class: 'muted' }, 'Prototype build. Saves stay in this browser; export your lineage to keep it safe.'),
       ),
     );
@@ -373,6 +445,7 @@ export class App {
     let preset: StartPreset = 'quick';
     let sex: Sex = 'F';
     let difficulty: Difficulty = 'fieldGuide';
+    let habitat: Habitat = 'creek';
     const custom: TraitValues = Object.fromEntries(TRAIT_IDS.map((t) => [t, 0])) as TraitValues;
     const labels: Record<string, [string, string, string]> = {
       size: ['Size', 'small', 'large'],
@@ -387,6 +460,8 @@ export class App {
       const choice = (value: StartPreset, title: string, desc: string) =>
         h('button', { class: 'choice', 'aria-pressed': String(preset === value), 'data-preset': value, onclick: () => ((preset = value), render()) }, title, h('span', {}, desc));
       const sexBtn = (s: Sex) => h('button', { class: 'choice', 'aria-pressed': String(sex === s), disabled: preset === 'jack', onclick: () => ((sex = s), render()) }, sexSymbol(s));
+      const habBtn = (hb: Habitat, title: string, desc: string) =>
+        h('button', { class: 'choice', 'aria-pressed': String(habitat === hb), 'data-habitat': hb, onclick: () => ((habitat = hb), render()) }, title, h('span', {}, desc));
       const diffBtn = (d: Difficulty, title: string, desc: string) =>
         h('button', { class: 'choice', 'aria-pressed': String(difficulty === d), onclick: () => ((difficulty = d), render()) }, title, h('span', {}, desc));
       const sliders =
@@ -415,6 +490,14 @@ export class App {
           h('p', { class: 'label' }, 'Sex'),
           h('div', { class: 'grid3' }, sexBtn('F'), sexBtn('M')),
           sliders,
+          h('p', { class: 'label' }, 'Home spawning ground'),
+          h(
+            'div',
+            { class: 'grid3' },
+            habBtn('creek', 'Small creek', 'Shallow, with bank cover. Jacks are commonest here; so are bears.'),
+            habBtn('river', 'River', 'Deeper and faster. Larger, deeper-bodied fish; fewer bears.'),
+            habBtn('beach', 'Lake beach', 'Still water on a lake shore. The largest fish; little cover.'),
+          ),
           h('p', { class: 'label' }, 'Difficulty'),
           h('div', { class: 'grid3' }, diffBtn('fieldGuide', 'Field guide', 'Forgiving. Five siblings per life. Recommended.'), diffBtn('wild', 'Wild', 'Harsher, closer to real odds. Three siblings.')),
           h(
@@ -430,7 +513,7 @@ export class App {
                   const seed = Math.floor(Math.random() * 2 ** 31);
                   this.showNaming(seed, [], (name) => {
                     this.params = new Params(FILE, difficulty);
-                    const opts = { preset, sex: preset === 'jack' ? ('M' as Sex) : sex, name, difficulty, seed, ...(preset === 'custom' ? { custom } : {}) };
+                    const opts = { preset, sex: preset === 'jack' ? ('M' as Sex) : sex, name, difficulty, seed, habitat, ...(preset === 'custom' ? { custom } : {}) };
                     this.lineage = foundLineage(this.params, opts);
                     this.deaths = [];
                     this.startLife(null);
@@ -489,6 +572,8 @@ export class App {
   private startLife(resume: LifeSave | null): void {
     const l = this.lineage;
     if (!l) return;
+    this.atTitle = false;
+    this.ending = false;
     this.lifeSeed = resume?.seed ?? Math.floor(Math.random() * 2 ** 31);
     const firstLife = resume?.firstLife ?? l.records.length === 0;
     const w = new World(this.params, {
@@ -534,6 +619,7 @@ export class App {
   private play(): void {
     const w = this.world;
     if (!w) return;
+    this.audio.unlock();
     this.clearScreen();
     $('hud').hidden = false;
     this.mode = 'playing';
@@ -549,7 +635,12 @@ export class App {
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
     this.input.releaseLock();
+    this.showPauseMenu();
+  }
+
+  private showPauseMenu(): void {
     const save = this.currentSave();
+    const w = this.world;
     this.screen(
       h(
         'div',
@@ -561,10 +652,13 @@ export class App {
           h('button', { class: 'primary', onclick: () => this.resume() }, 'Resume'),
           h('button', { onclick: () => (this.renderer.cameraMode = this.renderer.cameraMode === 'third' ? 'first' : 'third') }, 'Switch view (V)'),
           h('button', { onclick: () => (this.hudDetailed = !this.hudDetailed) }, 'Detailed HUD (H)'),
+          h('button', { id: 'btn-pause-journal', onclick: () => this.openJournal(() => this.showPauseMenu()) }, 'Field journal (J)'),
+          w && this.guided(w) ? h('button', { onclick: () => (this.skipGuide(), this.showPauseMenu()) }, 'Skip guidance (G)') : null,
           save ? h('button', { onclick: () => exportSave(save) }, 'Export lineage file') : null,
           h('button', { onclick: () => void this.save().then(() => readSave()).then((s) => this.showTitle(s)) }, 'Save and quit to title'),
         ),
-        h('p', { class: 'muted' }, 'W swim · S hold against the current · A/D or mouse steer · Space/C rise/dive · Shift burst · E act · V view · H details'),
+        this.soundControls(),
+        h('p', { class: 'muted' }, 'W swim · S hold against the current · A/D or mouse steer · Space/C rise/dive · Shift burst · E act · V view · H details · M sound'),
       ),
     );
   }
@@ -593,6 +687,7 @@ export class App {
     this.input.releaseLock();
     $('hud').hidden = true;
     const cause = w.deathCause ?? 'exhaustion';
+    this.noteJournal([`death.${cause}`]);
     this.deaths.push({ name: w.fish.name, stage: w.stageId, cause });
     const science = caption(`death.${cause}`) ?? '';
     narrate(`death.${cause}`);
@@ -685,6 +780,7 @@ export class App {
 
   private async onLifeComplete(w: World): Promise<void> {
     this.mode = 'menu';
+    this.ending = true;
     this.input.releaseLock();
     $('hud').hidden = true;
     const l = this.lineage;
@@ -717,6 +813,7 @@ export class App {
           stat('Notes', r?.detail ?? ''),
         ),
         h('p', { class: 'muted' }, yearLine(w.conditions)),
+        h('p', { class: 'muted' }, caption('year.betHedging') ?? ''),
         h('p', { class: 'label' }, 'Choose the next generation'),
         h(
           'div',
@@ -762,6 +859,57 @@ export class App {
       return h('div', {}, `Gen ${r.generation} · ${r.name} (${kind}${r.isStray ? ', stray' : ''}) · ${fate}${r.deaths.length ? ` · ${r.deaths.length} sibling${r.deaths.length === 1 ? '' : 's'} lost` : ''}`);
     });
     return h('div', { class: 'tree', id: 'family-tree' }, ...(rows.length ? rows : [h('div', {}, 'No completed lives yet.')]));
+  }
+
+  // ---------- Field journal and guided first life ----------
+  // Journal unlocks are kept per browser (src/ui/journal.ts), not in the save.
+  // The guide shows step-by-step objectives in a Field guide first life (src/ui/tutorial.ts).
+
+  private readonly journal = new FieldJournal();
+  private readonly guide = new Guide();
+  private journalBack: (() => void) | null = null;
+
+  private get lifeKey(): string {
+    return this.lineage ? `${this.lineage.id}:${this.lineage.generation}` : '';
+  }
+
+  private guided(w: World): boolean {
+    return w.firstLife && this.lineage?.difficulty === 'fieldGuide' && !this.guide.isSkipped(this.lifeKey);
+  }
+
+  private journalAndGuideEvents(events: SimEvent[]): void {
+    const w = this.world;
+    showJournalToast(this.journal.recordEvents(events, { habitat: w?.fish.habitat }));
+    if (w) this.guide.events(w, events);
+  }
+
+  private noteJournal(triggers: string[]): void {
+    showJournalToast(this.journal.record(triggers));
+  }
+
+  private guideFrame(w: World, dt: number): void {
+    this.guide.frame(w, dt, this.mode === 'playing' && w.status === 'playing' && this.guided(w), () => this.skipGuide());
+  }
+
+  private skipGuide(): void {
+    if (this.world && this.guided(this.world)) this.guide.skip(this.lifeKey);
+  }
+
+  private openJournal(back: () => void): void {
+    this.journalBack = () => {
+      this.journalBack = null;
+      back();
+    };
+    this.screen(journalPanel(this.journal, this.journalBack));
+  }
+
+  /** J opens the journal while paused, Esc closes it, G skips guidance. Returns true if handled. */
+  private journalKey(code: string): boolean {
+    if (code === 'Escape' && this.journalBack) this.journalBack();
+    else if (code === 'KeyJ' && this.mode === 'paused' && !this.journalBack) this.openJournal(() => this.showPauseMenu());
+    else if (code === 'KeyG' && this.mode === 'playing') this.skipGuide();
+    else return false;
+    return true;
   }
 
   // ---------- Saving ----------

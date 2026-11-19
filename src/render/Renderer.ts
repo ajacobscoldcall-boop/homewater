@@ -1,15 +1,18 @@
 /**
  * Draws the world. Reads simulation state; never changes it.
- * Milestone 1 is grey-box: simple shapes, fog and colour carry the scene.
+ * Fish and animals are built in code (fishMesh.ts, animals.ts); fog and colour carry the scene.
  */
 import * as THREE from 'three';
 import { alevinView } from '../sim/stages/egg';
+import { fryView } from '../sim/stages/fry';
+import { oceanView } from '../sim/stages/ocean';
 import type { ArenaKind } from '../sim/stages';
 import { returnLayout } from '../sim/stages/return';
 import { roleOf, spawnState } from '../sim/stages/spawn';
 import type { Entity, EntityKind } from '../sim/types';
 import { headingVec } from '../sim/vec';
 import type { World } from '../sim/world';
+import { animalOf, createBear, createChar, createGull, createMerganser, createOrca, createSeal, createShark } from './animals';
 import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape } from './fishMesh';
 import { causticFloorMaterial, LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
 
@@ -22,6 +25,8 @@ const WATER: Record<ArenaKind, { fog: number; density: number; floor: [number, n
   ocean: { fog: 0x123d5a, density: 0.032, floor: [0x1d2b33, 0x2b3a42], surface: 0xb7dcf0, shafts: 0.285, shaftColor: 0xbfe2ff },
   bayCreek: { fog: 0x36605a, density: 0.042, floor: [0x5a5545, 0x857b63], surface: 0xd4ebe2, shafts: 0.209, shaftColor: 0xe0f2e8 },
   spawnBed: { fog: 0x416c5c, density: 0.06, floor: [0x6a604c, 0x9a8c70], surface: 0xdaeee2, shafts: 0.152, shaftColor: 0xe8f4e2 },
+  spawnRiver: { fog: 0x3c665e, density: 0.05, floor: [0x5f5848, 0x8d816a], surface: 0xd6ebe2, shafts: 0.13, shaftColor: 0xe4f2e6 },
+  lakeBeach: { fog: 0x2f6366, density: 0.04, floor: [0x6e6650, 0xa59a7c], surface: 0xd8eeec, shafts: 0.2, shaftColor: 0xe0f2ee },
 };
 
 interface InstancedKind {
@@ -35,6 +40,9 @@ const tmpS = new THREE.Vector3();
 const tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
 const UP = new THREE.Vector3(0, 1, 0);
+/** Width of the gravel banks drawn beyond the spawning bed's edges (render only). */
+const SPAWN_BANK = 5;
+const tmpTarget = new THREE.Vector3();
 
 export class Renderer {
   readonly renderer: THREE.WebGLRenderer;
@@ -144,13 +152,17 @@ export class Renderer {
     if (!v) {
       // Smolts run at night (advisor): a darker, moonlit river.
       const night = w.stageId === 'smolt';
-      this.hemi.intensity = night ? 0.55 : 1.1;
-      this.sun.intensity = night ? 0.45 : 1.3;
-      this.fog.density = this.baseDensity;
-      sharedWater.uLight.value = night ? 0.45 : 1;
+      // Fry and ocean moments set their own light: dusk, winter, autumn, and dark time skips.
+      const moment = fryView(w) ?? oceanView(w);
+      const dim = moment?.light ?? 1;
+      this.hemi.intensity = (night ? 0.55 : 1.1) * dim;
+      this.sun.intensity = (night ? 0.45 : 1.3) * dim;
+      // Time skips close in with dark water, then open on the next moment.
+      this.fog.density = this.baseDensity * (1 + 30 * (moment?.fade ?? 0));
+      sharedWater.uLight.value = (night ? 0.45 : 1) * dim;
       // Deeper water is darker.
       const depth = Math.max(0, w.arena.surfaceY - this.camera.position.y);
-      this.fog.color.copy(this.baseFog).multiplyScalar((1 - Math.min(0.55, depth / 45)) * (night ? 0.55 : 1));
+      this.fog.color.copy(this.baseFog).multiplyScalar((1 - Math.min(0.55, depth / 45)) * (night ? 0.55 : 1) * dim);
       (this.scene.background as THREE.Color).copy(this.fog.color);
       return;
     }
@@ -212,9 +224,11 @@ export class Renderer {
     this.flow = null;
     this.scene.background = new THREE.Color(look.fog);
 
-    // Bottom.
+    // Bottom. On the spawning grounds the bed runs up into shallow gravel banks
+    // beyond the arena's edges, where the bears stand.
+    const bank = a.kind === 'spawnBed' ? SPAWN_BANK : 0;
     const sx = a.max.x - a.min.x;
-    const sz = a.max.z - a.min.z;
+    const sz = a.max.z - a.min.z + 2 * bank;
     const segX = Math.min(220, Math.max(8, Math.round(sx / 1.2)));
     const segZ = Math.min(120, Math.max(8, Math.round(sz / 1.2)));
     const floorGeo = new THREE.PlaneGeometry(sx, sz, segX, segZ);
@@ -228,7 +242,7 @@ export class Renderer {
       const x = pos.getX(i);
       const z = pos.getZ(i);
       const n = Math.sin(x * 3.1 + z * 1.7) * Math.cos(z * 2.3 - x * 0.9);
-      pos.setY(i, a.floor(x, z) + 0.06 * n);
+      pos.setY(i, this.bedAt(w, x, z) + 0.06 * n);
       tmpC.copy(c0).lerp(c1, 0.5 + 0.5 * n);
       colors.push(tmpC.r, tmpC.g, tmpC.b);
     }
@@ -240,6 +254,7 @@ export class Renderer {
     // The surface, seen from below.
     this.surfaceMat = surfaceMaterial(new THREE.Color(look.surface), this.fog);
     const surf = new THREE.Mesh(new THREE.PlaneGeometry(sx + 120, sz + 120), this.surfaceMat);
+    surf.renderOrder = 1;
     surf.rotation.x = -Math.PI / 2;
     surf.position.set((a.min.x + a.max.x) / 2, a.surfaceY, (a.min.z + a.max.z) / 2);
     this.stageGroup.add(surf);
@@ -259,10 +274,12 @@ export class Renderer {
     this.makeInstanced('plankton', new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), 160);
     this.makeInstanced('scent', new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: 0xd7ffe8, transparent: true, opacity: 0.55 }), 200);
     this.makeInstanced('eggs', new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf28a3a, roughness: 0.25, transparent: true, opacity: 0.85 }), 20);
-    this.makeInstanced('herring', buildFishGeometry({ depth: 0.9, hump: 0, kype: 0, yolk: 0 }, 'herring'), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 160);
+    this.makeInstanced('herring', buildFishGeometry({ depth: 0.9, hump: 0, kype: 0, yolk: 0 }, 'herring', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 160);
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
-    this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt'), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
+    this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
     this.makeInstanced('weed', new THREE.CylinderGeometry(0.07, 0.12, 1, 5), new THREE.MeshStandardMaterial({ color: 0x3f6b2f, roughness: 0.9 }), 80);
+    // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
+    this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'ocean'), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
 
     if (a.kind === 'gravel') {
       // Stones around the egg.
@@ -379,6 +396,14 @@ export class Renderer {
       if (!seen.has(id)) {
         this.entityGroup.remove(obj);
         this.objects.delete(id);
+        // Animal geometry is shared between instances; materials are per instance.
+        obj.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose();
+          const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+          if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+          else mat?.dispose();
+        });
       }
     }
   }
@@ -408,6 +433,11 @@ export class Renderer {
         tmpQ.setFromAxisAngle(UP, -e.yaw);
         tmpS.setScalar(0.6 * (0.95 + 0.1 * Math.sin(w.time * 12 + e.id)));
         break;
+      case 'pink':
+        tmpQ.setFromAxisAngle(UP, -e.yaw);
+        tmpS.setScalar(0.72);
+        mesh.setColorAt(i, tmpC.setHex(0xb8c4cc));
+        break;
       case 'eggs':
         tmpS.setScalar(e.radius);
         break;
@@ -431,36 +461,37 @@ export class Renderer {
   private makeObject(w: World, e: Entity): THREE.Object3D {
     switch (e.kind) {
       case 'trout': {
-        const m = createFish({ depth: 1.1, hump: 0, kype: 0, yolk: 0 }, 'trout');
-        m.scale.setScalar(3.2);
-        return m;
+        // Dolly Varden / char (advisor: char, not trout, hunt fry and wait at the outlet).
+        const g = createChar().root;
+        g.scale.setScalar(3.2);
+        return g;
       }
       case 'orca': {
-        const m = createFish({ depth: 1.2, hump: 0, kype: 0, yolk: 0 }, 'orca');
-        m.scale.setScalar(9);
-        return m;
+        const g = createOrca().root;
+        g.scale.setScalar(9);
+        return g;
       }
       case 'shark': {
-        const m = createFish({ depth: 1, hump: 0, kype: 0, yolk: 0 }, 'shark');
-        m.scale.setScalar(4.5);
-        return m;
+        const g = createShark().root;
+        g.scale.setScalar(4.5);
+        return g;
       }
       case 'seal': {
-        const m = createFish({ depth: 1.1, hump: 0, kype: 0, yolk: 0 }, 'seal', { transparent: true, opacity: 1 });
-        m.scale.setScalar(3.4);
-        return m;
+        const g = createSeal().root;
+        g.scale.setScalar(2.8);
+        return g;
       }
       case 'merganser': {
-        const g = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), new THREE.MeshStandardMaterial({ color: 0x2f3b33 }));
-        body.scale.set(1.6, 0.7, 0.8);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: 0x8a3b22 }));
-        head.position.set(0.7, 0.18, 0);
+        // Males and females both hunt; which one is just the entity id.
+        const g = createMerganser(e.id % 2 === 0).root;
+        g.scale.setScalar(1.15);
         const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.0, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
         ring.rotation.x = -Math.PI / 2;
         ring.name = 'ring';
-        g.add(body, head, ring);
-        return g;
+        const holder = new THREE.Group();
+        holder.add(g, ring);
+        holder.userData.animal = animalOf(g);
+        return holder;
       }
       case 'jackAI': {
         const m = createFish({ depth: 1, hump: 0.3, kype: 0.4, yolk: 0 }, 'spawnJack');
@@ -483,8 +514,8 @@ export class Renderer {
         shadow.rotation.x = -Math.PI / 2;
         shadow.position.y = -0.06;
         shadow.name = 'shadow';
-        const bird = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0xe8e8e2 }));
-        bird.rotation.x = Math.PI;
+        const bird = createGull().root;
+        bird.scale.setScalar(1.3);
         bird.name = 'bird';
         bird.visible = false;
         g.add(shadow, bird);
@@ -492,18 +523,23 @@ export class Renderer {
       }
       case 'bear': {
         const g = new THREE.Group();
-        const fur = new THREE.MeshStandardMaterial({ color: 0x4a3322, roughness: 1 });
-        const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.5, 1.4), fur);
-        body.position.y = 0.9;
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.8), fur);
-        head.position.set(1.5, 1.3, 0);
-        const paw = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.2, 0.5), fur);
-        paw.name = 'paw';
-        paw.visible = false;
+        const bear = createBear();
+        bear.root.name = 'bear';
         const shadow = new THREE.Mesh(new THREE.CircleGeometry(2.4, 20), new THREE.MeshBasicMaterial({ color: 0x0c120f, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
         shadow.rotation.x = -Math.PI / 2;
         shadow.name = 'shadow';
-        g.add(body, head, paw, shadow);
+        g.add(bear.root, shadow);
+        return g;
+      }
+      case 'lure': {
+        const g = new THREE.Group();
+        const spoon = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.9, roughness: 0.2, emissive: 0x332a10 }));
+        spoon.scale.set(1.6, 0.6, 0.8);
+        spoon.name = 'spoon';
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]);
+        const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xe8eee8, transparent: true, opacity: 0.6 }));
+        line.name = 'line';
+        g.add(spoon, line);
         return g;
       }
       case 'cover': {
@@ -531,6 +567,13 @@ export class Renderer {
         g.add(stones);
         return g;
       }
+      case 'ice': {
+        // Lake ice, seen from below: a pale, unlit, unfogged sheet, so the ceiling reads even in the winter gloom.
+        const s = e.size ?? new THREE.Vector3(90, 0.1, 90);
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(s.x, s.z), new THREE.MeshBasicMaterial({ color: 0x7f979c, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+        m.rotation.x = -Math.PI / 2;
+        return m;
+      }
       case 'redd': {
         const m = new THREE.Mesh(new THREE.RingGeometry(0.3, 1.3, 24), new THREE.MeshStandardMaterial({ color: 0x3a3024, roughness: 1, side: THREE.DoubleSide }));
         m.rotation.x = -Math.PI / 2;
@@ -546,9 +589,15 @@ export class Renderer {
     switch (e.kind) {
       case 'seal': {
         obj.rotation.set(0, -e.yaw, 0);
-        const mat = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        mat.opacity = e.state === 'warn' ? 0.35 + 0.25 * Math.sin(w.time * 10) : 1;
-        setSwim(obj as THREE.Mesh, w.time * 6, 0.12);
+        const lunge = e.state === 'lunge';
+        animalOf(obj)?.update({
+          mode: e.state,
+          t: w.time,
+          phase: w.time * (lunge ? 13 : 6) + e.id,
+          amp: lunge ? 0.12 : 0.08,
+          opacity: e.state === 'warn' ? 0.35 + 0.25 * Math.sin(w.time * 10) : 1,
+          pitch: lunge ? Math.max(-0.8, Math.min(0.8, Math.atan2(e.vel.y, Math.hypot(e.vel.x, e.vel.z)))) : 0,
+        });
         break;
       }
       case 'merganser': {
@@ -561,7 +610,16 @@ export class Renderer {
           (ring.material as THREE.MeshBasicMaterial).opacity = 0.7 * (1 - (k - 1) / 2);
           obj.position.y = -0.05;
         }
-        obj.rotation.set(0, -Math.atan2(e.vel.z, e.vel.x), 0);
+        // Face the way it is moving; keep the last heading during the straight-down dive.
+        const h = Math.hypot(e.vel.x, e.vel.z);
+        if (h > 0.05 || obj.userData.yaw === undefined) obj.userData.yaw = Math.atan2(e.vel.z, e.vel.x);
+        obj.rotation.set(0, -(obj.userData.yaw as number), 0);
+        const under = e.state === 'dive' || e.state === 'chase' || e.state === 'surface';
+        animalOf(obj)?.update({
+          mode: warn ? 'float' : e.state,
+          t: w.time + e.id,
+          pitch: under ? Math.max(-1.2, Math.min(1.0, Math.atan2(e.vel.y, Math.max(h, 0.01)))) : 0,
+        });
         break;
       }
       case 'trout':
@@ -574,51 +632,85 @@ export class Renderer {
         const yaw = e.kind === 'female' ? Math.PI : Math.atan2(e.vel.z, e.vel.x) || e.yaw;
         obj.rotation.set(0, -yaw, 0);
         const speed = Math.hypot(e.vel.x, e.vel.z);
-        setSwim(obj as THREE.Mesh, w.time * (3 + speed * 1.5) + e.id, e.state === 'fight' ? 0.18 : 0.05 + 0.02 * speed);
+        const animal = animalOf(obj);
+        if (animal) {
+          // Big animals beat their tails slowly and with a small bend for their length.
+          const big = e.kind === 'orca' || e.kind === 'shark';
+          const phase = w.time * (big ? 2.2 + speed * 0.3 : 3 + speed * 1.2) + e.id;
+          const amp = big ? Math.min(0.06, 0.03 + 0.003 * speed) : Math.min(0.12, 0.05 + 0.012 * speed);
+          animal.update({ mode: e.state, t: w.time, phase, amp });
+        } else setSwim(obj, w.time * (3 + speed * 1.5) + e.id, e.state === 'fight' ? 0.18 : 0.05 + 0.02 * speed);
         if (e.kind === 'female') obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.35;
         break;
       }
       case 'birdShadow': {
         const shadow = obj.getObjectByName('shadow') as THREE.Mesh;
-        const bird = obj.getObjectByName('bird') as THREE.Mesh;
+        const bird = obj.getObjectByName('bird') as THREE.Object3D;
         const mat = shadow.material as THREE.MeshBasicMaterial;
+        const gull = animalOf(bird);
         if (e.state === 'warn') {
           const warn = w.p.get('smolt.birdWarning');
-          mat.opacity = 0.15 + 0.55 * (1 - e.timer / warn);
-          shadow.scale.setScalar(1.6 - 0.6 * (1 - e.timer / warn));
-          bird.visible = false;
+          const left = e.timer / warn;
+          mat.opacity = 0.15 + 0.55 * (1 - left);
+          shadow.scale.setScalar(1.6 - 0.6 * (1 - left));
+          // Circling in above the shadow (seen through the surface, if at all).
+          const a = w.time * 1.4 + e.id;
+          bird.visible = true;
+          bird.position.set(Math.cos(a) * 2.2 * left, 1.4 + 2.5 * left, Math.sin(a) * 2.2 * left);
+          bird.rotation.set(0, -a - Math.PI / 2, 0);
+          gull?.update({ mode: 'fly', t: w.time + e.id });
         } else {
+          // The plunge: head first through the surface.
           mat.opacity = 0.8;
           bird.visible = true;
-          bird.position.y = -1.5 + e.timer * 2;
+          bird.position.set(0, -1.2 + e.timer * 5, 0);
+          bird.rotation.set(0, e.id, 0);
+          gull?.update({ mode: 'strike', t: w.time });
         }
         obj.position.y = 0;
         break;
       }
       case 'bear': {
         const shadow = obj.getObjectByName('shadow') as THREE.Mesh;
-        const paw = obj.getObjectByName('paw') as THREE.Mesh;
+        const bear = animalOf(obj.getObjectByName('bear') as THREE.Object3D);
         const mat = shadow.material as THREE.MeshBasicMaterial;
-        obj.rotation.y = e.pos.z > 0 ? Math.PI / 2 : -Math.PI / 2;
+        // Stand on the bank (or in the shallows), facing the middle of the river.
+        const ground = this.groundAt(w, e.pos.x, e.pos.z);
+        obj.position.y = ground;
+        const mid = returnLayout(w)?.homeMouth ?? 0;
+        obj.rotation.y = e.pos.z > mid ? Math.PI / 2 : -Math.PI / 2;
         const target = e.home;
+        const warnTime = w.p.get(w.stageId === 'return' ? 'return.bearWarning' : 'spawn.bearWarning');
+        let k = 0;
+        if (e.state === 'warn') k = 1 - e.timer / warnTime;
+        else if (e.state === 'strike') k = 1 - e.timer / 0.6;
+        else if (e.state === 'rest') k = 1 - e.timer / 3;
+        obj.updateMatrixWorld();
+        const local = target ? obj.worldToLocal(tmpTarget.set(target.x, -0.6, target.z)).clone() : undefined;
+        bear?.update({ mode: e.state, t: w.time + e.id, k, target: local, surface: w.arena.surfaceY - ground });
         if ((e.state === 'warn' || e.state === 'strike') && target) {
           // Place the shadow in world space over the target.
-          obj.updateMatrixWorld();
-          shadow.position.copy(obj.worldToLocal(new THREE.Vector3(target.x, -0.05, target.z)));
+          shadow.position.copy(obj.worldToLocal(tmpTarget.set(target.x, -0.05, target.z)));
           mat.opacity = e.state === 'warn' ? 0.35 + 0.3 * Math.sin(w.time * 18) : 0.7;
-          paw.visible = e.state === 'strike';
-          if (paw.visible) {
-            paw.position.copy(obj.worldToLocal(new THREE.Vector3(target.x, -0.6, target.z)));
-          }
         } else {
           mat.opacity = 0;
-          paw.visible = false;
         }
         break;
       }
       case 'gravelPatch':
         obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.03;
         break;
+      case 'lure': {
+        const spoon = obj.getObjectByName('spoon') as THREE.Mesh;
+        const line = obj.getObjectByName('line') as THREE.Line;
+        obj.visible = e.state !== 'free';
+        spoon.rotation.set(w.time * 9, w.time * 4, 0);
+        // The line runs up to the surface, where the angler is.
+        const pos = line.geometry.attributes.position as THREE.BufferAttribute;
+        pos.setXYZ(1, -1.5, -e.pos.y + 0.05, 0);
+        pos.needsUpdate = true;
+        break;
+      }
       case 'redd': {
         obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.04;
         const s = 0.4 + 0.8 * (e.value ?? 0);
@@ -628,6 +720,24 @@ export class Renderer {
       default:
         break;
     }
+  }
+
+  /** The river bed, continued up into gravel banks beyond the spawning bed's edges. */
+  private bedAt(w: World, x: number, z: number): number {
+    const a = w.arena;
+    if (a.kind === 'spawnBed') {
+      const d = Math.abs(z) - a.max.z;
+      if (d > 0) return a.floor(x, Math.sign(z) * a.max.z) + d * 1.1;
+    }
+    return a.floor(x, z);
+  }
+
+  /** Where an animal standing at (x, z) has its feet: the top of a bank, or the bed. */
+  private groundAt(w: World, x: number, z: number): number {
+    for (const wall of w.arena.walls ?? []) {
+      if (x >= wall.min.x && x <= wall.max.x && z >= wall.min.z && z <= wall.max.z) return wall.max.y;
+    }
+    return this.bedAt(w, x, z);
   }
 
   private playerShape(w: World): { look: FishLook; shape: FishShape } {
