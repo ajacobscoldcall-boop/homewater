@@ -1,0 +1,29 @@
+{
+  "name": "homewater",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Homewater: a sockeye salmon lifecycle simulator for the browser.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "smoke": "playwright test",
+    "verify": "npm run typecheck && npm test && npm run build && npm run smoke",
+    "narration:script": "node scripts/recording-script.mjs",
+    "narration:manifest": "node scripts/recording-script.mjs --manifest"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.15.0",
+    "@types/three": "0.180.0",
+    "typescript": "5.9.3",
+    "vite": "7.1.12",
+    "vitest": "3.2.4"
+  }
+}

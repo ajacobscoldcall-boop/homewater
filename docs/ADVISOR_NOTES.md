@@ -1,0 +1,141 @@
+# Scientific advisor's answers
+
+These answers come from a fisheries scientist advising on the biology. They have asked not to be credited, and not to have anyone they work with or know contacted. Their answers override earlier assumptions in the design.
+
+Status markers: **Applied** (in the M1 build), **Planned** (affects a later milestone), **Open** (asked in the follow-up questions).
+
+## Life stages and survival
+
+- **Life history:**
+  - Typical: 1 year in the lake, 2 at sea, about 60/40 against other patterns. **Applied:** `life.oceanAge2Share` = 0.6 of non-jacks.
+  - Which other patterns are common: **Open**.
+- **Causes of death by stage:**
+  - **Eggs:** scouring floods.
+  - **Fry:** larger fish (char).
+  - **Smolt outmigration:** birds, other fish, seals.
+  - **Ocean:** the same predators.
+  - **Spawning grounds:** bears.
+
+  Predation early in the marine phase is usually the bottleneck that shapes returns. **Applied:** the smolt run is now a predator gauntlet, with char, birds, mergansers, gulls and seals, and a school that gets picked off.
+- **Survival:** about 5% marine survival is not unusual; freshwater survival is higher but still low. **Open:** freshwater numbers.
+- **Egg and alevin:** eggs can do little. Alevin orient to light and current. **Applied:** the egg stage is now an alevin facing into a shifting current and avoiding light.
+- **The return:**
+  - Mass changes little, but fat is used up.
+  - Fish stay fit while actively migrating, then turn sluggish and ragged after weeks on the spawning grounds.
+  - They blush from silver to red in fresh water, and turn fully red with a green head only at the natal stream.
+  - Males grow a hump, a large upper jaw and big teeth; females only change colour.
+
+  **Applied:** blush on the return, with full colours only at spawning.
+
+## Jacks
+
+- **When the pathway is set:** it is thought to be set after the first fall at sea. It depends heavily on both genes and growth; jack parents and fast early growth both raise the odds. **Applied:** the threshold model, with growth raising liability.
+- **Heritability:** varies by population, from about 0.15 to almost 1. **Applied:** a mid value of 0.5. Whether to vary it by stream is **Open**.
+- **Behaviour:**
+  - Jacks have lower reproductive success than large males, balanced by better survival from leaving the sea early.
+  - They hide under logs, rocks and undercut banks, approach indirectly, and dart in while the pair is distracted.
+
+  **Applied:** cover and openings. **Open:** how big the success and survival differences are.
+- **Bank cover:** more bank cover means more hiding places, so more jacks can spawn before they start competing with each other. **Planned.**
+- **Cohort mismatch:** leave it out. **Applied:** not modelled.
+- **Large-male fights:** they ram at perpendicular angles with mouths open, may lock jaws, and settle it fast, mostly by size. **Planned.**
+- **Frequency:** typically 1-2% of males in a Bristol Bay run; 10% is extremely high. **Applied:** creek base rate 4%. Captions must say jacks are rare.
+
+## Spawning
+
+- **Redd site:** gravel quality matters most. Cobble that is too large is hard to dig; too small and the eggs get less oxygen. **Planned:** gravel-size cues.
+- **Guarding:** females guard against other females digging up their eggs, and against egg predators like trout, until they die. **Applied:** rival females. **Planned:** egg predators.
+- **Clutch:** 2,000-5,000 eggs is normal. **Applied.**
+- **Habitat:** river fish are larger and deeper-bodied than creek fish, and beach fish more so. Bears feed most easily in creeks, less in rivers and on beaches. **Planned** with the lake-beach and river habitats.
+- **Female choice:** mostly comes down to which male wins the fights. **Planned.**
+
+## Homing, humans and the ocean
+
+- **Homing:** magnetic field at sea, smell from the river mouth. A few percent always stray; hatchery fish stray more. **Planned:** navigation is the most interesting challenge on the return, so lean into it.
+- **Gillnets:** catch larger males more; the head and teeth tangle and the fish can't back out. **Applied.**
+- **Trawl bycatch:** misleading for sockeye, which stay near the surface and are very rare in trawls. **Applied:** dropped.
+- **Ocean competition** (for example with pink salmon) is a commonly implicated mechanism. **Applied:** ocean crowding.
+- **Ocean predators:** seals and sea lions, seabirds and whales throughout ocean life. **Planned.**
+- **Year to year:**
+  - Ocean conditions, prey, temperature and flow all vary.
+  - Populations keep diversity as a bet hedge.
+  - Low water causes deaths before spawning; floods scour redds.
+
+  **Planned.**
+
+## Design choices put to the advisor
+
+All confirmed:
+- A composite watershed, not a real one.
+- The six stages.
+- The heritable trait list.
+- Gillnets and anglers (no trawl).
+- Creek, lake beach and river as spawning habitats.
+- Players picking from three offspring.
+
+The moments the advisor would most want players to experience at each stage:
+
+| Stage | Moment |
+|---|---|
+| Alevin | Orienting in the current |
+| Fry | Dodging char |
+| Smolt | A gauntlet of predators, especially birds |
+| Ocean | Dodging whales |
+| Return | Navigating |
+| Spawning | Dodging bears and getting mates |
+
+## Accuracy and presentation
+
+- **Common mistakes in films and games:** wrong appearance, missing details like the adipose fin, wrong colours. **Applied:** adipose fin. Screenshot review is **Open**.
+- **What players should take away:**
+  - There is a lot of life-history diversity at every stage.
+  - Mortality can be very high and largely random.
+  - A fish that survives and passes on its genes is close to a miracle.
+- **Review:** will review captions, but prefers not to be credited. Does not want to record narration.
+- **Visual references:** the photography and video of Jason Ching, Eiko Jones and Paul Vesci.
+
+## Second round of answers
+
+**Credit:** citing their published papers is fine. They will review screenshots once fish models exist.
+
+**Survival**
+- Eggs: about 10-20% survive to emerge. Fry: about 5-10% survive to leave the lake. **Applied:** in end-of-stage captions.
+- Visible deaths the player can react to, with chance showing up through floods, bad years and siblings lost off-screen, is "good for balancing scientific validity with player experience". **Applied:** this is the design.
+- Bet hedging: traits that thrive one generation can fail the next. For example, all your jack offspring do well one year and not the next. **Planned:** year effects that favour different traits.
+
+**Early life**
+- Alevin orient toward the light and into the current (positive rheotaxis), to stay upright, keep oxygen flowing, and prepare to feed. **Applied:** the alevin faces the current and swims up toward the light when ready. The earlier "light means being seen" rule was removed.
+- Fry predators in the lake: Dolly Varden and trout. **Applied.**
+- **Smolts:**
+  - They run in large groups to swamp predators, and tend to go at night.
+  - Char hit them at lake outlets and stream mouths, birds more as they near the sea, and seals once in salt water.
+
+  **Applied:** the run is at night, birds are thinned on the upper river, and seals are at the mouth.
+
+**Life history and jacks**
+- About 60% spend one year in fresh water. Ocean age is close to an even split between 2 and 3. **Applied:** `life.oceanAge2Share` = 0.5.
+- **Sizes:** jacks about 300 mm (less than half most males), ocean age 2 about 500 mm, ocean age 3 about 700-800 mm. **Applied:** sizes 0.4 / 0.67 / 1.0. Gillnet mesh retuned so jacks slip through and most others are caught.
+- Survival in later years at sea is much higher than early, but still around 50%. **Applied:** each extra year at sea is survived with that chance (kinder on "Field guide"). Jacks skip it.
+- Heritability: 0.4 is a reasonable middle. **Applied.**
+- Jacks far commoner in the game than in nature is fine, if the game says they are rare. **Applied:** captions say so.
+- When cover is scarce, jacks fight each other for hiding spots. **Applied:** three spots under the bank, contested by other jacks.
+
+**Spawning**
+- **Large males:** timing and positioning are what skill should decide. **Applied:** ramming side-on and before the rival reaches her improves the odds, but size dominates.
+- **Females:** judge gravel by cobble size. **Applied:** patches show cobble size, and medium cobble is best.
+- **Lifespan after spawning:** females live several weeks after spawning, rarely more than a month.
+- **Bears on the spawning grounds:** they take males first, then large females, jacks last. **Applied:** bears pick targets by those weights.
+
+**Return and navigation**
+- At sea: "an invisible track that represents the field". The commonest mistakes are overshooting and entering the wrong river. **Applied:** a faint magnetic track, three river mouths, and wrong rivers as dead ends.
+- In the river, fish test a branch and back out. **Applied:** wrong branches and wrong rivers are dead ends with fading scent.
+- Low water kills through heat stress and low oxygen. **Applied:** warm, low-water years drain fat faster, with a caption.
+
+**Ocean**
+- Orcas, and yes to salmon sharks. **Applied.**
+- Sockeye stay within 20-40 m of the surface. **Applied:** the ocean arena is that band.
+- Pink salmon make every other year crowded. **Applied:** crowding alternates by generation.
+
+**Appearance**
+- Spots matter for telling species apart. Tail shape and eye size change across the life cycle. **Applied:** tail fork and eye size vary by stage, and sockeye have no spots. **Open:** screenshot review.
+
