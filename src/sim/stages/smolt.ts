@@ -10,6 +10,7 @@
  */
 import { currentAt, depthOf, swimStep } from '../swim';
 import type { Entity, Vec3 } from '../types';
+import { lakeGrowth } from './fry';
 import { dist, distXZ, headingVec, lerp, norm, scale, sub, v3 } from '../vec';
 import type { World } from '../world';
 import type { StageDef } from './index';
@@ -109,6 +110,11 @@ function stepChar(w: World, c: Entity, dt: number): void {
     }
   } else if (c.state === 'chase') {
     const target = c.value ? w.entities.find((e) => e.id === c.value && e.alive) ?? null : null;
+    // Its school-mate was taken by something else: the char gives up rather than switching to the player.
+    if (c.value && !target) {
+      c.state = 'done';
+      return;
+    }
     const tp = target ? target.pos : fish;
     c.vel = scale(norm(sub(tp, c.pos)), p.get('smolt.charSpeed'));
     if (target && dist(c.pos, target.pos) < 0.9) {
@@ -196,6 +202,12 @@ function stepMergansers(w: World, dt: number, section: SmoltSection): void {
       }
     } else if (m.state === 'chase') {
       const target = m.value ? w.entities.find((e) => e.id === m.value && e.alive) ?? null : null;
+      if (m.value && !target) {
+        // Its school-mate was taken by something else: the merganser surfaces.
+        m.state = 'surface';
+        m.timer = 1.5;
+        continue;
+      }
       const tp = target ? target.pos : w.body.pos;
       m.vel = scale(norm(sub(tp, m.pos)), p.get('smolt.mergSpeed'));
       if (target && dist(m.pos, target.pos) < 0.8) {
@@ -282,7 +294,8 @@ export const smoltStage: StageDef = {
   init(w) {
     const p = w.p;
     w.body.pos = v3(6, -3, 0);
-    w.body.scale = 0.6;
+    // A fish that grew more in the lake (or stayed a second year) leaves it visibly bigger.
+    w.body.scale = p.get('smolt.baseScale') + p.get('smolt.scalePerLakeGrowth') * Math.min(lakeGrowth(p, w.progress), p.get('fry.fullLakeGrowth'));
     const n = p.get('smolt.schoolSize');
     const s: SmoltState = { birdTimer: p.get('smolt.birdInterval') * 0.5, mergTimer: p.get('smolt.mergInterval') * 0.4, sealTimer: 1, lost: 0, schoolStart: n };
     w.stage = s as unknown as Record<string, unknown>;

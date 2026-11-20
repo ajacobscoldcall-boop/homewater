@@ -117,7 +117,9 @@ export type SimEventType =
   | 'eat'
   | 'wriggle'
   | 'spawned'
-  | 'lifeComplete';
+  | 'lifeComplete'
+  /** A near miss that would leave a mark (key: 'net'). Drawn as a wound; changes nothing in the sim. */
+  | 'graze';
 
 export interface SimEvent {
   t: number;
@@ -161,7 +163,7 @@ export const NO_INTENT: Intent = {
   risePressed: false,
 };
 
-export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'noSpawn';
+export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn';
 
 export interface SpawnResult {
   /** Eggs laid (female) or eggs fertilized (male). */

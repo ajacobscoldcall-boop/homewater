@@ -111,3 +111,30 @@ test('sound settings: mute with M and the pause menu, and they persist', async (
   await expect(page.locator('[data-sound-mute]')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
+
+test('a reload at the offspring choice reopens the choice, not the parent', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('./');
+  await page.click('#btn-new');
+  await page.click('#btn-setup-next');
+  await page.click('#btn-accept-name');
+  for (let i = 0; i < 6; i++) {
+    await page.click('#btn-play');
+    await page.evaluate(() => window.__hw?.completeStage());
+  }
+  await expect(page.locator('[data-offspring="0"]')).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(async () => {
+    await window.__hw?.app.save();
+  });
+  await page.reload();
+  await expect(page.locator('#btn-continue')).toContainText('offspring');
+  await page.click('#btn-continue');
+  await expect(page.locator('[data-offspring="0"]')).toBeVisible();
+  await page.click('[data-offspring="0"]');
+  await page.click('#btn-accept-name');
+  await expect(page.locator('#btn-play')).toBeVisible();
+  const s = await state(page);
+  expect((s?.fish as { generation: number }).generation).toBe(2);
+  expect(errors).toEqual([]);
+});

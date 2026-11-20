@@ -154,7 +154,7 @@ export const eggStage: StageDef = {
       w.completeStage();
       return;
     }
-    if (w.progress.yolk < -0.25) w.die('exhaustion');
+    if (w.progress.yolk < -0.25) w.die('yolk');
   },
   debugComplete(w) {
     w.progress.yolk = 0.1;

@@ -418,3 +418,20 @@ describe('growth contract: lake and ocean feeding feed growthPerf', () => {
     expect(lakeThenSea(true)).toBeGreaterThan(lakeThenSea(false) + 0.05);
   });
 });
+
+describe('smolt size follows lake growth', () => {
+  it('a fish that grew more in the lake is a bigger smolt', () => {
+    const scaleWith = (bites: number) => {
+      const { w } = newWorld({ seed: 5 });
+      w.debugComplete(); // egg
+      w.advance();
+      w.debugComplete(); // fry
+      w.progress.fryBites = bites;
+      w.progress.fryRichBites = 0;
+      w.advance();
+      expect(w.stageId).toBe('smolt');
+      return w.body.scale;
+    };
+    expect(scaleWith(60)).toBeGreaterThan(scaleWith(10));
+  });
+});

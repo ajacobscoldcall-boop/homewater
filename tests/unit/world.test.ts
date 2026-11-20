@@ -224,11 +224,17 @@ describe('stage tuning sanity', () => {
     run(big, 60 * SEC, (ww) => steerTo(ww, 100, ww.body.pos.z));
     expect(big.deathCause).toBe('gillnet');
 
-    const jack = newWorld({ startStage: 4, sex: 'M', seed: 31 }).w;
-    jack.progress.adultSize = 0.38;
-    for (const g of jack.live('netGap')) g.alive = false;
-    run(jack, 25 * SEC, (ww) => steerTo(ww, 100, ww.body.pos.z));
-    expect(jack.deathCause).not.toBe('gillnet');
+    // A jack sits inside the mesh's slip band: most get through, a few are caught.
+    let caught = 0;
+    const seeds = Array.from({ length: 20 }, (_, i) => 100 + i);
+    for (const seed of seeds) {
+      const jack = newWorld({ startStage: 4, sex: 'M', seed }).w;
+      jack.progress.adultSize = 0.38;
+      for (const g of jack.live('netGap')) g.alive = false;
+      run(jack, 25 * SEC, (ww) => steerTo(ww, 100, ww.body.pos.z));
+      if (jack.deathCause === 'gillnet') caught++;
+    }
+    expect(caught / seeds.length).toBeLessThan(0.5);
   });
 });
 

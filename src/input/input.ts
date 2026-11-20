@@ -1,22 +1,43 @@
-/** Keyboard and mouse to Intent. Mouse steering uses pointer lock on the canvas. */
+/**
+ * Keyboard, mouse and gamepad to Intent. Keys go through the player's
+ * bindings (bindings.ts); mouse steering uses pointer lock on the canvas;
+ * a standard-mapping gamepad is polled every animation frame (gamepad.ts).
+ */
 import { NO_INTENT, type Intent } from '../sim/types';
+import { access } from '../ui/accessibility';
+import { actionFor, bindings, FIXED_PAUSE, SWIM_ACTIONS, type Action } from './bindings';
+import { pollPad, readPad, type PadState } from './gamepad';
+
+/**
+ * App's one-shot UI handlers are written in terms of the default keys.
+ * Input sends that default code for whichever key the player bound, so a
+ * rebound key and a gamepad button both reach the same handler.
+ */
+const UI_CODE: Partial<Record<Action, string>> = { view: 'KeyV', details: 'KeyH', sound: 'KeyM', journal: 'KeyJ', guide: 'KeyG', pause: FIXED_PAUSE };
 
 export class Input {
   private down = new Set<string>();
-  private pressed = new Set<string>();
+  /** Actions whose key or button went down since the last step. */
+  private pressed = new Set<Action>();
   private mouseX = 0;
   private mouseY = 0;
+  /** Latched state for toggle mode (forward swim and burst). */
+  private latched = { forward: false, burst: false };
+  private pad: PadState | null = null;
+  private padPrev = new Set<Action>();
   locked = false;
-  /** Called for one-shot UI keys (V, H, Esc). */
+  /** Called for one-shot UI keys, with the default code of the action (KeyV, KeyH, Escape...). */
   onKey: (code: string) => void = () => undefined;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
-      if (!this.down.has(e.code)) this.pressed.add(e.code);
+      const action = e.code === FIXED_PAUSE ? 'pause' : actionFor(bindings(), e.code);
+      if (!this.down.has(e.code) && action) this.press(action);
       this.down.add(e.code);
-      if (['Space', 'ShiftLeft', 'ShiftRight', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyC', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-      this.onKey(e.code);
+      if (action && (SWIM_ACTIONS as readonly string[]).includes(action)) e.preventDefault();
+      const ui = action ? UI_CODE[action] : undefined;
+      if (ui) this.onKey(ui);
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
     window.addEventListener('blur', () => this.down.clear());
@@ -28,6 +49,46 @@ export class Input {
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
     });
+    const poll = () => {
+      this.pollGamepad();
+      requestAnimationFrame(poll);
+    };
+    requestAnimationFrame(poll);
+  }
+
+  /** A key or button went down: edge flags, and the toggle latches. */
+  private press(a: Action): void {
+    this.pressed.add(a);
+    const o = access();
+    if (a === 'forward' && o.forwardMode === 'toggle') {
+      this.latched.forward = !this.latched.forward;
+      if (!this.latched.forward) this.latched.burst = false;
+    } else if (a === 'burst' && o.burstMode === 'toggle') {
+      this.latched.burst = !this.latched.burst;
+    } else if (a === 'easeOff') {
+      this.latched.forward = false;
+      this.latched.burst = false;
+    }
+  }
+
+  private pollGamepad(): void {
+    const p = pollPad();
+    this.pad = p ? readPad(p.snap) : null;
+    const held = this.pad?.held ?? new Set<Action>();
+    for (const a of held) {
+      if (this.padPrev.has(a)) continue;
+      this.press(a);
+      const ui = UI_CODE[a];
+      if (ui) this.onKey(ui);
+    }
+    this.padPrev = held;
+  }
+
+  /** True while any bound key or the gamepad holds this action. */
+  private held(a: Action): boolean {
+    if (this.pad?.held.has(a)) return true;
+    for (const c of bindings()[a]) if (this.down.has(c)) return true;
+    return false;
   }
 
   requestLock(): void {
@@ -45,20 +106,25 @@ export class Input {
 
   /** Intent for one simulation step. Edge flags and mouse deltas are consumed. */
   consume(): Intent {
-    const k = (c: string) => this.down.has(c);
+    const o = access();
+    const keyTurn = (this.held('steerRight') ? 1 : 0) - (this.held('steerLeft') ? 1 : 0);
+    const turn = Math.max(-1, Math.min(1, keyTurn + (this.pad?.turn ?? 0)));
+    const heldForward = this.held('forward') ? Math.max(this.pad?.forward ?? 0, this.forwardKeyDown() ? 1 : 0) : 0;
+    const forward = o.forwardMode === 'toggle' ? (this.latched.forward ? 1 : 0) : heldForward;
+    const burst = o.burstMode === 'toggle' ? this.latched.burst : this.held('burst');
     const i: Intent = {
       ...NO_INTENT,
-      forward: k('KeyW') || k('ArrowUp') ? 1 : 0,
-      hold: k('KeyS') || k('ArrowDown'),
-      turn: (k('KeyD') || k('ArrowRight') ? 1 : 0) - (k('KeyA') || k('ArrowLeft') ? 1 : 0),
+      forward,
+      hold: this.held('easeOff'),
+      turn,
       mouseX: this.mouseX,
       mouseY: this.mouseY,
-      rise: k('Space'),
-      dive: k('KeyC') || k('ControlLeft'),
-      burst: k('ShiftLeft') || k('ShiftRight'),
-      action: k('KeyE'),
-      actionPressed: this.pressed.has('KeyE'),
-      risePressed: this.pressed.has('Space'),
+      rise: this.held('rise'),
+      dive: this.held('dive'),
+      burst,
+      action: this.held('act'),
+      actionPressed: this.pressed.has('act'),
+      risePressed: this.pressed.has('rise'),
     };
     this.mouseX = 0;
     this.mouseY = 0;
@@ -66,9 +132,14 @@ export class Input {
     return i;
   }
 
+  private forwardKeyDown(): boolean {
+    return bindings().forward.some((c) => this.down.has(c));
+  }
+
   clear(): void {
     this.down.clear();
     this.pressed.clear();
+    this.latched.forward = this.latched.burst = false;
     this.mouseX = this.mouseY = 0;
   }
 }

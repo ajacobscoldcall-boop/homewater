@@ -1,6 +1,8 @@
 /**
  * Stage 4: ocean years. Separate moments joined by time skips:
- * - baitball: feed on a herring ball.
+ * - baitball: feed in a drifting food patch. Food entities keep the kind 'herring'
+ *   for save and test stability; they are drawn as a krill swarm with a few small
+ *   fish and squid (src/render/krill.ts), since sockeye at sea eat mainly zooplankton.
  * - orca: another ball, and an orca makes a charging pass (advisor: whales).
  * - seal: feeding near the surface, a seal lunges (advisor: seals and sea lions).
  * - pinks: in a crowded year only, pink salmon compete for the same food.

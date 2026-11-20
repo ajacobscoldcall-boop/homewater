@@ -2,7 +2,7 @@
 
 A sockeye salmon lifecycle simulator. Working title: **Homewater**.
 
-Status: design reviewed and revised, build not started. Milestone 1 can start without the scientific advisor's input. His answers mostly affect numbers and content from milestone 2 on.
+Status: design reviewed and revised with the scientific advisor's answers (see ADVISOR_NOTES.md). The build is under way, one playable milestone at a time.
 
 ## Expert input
 
@@ -47,7 +47,7 @@ Six stages with unequal time budgets, matched to their content. Each stage is 2�
 2. **Fry in the lake:** Feeding on plankton, avoiding trout and diving birds, and surviving winter. In the first life this is where swimming is taught.
 3. **Smolt run downriver:** A short sprint, including the change to saltwater.
 4. **Ocean years:** Built from distinct events with time skips between them, not one open arena:
-   - A bait-ball feed
+   - A feed in a drifting krill swarm (with a few small fish and squid)
    - An orca pass
    - A seal ambush
    - A crowded-ocean year
@@ -126,6 +126,20 @@ The year card and the recap say what the year favoured.
 After spawning and death, a short sequence plays: the carcass decays and feeds the stream and forest, the seasons pass, and the eggs hatch. v1 keeps this simple, as a series of fades rather than a full cinematic. Then the life ends with a recap and a score.
 - **Recap:** where the fish hatched, how far it travelled, what it survived and how it died, plus the science behind its death.
 - **Score:** offspring compared against the fish's cohort, meaning eggs fertilized or surviving young. It does not reward distance or years lived, which would unfairly penalize jacks.
+
+### Score across generations
+
+The lineage score rewards a line for lasting and for doing well, and is shown on the recap with a one-line explanation:
+- **Persistence:** 100 points for each generation that spawns (`lineage.score.perSpawn`).
+- **Fitness:** 100 points × each spawn's relative fitness against the average spawner of its sex that year (`lineage.score.perFitness`), counted up to 3× (`lineage.score.fitnessCap`) so one lucky spawn can't outweigh a long line.
+- A life that dies before spawning adds nothing. Years lived and distance travelled still count for nothing, so jacks are not penalized.
+- Computed by `lineageScore()` in `src/sim/records.ts`.
+
+### Lineage records, extinction and the Lineages page
+
+- **Records** across every lineage in the save (the current one and up to 20 archived): longest line, most eggs in one life, largest fish, most jacks in a line, best lineage score, and the longest line on each difficulty. Shown on the recap, the extinction screen and the **Lineages** page from the title screen.
+- **Family tree:** one node per generation's played fish, with sex, jack or large male, habitat, stray marker, how it spawned or died, eggs and relative fitness. Siblings lost are small marks; offspring not chosen show faintly. Past 12 generations it switches to one line per generation and scrolls, opening at the newest.
+- **Extinction (Wild):** an ending screen for the line: how long it lasted, its best fish, a chart of how the mean inherited value of each trait drifted per generation, and the years it lived through. Then a new lineage, or **a stray from this river**: a fish from another population that has joined the same river founds a new line there.
 
 ## Realism systems
 
@@ -246,7 +260,7 @@ Rough edges are acceptable.
 - Cinematic camera moments
 - More graphics levels
 
-Since added: anglers, salmon sharks, lake-beach and river spawning, and the recording script. In progress: the adaptive score and the field journal. The trawl was dropped on the advisor's advice.
+Since added: anglers, salmon sharks, lake-beach and river spawning, the recording script, the adaptive score, the field journal and guided first life, the fry and ocean stages as short scenes with time skips, and animals built in code. The trawl was dropped on the advisor's advice.
 
 ## Milestones
 

@@ -7,8 +7,8 @@ import type { Entity, EntityKind, SimEvent, StageId } from '../sim/types';
 import { AUDIO, type AmbienceProfile, type MusicSlot } from './config';
 
 /** Predators, and the states in which they are a threat (as in App.updateThreats). */
-export const PREDATORS: ReadonlySet<EntityKind> = new Set<EntityKind>(['trout', 'birdShadow', 'merganser', 'seal', 'orca', 'shark', 'bear']);
-export const HOT_STATES: ReadonlySet<string> = new Set(['chase', 'strike', 'lunge', 'charge', 'dive']);
+export const PREDATORS: ReadonlySet<EntityKind> = new Set<EntityKind>(['trout', 'birdShadow', 'merganser', 'seal', 'orca', 'shark', 'bear', 'lure']);
+export const HOT_STATES: ReadonlySet<string> = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooked']);
 export const WARN_STATES: ReadonlySet<string> = new Set(['warn']);
 
 type EntityLike = Pick<Entity, 'kind' | 'state' | 'alive'>;

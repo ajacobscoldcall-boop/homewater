@@ -1,6 +1,7 @@
 /** Player-facing wording for traits, stages and results. */
 import captionsFile from '../data/captions.json';
 import { describeZ, yearFavours } from '../sim/genetics';
+import { withKeys } from '../input/bindings';
 import type { DeathCause, FishIdentity, StageId, TraitValues, YearConditions } from '../sim/types';
 
 const CAPTIONS = (captionsFile as { captions: Record<string, string> }).captions;
@@ -8,7 +9,8 @@ const CAPTIONS = (captionsFile as { captions: Record<string, string> }).captions
 export function caption(id: string, vars: Record<string, string | number> = {}): string | null {
   const text = CAPTIONS[id];
   if (!text) return null;
-  return text.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ''));
+  // Key placeholders ({key:burst}) show the player's own keys; see src/input/bindings.ts.
+  return withKeys(text).replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ''));
 }
 
 export const STAGE_TITLES: Record<StageId, string> = {
@@ -23,7 +25,7 @@ export const STAGE_TITLES: Record<StageId, string> = {
 export function stageCardLine(stage: StageId, oceanYears: number | null): string {
   switch (stage) {
     case 'egg':
-      return 'Autumn. An egg in the creek gravel.';
+      return 'Autumn. An egg in the gravel.';
     case 'fry':
       return 'Spring. Out of the gravel and into the lake.';
     case 'smolt':
@@ -33,22 +35,29 @@ export function stageCardLine(stage: StageId, oceanYears: number | null): string
     case 'return':
       return `${oceanYears ?? 2} year${oceanYears === 1 ? '' : 's'} at sea. Summer, and the pull of home.`;
     case 'spawn':
-      return 'Late summer. The gravel where it all began.';
+      return 'Late summer. The spawning grounds.';
   }
 }
 
-export const OBJECTIVES: Record<StageId, string> = {
-  egg: 'Face into the current (A/D or mouse). Stay low (C) in surges. When the yolk is nearly used, swim up (Space).',
+/** Objectives with key placeholders ({key:dive}); read through OBJECTIVES, which fills in the player's keys. */
+const OBJECTIVE_TEXT: Record<StageId, string> = {
+  egg: 'Face into the current {key:steer}. Stay low {key:dive} in surges. When the yolk is nearly used, swim up {key:rise}.',
   fry: 'Feed on the plankton, and dart into the weeds when a Dolly Varden chases. Rest through the winter. In spring, follow the current out or stay another year.',
   smolt: 'Ride the current to the sea with the school. Go deep for birds, burst from mergansers, swim across a seal\'s path.',
-  ocean: 'Feed on the herring. When an orca or shark charges, swim across its path.',
+  ocean: 'Feed where the food gathers. When an orca or shark charges, swim across its path.',
   return: 'Follow the faint magnetic track to the coast. Slip through the nets, find the right river mouth, then swim upstream and follow the scent.',
-  spawn: 'Spawn before the season ends.',
+  spawn: 'Spawn before your strength runs out. It will not come back.',
 };
+
+export const OBJECTIVES: Readonly<Record<StageId, string>> = Object.defineProperties(
+  {} as Record<StageId, string>,
+  Object.fromEntries((Object.keys(OBJECTIVE_TEXT) as StageId[]).map((s) => [s, { enumerable: true, get: () => withKeys(OBJECTIVE_TEXT[s]) }])),
+);
 
 export const DEATH_TITLES: Record<DeathCause, string> = {
   silt: 'Smothered',
   scour: 'Washed out',
+  yolk: 'Out of yolk',
   exposed: 'Seen and eaten',
   char: 'Taken by a char',
   merganser: 'Taken by a merganser',

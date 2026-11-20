@@ -30,7 +30,7 @@ Status markers: **Applied** (in the M1 build), **Planned** (affects a later mile
 ## Jacks
 
 - **When the pathway is set:** it is thought to be set after the first fall at sea. It depends heavily on both genes and growth; jack parents and fast early growth both raise the odds. **Applied:** the threshold model, with growth raising liability.
-- **Heritability:** varies by population, from about 0.15 to almost 1. **Applied:** a mid value of 0.5. Whether to vary it by stream is **Open**.
+- **Heritability:** varies by population, from about 0.15 to almost 1. **Applied:** a mid value, first 0.5, then 0.4 after the second round. Whether to vary it by stream is **Open**.
 - **Behaviour:**
   - Jacks have lower reproductive success than large males, balanced by better survival from leaving the sea early.
   - They hide under logs, rocks and undercut banks, approach indirectly, and dart in while the pair is distracted.
@@ -150,3 +150,32 @@ These are game choices made without advisor input. They are marked placeholder i
 - **A second lake year:** the game says a fish that stays leaves bigger, at the cost of another year among predators. **Open:** is that the real trade-off?
 - **When a male's path is set:** `ocean.autumnMale` says it is thought to be set in the first autumn at sea, by genes and growth. **Open:** is that wording right?
 - **Seals at sea:** a seal lunges at where the fish is going. This is a game mechanic. **Open:** anything to correct about how seals take salmon at sea?
+
+## Open questions from the accuracy audit
+
+An audit of every caption and journal entry found these claims the notes don't settle. The wording in the game was softened in the meantime.
+
+- **Ocean diet:** what do sockeye mostly eat at sea? The ocean stage shows a herring bait ball, but sockeye are thought to feed mainly on zooplankton such as krill, plus squid and small fish. The captions now say "krill and small fish", and the food patch is now drawn as a krill swarm with a few small fish and the odd small squid (`src/render/krill.ts`).
+- **Weed cover for lake fry:** do fry use the weedy shallows as cover from char and trout, perhaps only in early summer?
+- **Lake growth and jacks:** does growth in the lake affect a male's odds of becoming a jack, or mainly growth in the first months at sea? The game counts both.
+- **Year effects:** the game makes warm, cool, high-water, low-water and big-run years favour different traits. Can these be stated as biology, or should they be framed as game rules? The captions now say "this year favours", without a mechanism.
+- **Bears:** do bears pick deeper-bodied fish? Is "less easily" right for beaches compared with creeks?
+- **Gillnets:** is "gillnets catch many returning sockeye" fair for Bristol Bay?
+- **Fights:** do timing and a side-on position really change who wins, or is it almost all size?
+
+## Open questions from the spawning rebuild
+
+Game choices made without advisor input, marked placeholder in params.json.
+
+- **Covering the eggs:** after spawning, the female sweeps gravel over the eggs (hold E), and uncovered eggs survive half as well (`spawn.unburiedSurvival`). **Open:** is that a fair picture, and how big is the difference?
+- **Redds dug over:** each time another female digs over a redd after spawning, 30% of the eggs are lost (`spawn.superimposeLoss`), and rival females come more often late in the season (`spawn.lateRivalRamp`). **Open:** is superimposition commoner late in the season, and how costly is it?
+- **A second female:** a large male who has spawned can leave to spawn with another female, at a cost in strength and with more bear risk. **Open:** do large sockeye males spawn with several females, and do they stay with one after spawning?
+- **Frequency-dependent jack success:** a sneak is worth less in years when jacks are commoner (`spawn.jackFreqStrength`), and jack-rich years bring more rival jacks. **Open:** is this the right shape, and how strong is the effect?
+- **Senescence:** strength drains steadily on the grounds and faster with hard effort; weeks are compressed into about two minutes. **Open:** do hard effort and fights speed up senescence?
+
+
+## Open questions from the gore and decay visuals
+
+- **Net marks:** the notes say a tangled fish cannot back out. The game lets fish in the mesh's slip band squeeze through, and draws rubbed marks on them. Do fish survive net encounters with marks like that?
+- **Spawned-out fish:** the game shows pale patches spreading over the skin and frayed fins. The notes only say "sluggish and ragged". Is that a fair picture?
+- **Predator marks:** orca rakes drawn as parallel tooth marks, seal and shark bites as arcs. Anything to correct?

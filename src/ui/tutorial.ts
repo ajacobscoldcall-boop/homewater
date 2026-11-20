@@ -15,7 +15,13 @@ import { spawnState, type SpawnRole } from '../sim/stages/spawn';
 import type { SimEvent, StageId } from '../sim/types';
 import { dist, wrapAngle } from '../sim/vec';
 import type { World } from '../sim/world';
+import { k, withKeys } from '../input/bindings';
 import { h } from './dom';
+
+/** Step text with key placeholders ({key:burst}) filled with the player's keys. */
+export function guideText(text: string): string {
+  return withKeys(text);
+}
 import { triggersFor } from './journal';
 
 /** What the guide can see of the world in one frame. Plain data, so tests can build it. */
@@ -39,7 +45,7 @@ export interface GuideSnapshot {
   schoolNear: number;
   /** x of the coastline on the return. */
   coast: number | null;
-  spawn: { dig: number; spawned: boolean; hiding: boolean; nearFemale: boolean } | null;
+  spawn: { dig: number; spawned: boolean; hiding: boolean; nearFemale: boolean; burial: number } | null;
 }
 
 /** Event counts for the current stage, keyed like journal triggers, plus 'eat'. */
@@ -71,21 +77,21 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
       return [
         { text: 'Wait. An egg can do little but wait for the alevin to hatch.', done: (s) => !!s.alevin?.hatched },
         {
-          text: 'The flow will swing round. Turn to face into the current with A and D (or the mouse), and hold it there.',
+          text: 'The flow will swing round. Turn to face into the current {key:steer}, and hold it there.',
           done: (s, c) => n(c, 'warning.flow') > 0 && !!s.alevin?.aligned && !s.alevin.turning,
           hold: 0.5,
           skipIf: (s) => !!s.alevin?.ready,
         },
         {
-          text: 'Keep facing upstream each time the flow swings, and stay low in the gravel (C). Wait for the yolk to run low.',
+          text: 'Keep facing upstream each time the flow swings, and stay low in the gravel {key:dive}. Wait for the yolk to run low.',
           done: (s) => !!s.alevin?.ready,
           progress: (s) => `yolk ${pct(s.yolk)}`,
         },
-        { text: 'The yolk is nearly gone. Hold Space to swim up toward the light.', done: never },
+        { text: 'The yolk is nearly gone. Swim up toward the light {hold:rise}.', done: never },
       ];
     case 'fry':
       return [
-        { text: 'Click the game to steer with the mouse, or use A and D. Hold W to swim forward.', done: (s) => s.thrust > 0.3, hold: 1 },
+        { text: 'Steer {key:steer}; to use the mouse, click the game first. Swim forward {key:forward}.', done: (s) => s.thrust > 0.3, hold: 1 },
         { text: 'Swim through the glowing plankton to feed.', done: (_s, c) => n(c, 'eat') >= EAT_GOAL, progress: (_s, c) => `${Math.min(EAT_GOAL, n(c, 'eat'))} / ${EAT_GOAL} eaten` },
         {
           text: 'Dolly Varden hunt in open water. If rings warn of a chase, escape into the weeds at the shallow edge.',
@@ -93,7 +99,7 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           skipIf: (s) => s.fryPhase === 'winter' || s.fryPhase === 'decide' || s.fryPhase === 'second',
         },
         {
-          text: 'Feed at dusk, when the plankton rises. In winter, let go of W to rest, and take only the food that drifts close.',
+          text: 'Feed at dusk, when the plankton rises. In winter, stop swimming {key:forward} to rest, and take only the food that drifts close.',
           done: (s) => s.fryPhase === 'decide' || s.fryPhase === 'second',
           progress: (s) => `grown ${pct(s.fryGrowth)}`,
         },
@@ -106,14 +112,14 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
     case 'smolt':
       return [
         {
-          text: 'Stay with the school: keep a few other smolts close as you swim downstream (W).',
+          text: 'Stay with the school: keep a few other smolts close as you swim downstream {key:forward}.',
           done: (s) => s.schoolNear >= SCHOOL_GOAL && s.thrust > 0.2,
           hold: 1.5,
           skipIf: (s) => s.smoltSection !== 'outlet',
         },
-        { text: 'Char wait at the lake outlet. When rings warn of a lunge, burst away with Shift.', done: (s) => s.smoltSection !== 'outlet' },
+        { text: 'Char wait at the lake outlet. When rings warn of a lunge, burst away {key:burst}.', done: (s) => s.smoltSection !== 'outlet' },
         {
-          text: 'A shadow on the surface means a diving bird. Dive deep (C), or hide under the overhanging banks.',
+          text: 'A shadow on the surface means a diving bird. Dive deep {key:dive}, or hide under the overhanging banks.',
           done: (s, c) => n(c, 'warning.bird') > 0 && s.depth >= BIRD_DEPTH,
           skipIf: (s) => s.smoltSection === 'mouth',
         },
@@ -122,7 +128,7 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
     case 'ocean':
       return [
         {
-          text: 'Feed on the herring: swim through the bait ball.',
+          text: 'Feed: swim through the swarm of food.',
           done: (_s, c) => n(c, 'eat') >= EAT_GOAL,
           skipIf: (_s, c) => n(c, 'warning.orca') > 0,
           progress: (_s, c) => `${Math.min(EAT_GOAL, n(c, 'eat'))} / ${EAT_GOAL} eaten`,
@@ -151,24 +157,27 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
     case 'spawn':
       if (role === 'female')
         return [
-          { text: 'Look for gravel of medium cobble, then hold E over it to dig the redd.', done: (s) => (s.spawn?.dig ?? 0) > 0 },
-          { text: 'Keep digging. Drive off rival females with Shift.', done: (s) => !!s.spawn?.spawned, progress: (s) => `redd ${pct(s.spawn?.dig ?? 0)}` },
-          { text: 'Spawned. Guard the redd until the season ends: charge rival females with Shift.', done: never },
+          { text: 'Look for gravel of medium cobble, then dig the redd over it {hold:act}.', done: (s) => (s.spawn?.dig ?? 0) > 0 },
+          { text: 'Keep digging. Drive off rival females with a burst {key:burst}.', done: (s) => (s.spawn?.dig ?? 0) >= 1 || !!s.spawn?.spawned, progress: (s) => `redd ${pct(s.spawn?.dig ?? 0)}` },
+          { text: 'Stay over the finished redd until a male joins you. If two males come, you spawn with the winner.', done: (s) => !!s.spawn?.spawned },
+          { text: 'Cover the eggs: sweep gravel over them {hold:act} over the redd.', done: (s) => (s.spawn?.burial ?? 0) >= 1, progress: (s) => `covered ${pct(s.spawn?.burial ?? 0)}` },
+          { text: 'Guard the redd against other females (burst {key:burst}) for as long as your strength lasts.', done: never },
         ];
       if (role === 'jack')
         return [
           { text: 'Settle into a hiding spot under the bank. The green ring is yours.', done: (s) => !!s.spawn?.hiding },
-          { text: 'Wait for the big males to fight. When the screen flashes green, dart in beside the female and press E.', done: (_s, c) => n(c, 'spawn.jackSuccess') > 0 },
+          { text: 'Wait for the big males to fight. When the screen flashes green, dart in beside the female {key:act}.', done: (_s, c) => n(c, 'spawn.jackSuccess') > 0 },
           { text: 'Back into cover. Another opening may come before the season ends.', done: never },
         ];
       return [
         { text: 'Swim to the female and stay beside her.', done: (s) => !!s.spawn?.nearFemale, hold: 1.5 },
         {
-          text: 'When a rival comes, ram him side-on with Shift before he reaches her.',
+          text: 'When a rival comes, ram him side-on with a burst {key:burst} before he reaches her.',
           done: (_s, c) => n(c, 'spawn.fightWon', 'spawn.fightWonSide', 'spawn.chargeWorked') > 0,
           skipIf: (s) => !!s.spawn?.spawned,
         },
-        { text: 'Stay with her until she spawns. Watch for bears: they go for big males first.', done: never },
+        { text: 'Stay with her until she spawns. Watch for bears: they go for big males first.', done: (s) => !!s.spawn?.spawned },
+        { text: 'Another female may come. Go to her for a second chance, at a cost in strength and bear risk, or stay with this one.', done: never },
       ];
   }
 }
@@ -230,7 +239,7 @@ export function guidePrompt(state: GuideState, snap: GuideSnapshot): GuidePrompt
   const steps = guideSteps(snap.stage, snap.role);
   const step = steps[state.index];
   if (!step) return null;
-  return { text: step.text, progress: step.progress?.(snap, state.counts) ?? null, step: state.index + 1, total: steps.length };
+  return { text: guideText(step.text), progress: step.progress?.(snap, state.counts) ?? null, step: state.index + 1, total: steps.length };
 }
 
 /** Read what the guide needs from the world, through public helpers only. */
@@ -260,7 +269,7 @@ export function guideSnapshot(w: World): GuideSnapshot {
     smoltSection: w.stageId === 'smolt' ? smoltSection(w) : null,
     schoolNear: w.stageId === 'smolt' ? w.live('smolt').filter((s) => dist(s.pos, body.pos) < 6).length : 0,
     coast: returnLayout(w)?.coast ?? null,
-    spawn: sp ? { dig: sp.dig, spawned: sp.spawned, hiding: sp.owners.includes(0), nearFemale: !!female && dist(female.pos, body.pos) < near } : null,
+    spawn: sp ? { dig: sp.dig, spawned: sp.spawned, hiding: sp.owners.includes(0), nearFemale: !!female && dist(female.pos, body.pos) < near, burial: sp.burial } : null,
   };
 }
 
@@ -336,7 +345,7 @@ export class Guide {
     el.dataset.sig = sig;
     el.dataset.step = String(p.step);
     const parts: Node[] = [
-      h('div', { class: 'guide-head' }, h('span', { class: 'label' }, `Field guide · step ${p.step} of ${p.total}`), h('button', { class: 'guide-skip', id: 'btn-skip-guide', onclick: onSkip }, 'Skip guidance (G)')),
+      h('div', { class: 'guide-head' }, h('span', { class: 'label' }, `Field guide · step ${p.step} of ${p.total}`), h('button', { class: 'guide-skip', id: 'btn-skip-guide', onclick: onSkip }, `Skip guidance (${k('guide')})`)),
       h('p', {}, p.text),
     ];
     if (p.progress) parts.push(h('p', { class: 'guide-progress' }, p.progress));

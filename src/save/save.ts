@@ -4,9 +4,10 @@
  * Saves store seeds and trait values, not derived data.
  */
 import type { Lineage } from '../sim/lineage';
+import type { FishIdentity } from '../sim/types';
 import type { Checkpoint } from '../sim/world';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 3;
 
 export interface LifeSave {
   checkpoint: Checkpoint;
@@ -24,6 +25,8 @@ export interface SaveFile {
   game: 'homewater';
   lineage: Lineage;
   life: LifeSave | null;
+  /** Offspring offered at the end of a life, while the player is still choosing (schema 2). */
+  pendingOffspring: FishIdentity[] | null;
   /** Archived lineages (extinct or replaced), newest first, kept short. */
   archive: Lineage[];
 }
@@ -31,7 +34,31 @@ export interface SaveFile {
 type Migration = (old: Record<string, unknown>) => Record<string, unknown>;
 
 /** migrations[n] upgrades a save from version n to n + 1. */
-const migrations: Record<number, Migration> = {};
+const migrations: Record<number, Migration> = {
+  // 1 -> 2: the offspring choice is saved, so a reload at that screen reopens it.
+  1: (old) => ({ ...old, pendingOffspring: null }),
+  // 2 -> 3: life records keep traits, habitat and the offspring on offer; lineages may name an ancestor line.
+  2: (old) => {
+    const pending = Array.isArray(old.pendingOffspring) ? (old.pendingOffspring as FishIdentity[]) : null;
+    const lineage = old.lineage ? upgradeLineage3(old.lineage as Record<string, unknown>, old.life ? null : pending) : old.lineage;
+    const archive = Array.isArray(old.archive) ? (old.archive as Record<string, unknown>[]).map((l) => upgradeLineage3(l, null)) : [];
+    return { ...old, lineage, archive };
+  },
+};
+
+/** Schema 3 lineage: older records get the new fields with what can be recovered. */
+function upgradeLineage3(l: Record<string, unknown>, pending: FishIdentity[] | null): Record<string, unknown> {
+  const current = l.current as FishIdentity | undefined;
+  const habitat = current?.habitat ?? 'creek';
+  const records = Array.isArray(l.records) ? (l.records as Record<string, unknown>[]) : [];
+  const upgraded = records.map((r, i) => {
+    const last = i === records.length - 1;
+    // A pending choice belongs to the last life: keep it so the tree can show the offspring.
+    const offspring = last && pending ? pending.map((k) => ({ id: k.id, name: k.name, sex: k.sex, bv: k.bv })) : [];
+    return { bv: null, habitat, chosenId: null, ...r, offspring: Array.isArray(r.offspring) ? r.offspring : offspring };
+  });
+  return { ancestor: null, ...l, records: upgraded };
+}
 
 export function migrate(raw: unknown): SaveFile {
   if (!raw || typeof raw !== 'object') throw new Error('Not a Homewater save.');
@@ -156,4 +183,12 @@ export function exportSave(save: SaveFile): void {
 export async function importSave(file: File): Promise<SaveFile> {
   const text = await file.text();
   return migrate(JSON.parse(text));
+}
+
+/** How many past lineages a save keeps for the Lineages page and records. */
+export const ARCHIVE_LIMIT = 20;
+
+/** Put a lineage at the front of the archive, replacing an older copy of the same line. */
+export function addToArchive(archive: readonly Lineage[], l: Lineage): Lineage[] {
+  return [l, ...archive.filter((a) => a.id !== l.id)].slice(0, ARCHIVE_LIMIT);
 }

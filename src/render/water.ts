@@ -4,6 +4,7 @@
  * for integrated graphics.
  */
 import * as THREE from 'three';
+import { quality } from './quality';
 
 export interface WaterUniforms {
   uTime: { value: number };
@@ -16,18 +17,28 @@ const CAUSTIC_GLSL = /* glsl */ `
 float hwCaustic(vec2 p, float t) {
   vec2 q = p * 0.55;
   float v = 0.0;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < HW_CAUSTIC_STEPS; i++) {
     float fi = float(i);
     q += vec2(sin(q.y * 1.7 + t * 0.9 + fi), cos(q.x * 1.3 - t * 0.7 + fi * 1.3));
     v += abs(sin(q.x + q.y));
   }
-  return pow(clamp(1.0 - v / 3.0, 0.0, 1.0), 5.0) * 4.0;
+  return pow(clamp(1.0 - v / float(HW_CAUSTIC_STEPS), 0.0, 1.0), 5.0) * 4.0;
 }
 `;
 
-/** Bottom material: vertex colours plus caustics that fade with depth and darkness. */
-export function causticFloorMaterial(): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
+/**
+ * Bottom material: vertex colours plus caustics that fade with depth and darkness.
+ * The bottom fills much of the screen and the caustics are its costliest part
+ * (nine sines and cosines a pixel), so:
+ * - everywhere, caustics are skipped where depth, darkness and fog leave them under
+ *   1/255 of brightness, which looks the same;
+ * - below High the bottom uses Lambert shading (nearly the same on rough gravel);
+ *   Medium uses a two-step caustic pattern and Low has none.
+ */
+export function causticFloorMaterial(): THREE.MeshStandardMaterial | THREE.MeshLambertMaterial {
+  const m = quality.floorShading === 'standard' ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }) : new THREE.MeshLambertMaterial({ vertexColors: true });
+  const steps = quality.caustics === 2 ? 3 : quality.caustics === 1 ? 2 : 0;
+  if (steps === 0) return m;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = sharedWater.uTime;
     shader.uniforms.uLight = sharedWater.uLight;
@@ -35,15 +46,23 @@ export function causticFloorMaterial(): THREE.MeshStandardMaterial {
       .replace('#include <common>', '#include <common>\nvarying vec3 vHwWorld;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHwWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nvarying vec3 vHwWorld;\nuniform float uTime;\nuniform float uLight;\n${CAUSTIC_GLSL}`)
+      .replace('#include <common>', `#include <common>\n#define HW_CAUSTIC_STEPS ${steps}\nvarying vec3 vHwWorld;\nuniform float uTime;\nuniform float uLight;\n${CAUSTIC_GLSL}`)
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         float hwDepth = max(0.0, -vHwWorld.y);
-        float hwC = hwCaustic(vHwWorld.xz, uTime) * exp(-hwDepth * 0.09) * uLight;
-        totalEmissiveRadiance += vec3(0.55, 0.62, 0.55) * hwC * 0.22;`,
+        float hwW = exp(-hwDepth * 0.09) * uLight;
+        #if defined( USE_FOG ) && defined( FOG_EXP2 )
+          hwW *= exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+        #endif
+        // At most about 0.5 * hwW of light: below 0.002 it cannot be seen, so skip the pattern.
+        if (hwW > 0.002) {
+          float hwC = hwCaustic(vHwWorld.xz, uTime) * exp(-hwDepth * 0.09) * uLight;
+          totalEmissiveRadiance += vec3(0.55, 0.62, 0.55) * hwC * 0.22;
+        }`,
       );
   };
+  m.customProgramCacheKey = () => `hw-caustic-${steps}`;
   return m;
 }
 
@@ -125,10 +144,21 @@ export class LightShafts {
     }
   }
 
+  private strength = 0;
+  private count = Infinity;
+
   setStrength(s: number, color?: number): void {
+    this.strength = s;
     this.material.uniforms.uStrength!.value = s;
     if (color !== undefined) (this.material.uniforms.uColor!.value as THREE.Color).setHex(color);
-    this.group.visible = s > 0;
+    this.group.visible = s > 0 && this.count > 0;
+  }
+
+  /** How many shafts to draw (graphics quality). */
+  setCount(n: number): void {
+    this.count = n;
+    this.shafts.forEach((s, i) => (s.mesh.visible = i < n));
+    this.group.visible = this.strength > 0 && n > 0;
   }
 
   update(camera: THREE.Camera, floorAt: (x: number, z: number) => number, surfaceY: number, t: number): void {
@@ -136,6 +166,7 @@ export class LightShafts {
     const cx = camera.position.x;
     const cz = camera.position.z;
     for (const s of this.shafts) {
+      if (!s.mesh.visible) continue;
       const a = s.angle + Math.sin(t * 0.05 + s.phase) * 0.2;
       const x = cx + Math.cos(a) * s.radius;
       const z = cz + Math.sin(a) * s.radius;
@@ -190,5 +221,11 @@ export class MarineSnow {
 
   update(camera: THREE.Camera): void {
     (this.material.uniforms.uCam!.value as THREE.Vector3).copy(camera.position);
+  }
+
+  /** How many particles to draw (graphics quality); at most the number made. */
+  setCount(n: number): void {
+    this.points.geometry.setDrawRange(0, Math.max(0, Math.floor(n)));
+    this.points.visible = n > 0;
   }
 }

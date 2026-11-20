@@ -108,7 +108,11 @@ function crossNet(w: World, lineX: number): void {
   }
   const catchChance = size > mesh + band ? 1 : (size - (mesh - band)) / (2 * band);
   if (w.rng.chance(catchChance)) w.die('gillnet');
-  else w.emitOnce('caption', 'return.netSlip');
+  else {
+    // Squeezed through the mesh: the renderer draws net marks from this.
+    w.emit('graze', 'net');
+    w.emitOnce('caption', 'return.netSlip');
+  }
 }
 
 /**
@@ -184,7 +188,7 @@ function stepBear(w: World, bear: Entity, dt: number): void {
     if (distXZ(target, fish) < radius && depthOf(w) < p.get('return.bearReachDepth') + bonus) w.die('bear');
   } else if (bear.state === 'strike' && bear.timer <= 0) {
     bear.state = 'rest';
-    bear.timer = 3;
+    bear.timer = w.p.get('return.bearRest');
   } else if (bear.state === 'rest' && bear.timer <= 0) {
     bear.state = 'idle';
   }
@@ -232,6 +236,8 @@ export const returnStage: StageDef = {
       w.body.pos = v3(3, -5, trackStartZ);
     } else {
       w.body.pos = v3(COAST + 4, -2.5, homeMouth);
+      // A sibling taking over at the river mouth is a different fish: it arrives with its own reserves, not the last one's empty tank.
+      w.progress.fat = Math.max(w.progress.fat, p.get('return.resumeFat'));
     }
     s.prevX = w.body.pos.x;
 

@@ -11,6 +11,8 @@
  */
 import * as THREE from 'three';
 import { bell, col, decal, finPatch, GeoBuilder, hash3, keyed, loft, smooth, type Ring } from './geo';
+// Gore: wounds and senescence drawn in the fish shader (goreShader.ts, driven by gore.ts).
+import { goreUniforms, injectGore } from './goreShader';
 
 export type FishLook =
   | 'alevin'
@@ -535,7 +537,7 @@ export interface FishUniforms {
  * vertical: the wave bends the body up and down (whales), not side to side.
  */
 export function fishMaterial(opts: { transparent?: boolean; opacity?: number; vertical?: boolean; roughness?: number; metalness?: number } = {}): THREE.MeshStandardMaterial {
-  const uniforms: FishUniforms = { uTime: { value: 0 }, uAmp: { value: 0.06 }, uFreq: { value: 9 } };
+  const uniforms: FishUniforms = { uTime: { value: 0 }, uAmp: { value: 0.06 }, uFreq: { value: 9 }, ...goreUniforms() };
   const m = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: opts.roughness ?? 0.42,
@@ -559,6 +561,7 @@ export function fishMaterial(opts: { transparent?: boolean; opacity?: number; ve
         transformed.${axis} += aFin.x * uAmp * 0.35 * sin(uFreq * position.x - uTime - 1.4);
         transformed.z += aFin.y * sign(position.z) * (0.006 + uAmp * 0.08) * sin(uTime * 0.6 + position.x * 20.0);`,
       );
+    injectGore(shader);
   };
   m.customProgramCacheKey = () => `fish-${axis}`;
   return m;

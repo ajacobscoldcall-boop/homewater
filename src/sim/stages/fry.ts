@@ -104,7 +104,9 @@ function spawnPatch(w: World, rich: boolean): void {
   for (let i = 0; i < n; i++) {
     // home.y is the offset from the patch's depth, which changes through the evening.
     const home = v3(cx + w.rng.range(-2.5, 2.5), w.rng.range(-1.5, 1.5), cz + w.rng.range(-2.5, 2.5));
-    w.spawn('plankton', v3(home.x, -4 + home.y, home.z), { radius: 0.15, value: rich ? 1 : 0, home });
+    // Never inside the weed shelf or the lake bed, where the fry can't reach.
+    const y = Math.max(-4 + home.y, w.arena.floor(home.x, home.z) + 0.6);
+    w.spawn('plankton', v3(home.x, Math.min(-0.5, y), home.z), { radius: 0.15, value: rich ? 1 : 0, home });
   }
 }
 
@@ -126,7 +128,10 @@ function spawnTrout(w: World, home = v3(w.rng.range(0, 18), -5, w.rng.range(-15,
 }
 
 function spawnWinterFood(w: World): void {
-  w.spawn('plankton', v3(w.rng.range(-26, 26), w.rng.range(-8, -2), w.rng.range(-26, 26)), { radius: 0.15, value: 0, state: 'winter' });
+  const x = w.rng.range(-26, 26);
+  const z = w.rng.range(-26, 26);
+  const y = Math.min(-0.8, Math.max(w.rng.range(-8, -2), w.arena.floor(x, z) + 0.6));
+  w.spawn('plankton', v3(x, y, z), { radius: 0.15, value: 0, state: 'winter' });
 }
 
 function clearMoment(w: World): void {

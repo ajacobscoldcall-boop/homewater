@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { bearWeight, fightWinChance, spawnState } from '../../src/sim/stages/spawn';
-import type { World } from '../../src/sim/world';
+import { yearJackFraction } from '../../src/sim/genetics';
+import { Params } from '../../src/sim/params';
+import {
+  bearWeight,
+  eggSurvival,
+  fightWinChance,
+  jackFrequencyFactor,
+  jackSneakShare,
+  largeMaleSneakLoss,
+  rivalFemaleInterval,
+  rivalJackCount,
+  senescenceRate,
+  spawnState,
+} from '../../src/sim/stages/spawn';
+import { World } from '../../src/sim/world';
 import { foundLineage } from '../../src/sim/lineage';
 import type { Habitat } from '../../src/sim/types';
-import { intent, newWorld, params, run, steerTo } from './helpers';
+import { FILE, intent, newWorld, params, run } from './helpers';
+import { playSpawn } from './spawnBot';
 
 const SEC = 60;
 
@@ -29,60 +43,6 @@ describe('bears on the spawning grounds', () => {
     expect(bearWeight(p, 'female')).toBeGreaterThan(bearWeight(p, 'jack'));
   });
 });
-
-/** Play a spawning stage with a simple, sensible bot. Returns the outcome. */
-function playSpawn(role: 'female' | 'largeMale' | 'jack', seed: number, habitat: Habitat = 'creek'): { status: string; cause: string | null; detail?: string } {
-  const opts = role === 'female' ? { sex: 'F' as const } : role === 'jack' ? { sex: 'M' as const, preset: 'jack' as const } : { sex: 'M' as const };
-  const { w } = newWorld({ ...opts, seed, startStage: 5, habitat });
-  if (role === 'largeMale') {
-    w.progress.isJack = false;
-    w.progress.adultSize = 0.9;
-    w.debugJumpTo(5);
-    w.progress.isJack = false;
-    w.progress.adultSize = 0.9;
-    w.startStage(5, 0);
-  }
-  const bot = (ww: World) => {
-    const s = spawnState(ww);
-    const bear = ww.live('bear').find((b) => b.state === 'warn');
-    if (bear?.home && Math.hypot(bear.home.x - ww.body.pos.x, bear.home.z - ww.body.pos.z) < 3.5) {
-      return steerTo(ww, ww.body.pos.x + (bear.home.x > ww.body.pos.x ? -6 : 6), ww.body.pos.z > 0 ? -2 : 2, { burst: true });
-    }
-    if (role === 'female') {
-      const best = ww.live('gravelPatch').sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
-      const rival = ww.live('rival').find((r) => r.state === 'approach');
-      if (rival && s?.spawned) return steerTo(ww, rival.pos.x, rival.pos.z, { burst: Math.hypot(rival.pos.x - ww.body.pos.x, rival.pos.z - ww.body.pos.z) < 2 });
-      if (!best) return intent();
-      const d = Math.hypot(best.pos.x - ww.body.pos.x, best.pos.z - ww.body.pos.z);
-      return d > 1.5 ? steerTo(ww, best.pos.x, best.pos.z, { forward: Math.max(0.6, Math.min(1, d / 3)) }) : intent({ action: true, hold: true });
-    }
-    const female = ww.live('female')[0];
-    if (!female) return intent();
-    if (role === 'largeMale') {
-      const rival = ww.live('rival').find((r) => r.state === 'approach');
-      if (rival) {
-        // Meet him side-on, between him and the female.
-        const tx = (rival.pos.x + female.pos.x) / 2;
-        const tz = (rival.pos.z + female.pos.z) / 2 + 1.5;
-        const close = Math.hypot(rival.pos.x - ww.body.pos.x, rival.pos.z - ww.body.pos.z) < 2;
-        return steerTo(ww, close ? rival.pos.x : tx, close ? rival.pos.z : tz, { burst: close });
-      }
-      const d = Math.hypot(female.pos.x - ww.body.pos.x, female.pos.z - ww.body.pos.z);
-      return d > 2.5 ? steerTo(ww, female.pos.x - 1.5, female.pos.z) : intent({ hold: true });
-    }
-    // Jack: claim a spot (charging out a holder), dart in during the opening.
-    const open = (s?.windowUntil ?? 0) > ww.stageTime;
-    if (open) return steerTo(ww, female.pos.x, female.pos.z, { burst: true, actionPressed: Math.hypot(female.pos.x - ww.body.pos.x, female.pos.z - ww.body.pos.z) < 2.2 });
-    const spots = s?.spots ?? [];
-    const mine = s?.owners.indexOf(0) ?? -1;
-    const target = spots[mine >= 0 ? mine : 0];
-    if (!target) return intent();
-    const d = Math.hypot(target.x - ww.body.pos.x, target.z - ww.body.pos.z);
-    return d > 0.8 ? steerTo(ww, target.x, target.z, { burst: mine < 0 && d < 1.3 }) : intent({ hold: true, burst: mine < 0 });
-  };
-  run(w, 70 * SEC, bot);
-  return { status: w.status, cause: w.deathCause, detail: w.spawnResult?.detail };
-}
 
 describe('spawning playthroughs', () => {
   for (const role of ['female', 'largeMale', 'jack'] as const) {
@@ -150,5 +110,224 @@ describe('bet hedging on the spawning grounds', () => {
       return total;
     };
     expect(openings(1.4)).toBeGreaterThan(openings(0.7));
+  });
+});
+
+/** A spawning-stage world built from params with some values replaced. */
+function worldWith(over: Record<string, number>, opts: { sex: 'F' | 'M'; preset?: 'quick' | 'jack'; seed: number; habitat?: Habitat }): World {
+  const file = structuredClone(FILE);
+  for (const e of file.params) if (e.id in over) e.value = over[e.id] as number;
+  const p = new Params(file, 'fieldGuide');
+  const lineage = foundLineage(p, { preset: opts.preset ?? 'quick', sex: opts.sex, name: 'T', difficulty: 'fieldGuide', seed: opts.seed, habitat: opts.habitat ?? 'creek' });
+  const w = new World(p, { fish: lineage.current, conditions: { flow: 1, temperature: 1, oceanCrowding: 1, runSize: 1 }, difficulty: 'fieldGuide', siblings: 3, seed: opts.seed });
+  w.debugJumpTo(5);
+  return w;
+}
+
+describe('frequency-dependent jack success', () => {
+  it('a sneak is worth less the commoner jacks are, and 1x at the reference share', () => {
+    const p = params();
+    const ref = p.get('spawn.jackFreqRef');
+    expect(jackFrequencyFactor(p, ref)).toBeCloseTo(1, 6);
+    expect(jackFrequencyFactor(p, ref / 2)).toBeGreaterThan(1);
+    expect(jackFrequencyFactor(p, ref * 2)).toBeLessThan(1);
+    let last = Infinity;
+    for (const f of [0, 0.01, 0.02, 0.04, 0.08, 0.2]) {
+      const share = jackSneakShare(p, f);
+      expect(share).toBeLessThan(last);
+      last = share;
+    }
+  });
+
+  it('more jacks on the grounds when jacks are common, and big males lose more to them', () => {
+    const p = params();
+    expect(rivalJackCount(p, 0.005)).toBeGreaterThanOrEqual(1);
+    expect(rivalJackCount(p, 0.12)).toBeGreaterThan(rivalJackCount(p, 0.02));
+    expect(rivalJackCount(p, 0.9)).toBeLessThanOrEqual(p.get('spawn.rivalJacksMax'));
+    expect(largeMaleSneakLoss(p, 0.1)).toBeLessThan(largeMaleSneakLoss(p, 0.01));
+  });
+
+  it("the run's jack share follows the habitat's base rate and the run size", () => {
+    const { w } = newWorld({ sex: 'M', preset: 'jack', seed: 5, startStage: 5 });
+    expect(spawnState(w)?.jackFraction).toBeCloseTo(yearJackFraction(w.p, 'creek', w.conditions), 6);
+    expect(yearJackFraction(w.p, 'creek', { ...w.conditions, runSize: 1.3 })).toBeGreaterThan(yearJackFraction(w.p, 'creek', w.conditions));
+  });
+
+  it('on the grounds, a jack in a jack-rich year fertilizes fewer eggs than in a jack-poor year', () => {
+    const share = (rate: number) => {
+      let total = 0;
+      for (let i = 0; i < 6; i++) {
+        const w = worldWith({ 'genetics.jackBaseRate.creek': rate }, { sex: 'M', preset: 'jack', seed: 400 + i });
+        total += playSpawn('jack', 0, 'creek', { world: w }).w.spawnResult?.relativeFitness ?? 0;
+      }
+      return total / 6;
+    };
+    const rich = share(0.12);
+    const poor = share(0.01);
+    console.log(`jack relative fitness: jack-poor year ${poor.toFixed(2)}, jack-rich year ${rich.toFixed(2)}`);
+    expect(rich).toBeLessThan(poor);
+  });
+});
+
+describe('the redd: spawning, burial and guarding', () => {
+  it('egg survival rises with gravel quality and burial, and falls each time the redd is dug over', () => {
+    const p = params();
+    expect(eggSurvival(p, 0.9, 1, 0)).toBeGreaterThan(eggSurvival(p, 0.5, 1, 0));
+    expect(eggSurvival(p, 0.9, 1, 0)).toBeGreaterThan(eggSurvival(p, 0.9, 0.5, 0));
+    expect(eggSurvival(p, 0.9, 0.5, 0)).toBeGreaterThan(eggSurvival(p, 0.9, 0, 0));
+    expect(eggSurvival(p, 0.9, 0, 0)).toBeCloseTo(0.9 * p.get('spawn.unburiedSurvival'), 6);
+    expect(eggSurvival(p, 0.9, 1, 2)).toBeLessThan(eggSurvival(p, 0.9, 1, 1));
+    expect(eggSurvival(p, 1, 1, 0)).toBe(1);
+  });
+
+  it('rival females come more often late in the season and in big runs', () => {
+    const p = params();
+    expect(rivalFemaleInterval(p, 1, 0.9)).toBeLessThan(rivalFemaleInterval(p, 1, 0.1));
+    expect(rivalFemaleInterval(p, 1.4, 0.5)).toBeLessThan(rivalFemaleInterval(p, 0.7, 0.5));
+  });
+
+  it('she does not spawn without a finished redd', () => {
+    const { w } = newWorld({ sex: 'F', seed: 11, startStage: 5 });
+    // Hold still in open water, away from gravel: no redd, no spawn.
+    run(w, 60 * SEC, () => intent({ hold: true }));
+    expect(spawnState(w)?.spawned).toBe(false);
+  });
+
+  it('she does not spawn on a finished redd with no male beside her', () => {
+    const r = playSpawn('female', 12, 'creek', {
+      each: (ww) => {
+        for (const m of ww.live('guardMale')) m.alive = false;
+      },
+    });
+    expect(spawnState(r.w)?.dig).toBe(1);
+    expect(r.status).toBe('dead');
+    expect(r.cause).toBe('noSpawn');
+  });
+
+  it('she spawns with the male that wins the fight beside her redd', () => {
+    const r = playSpawn('female', 13);
+    const keys = r.w.events.map((e) => e.key);
+    expect(keys).toContain('spawn.femaleChoice');
+    expect(keys.indexOf('spawn.femaleChoice')).toBeLessThan(keys.indexOf('spawn.femaleSpawned'));
+  });
+
+  it('covering the eggs marks the redd buried and raises the young that survive', () => {
+    const young = (bury: boolean) => {
+      let total = 0;
+      for (let i = 0; i < 8; i++) {
+        const r = playSpawn('female', 500 + i, 'creek', { bury });
+        if (bury && r.status === 'lifeComplete') {
+          expect(spawnState(r.w)?.burial).toBe(1);
+          expect(r.w.entities.find((e) => e.kind === 'redd')?.state).toBe('buried');
+        }
+        total += r.w.spawnResult?.relativeFitness ?? 0;
+      }
+      return total;
+    };
+    expect(young(true)).toBeGreaterThan(young(false));
+  });
+
+  it('a rival female left at the redd after spawning digs over the eggs', () => {
+    let superimposed = 0;
+    for (let i = 0; i < 4; i++) {
+      // Spawn and cover the eggs, then stop guarding.
+      const r = playSpawn('female', 600 + i, 'creek', { idleAfterBurial: true });
+      superimposed += spawnState(r.w)?.superimposed ?? 0;
+    }
+    expect(superimposed).toBeGreaterThan(0);
+  });
+});
+
+describe('a large male after spawning', () => {
+  it('may leave for a second female (costing strength) or stay', () => {
+    let leftAndSpawned = 0;
+    for (let i = 0; i < 8; i++) {
+      let before = -1;
+      let after = -1;
+      const r = playSpawn('largeMale', 700 + i, 'creek', {
+        leave: true,
+        each: (ww) => {
+          const s = spawnState(ww);
+          if (s?.phase === 'decide') before = s.vigour;
+          else if (s?.phase === 'seeking' && after < 0) after = s.vigour;
+        },
+      });
+      const s = spawnState(r.w);
+      if (after >= 0) expect(before - after).toBeGreaterThanOrEqual(r.w.p.get('spawn.seekVigourCost') - 0.01);
+      if (r.status === 'lifeComplete' && (s?.secondShare ?? 0) > 0) {
+        leftAndSpawned++;
+        expect(r.w.events.some((e) => e.key === 'spawn.maleSpawnedAgain')).toBe(true);
+        expect(r.w.spawnResult?.detail).toMatch(/two females/);
+      }
+    }
+    expect(leftAndSpawned).toBeGreaterThanOrEqual(3);
+    let stayed = 0;
+    for (let i = 0; i < 6; i++) {
+      const r = playSpawn('largeMale', 700 + i, 'creek', { leave: false });
+      // A bear can chase the bot over to the second female; that counts as leaving.
+      if (r.status !== 'lifeComplete' || r.w.events.some((e) => e.key === 'spawn.maleLeaves')) continue;
+      stayed++;
+      expect(r.w.events.some((e) => e.key === 'spawn.maleStays')).toBe(true);
+      expect(spawnState(r.w)?.secondShare).toBe(0);
+    }
+    expect(stayed).toBeGreaterThanOrEqual(3);
+  });
+
+  it('bears come more often while he is away looking for her', () => {
+    let first = 0;
+    let firstTime = 0;
+    let seeking = 0;
+    let seekTime = 0;
+    for (let i = 0; i < 12; i++) {
+      playSpawn('largeMale', 800 + i, 'creek', {
+        leave: true,
+        each: (ww) => {
+          const s = spawnState(ww);
+          const fresh = ww.events.filter((e) => e.type === 'warning' && e.key === 'bear' && e.t >= ww.time - ww.dt / 2).length;
+          if (s?.phase === 'first') {
+            first += fresh;
+            firstTime += ww.dt;
+          } else if (s?.phase === 'seeking') {
+            seeking += fresh;
+            seekTime += ww.dt;
+          }
+        },
+      });
+    }
+    expect(seekTime).toBeGreaterThan(20);
+    expect(seeking / seekTime).toBeGreaterThan(first / firstTime);
+  });
+});
+
+describe('senescence', () => {
+  it('strength only falls, caps energy, and drains faster when bursting', () => {
+    const p = params();
+    expect(senescenceRate(p, true)).toBeGreaterThan(senescenceRate(p, false));
+    const { w } = newWorld({ sex: 'F', seed: 21, startStage: 5 });
+    let last = 1;
+    run(w, 40 * SEC, (ww, i) => {
+      const s = spawnState(ww);
+      expect(s!.vigour).toBeLessThanOrEqual(last);
+      expect(ww.body.energy).toBeLessThanOrEqual(s!.vigour + 1e-9);
+      last = s!.vigour;
+      return intent({ forward: 1, turn: 0.3, burst: i % 120 < 30 });
+    });
+  });
+
+  it('is the natural end of the stage, before the season runs out', () => {
+    const r = playSpawn('female', 31);
+    expect(r.status).toBe('lifeComplete');
+    expect(r.w.stageTime).toBeLessThan(r.w.p.get('spawn.duration'));
+    expect(spawnState(r.w)!.vigour).toBeLessThanOrEqual(r.w.p.get('spawn.senescenceEnd'));
+    expect(r.w.events.some((e) => e.key === 'spawn.senescence')).toBe(true);
+    expect(r.w.events.some((e) => e.key === 'spawn.spentFemale')).toBe(true);
+  });
+
+  it('keeps a first life on the grounds to about two or three minutes', () => {
+    for (const role of ['female', 'largeMale', 'jack'] as const) {
+      const r = playSpawn(role, 41);
+      expect(r.w.stageTime, role).toBeLessThan(180);
+      expect(r.w.stageTime, role).toBeGreaterThan(40);
+    }
   });
 });

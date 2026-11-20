@@ -78,7 +78,7 @@ A sequence of moments joined by time skips, kept within 20-40 m of the surface (
 
 | Moment | What happens |
 |---|---|
-| **Bait ball** | Feed on a drifting herring ball. No predators. |
+| **Feeding patch** | Feed in a drifting swarm of krill, with a few small fish and the odd small squid. No predators. |
 | **Orca pass** (weeks later) | A smaller ball, and an orca: a dark silhouette and a warning, then a straight charge. Keep feeding or break off; swim across its path. |
 | **Seal ambush** (near the surface) | Feeding near the surface. A seal shows as bubbles and a dark shape, then lunges at where the fish is going. Turn hard as it comes. |
 | **Crowded year** (only when `oceanCrowding` is high, the pink-salmon years) | Pink salmon swarm the same food and eat it first. Fewer bites for the player. |
@@ -112,19 +112,23 @@ The advisor said navigation is the most interesting challenge. Salmon follow the
 The advisor's answers that shape this stage:
 - **Large males:** fights are quick and mostly settled by size; skill is timing and positioning.
 - **Bears:** they take males first, then large females, and jacks last.
-- **Jacks:** they fight each other for hiding spots when cover is scarce.
-- **Females:** they judge gravel by cobble size.
+- **Jacks:** they fight each other for hiding spots when cover is scarce. They are rare (1-2% of males is typical) and have lower reproductive success than large males.
+- **Females:** they judge gravel by cobble size. Which male they spawn with mostly comes down to who wins the fights. They guard against other females digging up their eggs until they die, and live several weeks after spawning, rarely more than a month.
+- **Senescence:** fish turn sluggish and ragged after weeks on the spawning grounds.
 
 | | Now | Full game |
 |---|---|---|
-| **Verb (female)** | Read the cobble, hold E to dig the redd, and charge rival females | Same, plus guarding until death and egg predators |
-| **Verb (large male)** | Stay beside the female, and ram rivals side-on (Shift) before they reach her | Same, plus displays and jaw-locking fights |
-| **Verb (jack)** | Claim a hiding spot under the bank (charge other jacks out), then dart in (E) when the big males clash | Same, over several spawning events |
-| **Decision** | **Female:** which gravel. Medium cobble is best; coarse is hard to dig and fine gives the eggs less oxygen. **Large male:** when and where to meet a rival. Side-on and early beat head-on and late, but size still dominates. **Jack:** fight for a spot, or wait in the open and risk the guard. Go at once, or let another jack go first. | Same |
-| **Threats** | **Rivals.** **Bears:** a shadow over a chosen fish, then a swipe. Bears choose males first, and jacks hiding in a spot are safe. **Other jacks:** taking your spot or your opening. | Same, plus senescence |
-| **Result** | **Female:** eggs laid × redd quality. **Male:** share of the eggs fertilized. Both are scored against the cohort. | Same |
+| **Verb (female)** | Read the cobble and hold E to dig the redd. Wait over the finished redd for a male (two males may fight; she spawns with the winner). Hold E again to cover the eggs, then charge rival females (Shift) until her strength runs out | Same, plus egg predators |
+| **Verb (large male)** | Stay beside the female, and ram rivals side-on (Shift) before they reach her. After spawning, a second female arrives along the bed: swim to her for a second spawning, or stay | Same, plus displays and jaw-locking fights |
+| **Verb (jack)** | Claim a hiding spot under the bank (charge other jacks out), then dart in (E) when the big males clash, as often as the openings come | Same |
+| **Decision** | **Female:** which gravel. Medium cobble is best; coarse is hard to dig and fine gives the eggs less oxygen. Then cover the eggs at once, or chase a rival first. **Large male:** when and where to meet a rival. Side-on and early beat head-on and late, but size still dominates. After spawning, leave for a second female (costs strength, bears come more often) or stay. **Jack:** fight for a spot, or wait in the open and risk the guard. Go at once, or let another jack go first. | Same |
+| **Threats** | **Rivals.** **Bears:** a shadow over a chosen fish, then a swipe. Bears choose males first, and jacks hiding in a spot are safe. **Other jacks:** taking your spot or your opening; there are more of them in jack-rich years. **Rival females** digging over the eggs, more often late in the season. **Senescence:** strength drains on the grounds (faster when bursting) and never recovers; energy cannot rise above it. | Same |
+| **Failure** | No spawn before strength runs out (or the season's 180 s cap), or taken by a bear | Same |
+| **Result** | **Female:** eggs laid × egg survival, where survival = gravel quality × burial × (1 − loss) for each time the redd was dug over (`eggSurvival`). **Large male:** share of the eggs fertilized, from one or two females. **Jack:** each sneak adds a share that falls as jacks get commoner (`jackFrequencyFactor`), capped below a large male's. All are scored against the cohort. | Same |
 | **Then** | Death and decay as fades, then the eggs hatch, the recap and score, and the pick of the next fish from three offspring | Same, longer |
-| **Length** | About 45 s | 5 min |
+| **Length** | About 2 min for a female or jack (until strength runs out), about 1 min for a large male who stays and 1.5 min for one who leaves | 5 min |
+
+**Frequency-dependent jack success.** The run's jack share is the habitat's base rate × the year's run size (`yearJackFraction`). One sneak is worth `jackShareBase × (1 + k·ref) / (1 + k·share)`: 1× at the creek base rate, more when jacks are rarer, less when they are commoner. Jack-rich years also bring more rival jacks to the grounds (`rivalJackCount`), so openings are contested more, and large males lose a little more of their share to sneakers.
 
 **Habitats.** The advisor confirmed creek, lake beach and river. Each lineage belongs to one, and it is chosen for the first fish.
 

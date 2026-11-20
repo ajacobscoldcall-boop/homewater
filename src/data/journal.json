@@ -3,7 +3,7 @@
   "notes": "Field journal entries. Each unlocks the first time the player meets any of its triggers: a caption id (as in captions.json), 'warning.<kind>', 'death.<cause>', 'spawned.<habitat>' or 'life.complete'. Science text must agree with docs/ADVISOR_NOTES.md; where the notes are silent, stay general. Unlocks are kept per browser, not in the save file.",
   "facts": {
     "title": "Facts to remember",
-    "intro": "Three things the scientist advising this game most wants players to take away.",
+    "intro": "Three things worth taking away from a sockeye's life.",
     "items": [
       {
         "title": "Many ways to be a sockeye",
@@ -15,7 +15,7 @@
       },
       {
         "title": "A spawner is close to a miracle",
-        "text": "Multiply those odds together and well under one egg in a hundred comes home to spawn. A fish that survives and passes on its genes is close to a miracle. The game is kinder than the river, so remember that the real odds are far longer."
+        "text": "Multiply those odds together and only about one egg in a thousand, or fewer, comes home to spawn. A fish that survives and passes on its genes is close to a miracle. The game is kinder than the river, so remember that the real odds are far longer."
       }
     ]
   },
@@ -47,7 +47,8 @@
       "text": "Floods are the great killer of eggs and alevin. High flows can scour the gravel and tear them out of the redd before they ever emerge. How many survive depends heavily on the year's water, which no fish can control.",
       "unlock": [
         "death.scour",
-        "egg.loosening"
+        "egg.loosening",
+        "death.yolk"
       ]
     },
     {
@@ -92,7 +93,7 @@
       "id": "smolt.run",
       "stage": "smolt",
       "title": "Smolts on the move",
-      "text": "In spring the young fish turn silver and become smolts. They leave the lake in large groups and tend to travel at night. Going together swamps the predators: they cannot eat everyone. Predation early in the move to sea is usually the bottleneck that shapes how many adults return.",
+      "text": "In spring the young fish turn silver and become smolts. They leave the lake in large groups and tend to travel at night. Going together swamps the predators: they cannot eat everyone. Predation in the first weeks at sea is usually the bottleneck that shapes how many adults return.",
       "unlock": [
         "smolt.intro"
       ]
@@ -146,7 +147,7 @@
       "id": "smolt.salt",
       "stage": "smolt",
       "title": "Into salt water",
-      "text": "At the estuary a smolt's gills and kidneys rework themselves for salt water. Of the school that left the lake together, many never reach this point.",
+      "text": "By the estuary, a smolt's gills and kidneys are ready for salt water. Of the school that left the lake together, many never reach this point.",
       "unlock": [
         "smolt.salt"
       ]
@@ -351,7 +352,8 @@
         "spawn.digging",
         "spawn.cobbleLarge",
         "spawn.cobbleSmall",
-        "spawn.needGravel"
+        "spawn.needGravel",
+        "spawn.reddReady"
       ]
     },
     {
@@ -362,21 +364,27 @@
       "unlock": [
         "spawn.femaleSpawned",
         "spawn.rivalFemale",
-        "spawn.reddDisturbed"
+        "spawn.reddDisturbed",
+        "spawn.superimposed"
       ]
     },
     {
       "id": "spawn.fights",
       "stage": "spawn",
       "title": "Large-male fights",
-      "text": "Large males ram each other at right angles with their mouths open, and may lock jaws. Fights are settled fast, mostly by size; timing and position decide the rest. Which male a female spawns with mostly comes down to who wins.",
+      "text": "Large males ram each other at right angles with their mouths open, and may lock jaws. Fights are settled fast, mostly by size. Which male a female spawns with mostly comes down to who wins.",
       "unlock": [
         "spawn.largeMale",
         "spawn.rivalMale",
         "spawn.fightWon",
         "spawn.fightWonSide",
         "spawn.fightLost",
-        "warning.rival"
+        "warning.rival",
+        "spawn.maleLeaves",
+        "spawn.maleStays",
+        "spawn.maleSpawnedAgain",
+        "spawn.secondLost",
+        "spawn.secondFemale"
       ]
     },
     {
@@ -390,7 +398,8 @@
         "spawn.jackSuccess",
         "spawn.jackScarce",
         "spawn.jackSpotTaken",
-        "warning.opening"
+        "warning.opening",
+        "spawn.jackBeaten"
       ]
     },
     {
@@ -416,10 +425,53 @@
       "id": "spawn.beach",
       "stage": "spawn",
       "title": "Spawning on a lake beach",
-      "text": "Some sockeye spawn on lake beaches, in still water along the shore. Beach spawners are the largest and deepest-bodied of all. Bears rarely reach them, and there is little cover for jacks.",
+      "text": "Some sockeye spawn on lake beaches, in still water along the shore. Beach spawners are the largest and deepest-bodied of all. Bears catch fish less easily here than in creeks, and there are few places for jacks to hide.",
       "unlock": [
         "spawned.beach",
         "spawn.habitat.beach"
+      ]
+    },
+    {
+      "id": "spawn.choice",
+      "stage": "spawn",
+      "title": "Which male?",
+      "text": "A female spawns over her finished redd with a male beside her. Which male that is mostly comes down to which one wins the fights, and fights between large males are quick and mostly settled by size.",
+      "unlock": [
+        "spawn.maleArrives",
+        "spawn.femaleChoice",
+        "spawn.waitMale"
+      ]
+    },
+    {
+      "id": "spawn.covering",
+      "stage": "spawn",
+      "title": "Covering the eggs",
+      "text": "In the game, the female sweeps gravel back over her eggs after spawning, and covered eggs survive better than uncovered ones. Gravel still matters most: cobble that is too coarse is hard to dig, and gravel that is too fine lets less oxygen reach the eggs.",
+      "unlock": [
+        "spawn.bury",
+        "spawn.buried"
+      ]
+    },
+    {
+      "id": "spawn.jackFrequency",
+      "stage": "spawn",
+      "title": "How common are jacks?",
+      "text": "Jacks are rare: typically 1-2% of the males in a Bristol Bay run, and 10% is extremely high. They have lower reproductive success than large males, balanced by better survival from leaving the sea early. In the game, a sneak is worth less in years when jacks are common and more when they are rare.",
+      "unlock": [
+        "spawn.jackCommon",
+        "spawn.jackRare"
+      ]
+    },
+    {
+      "id": "spawn.spent",
+      "stage": "spawn",
+      "title": "Spent",
+      "text": "Fish stay fit while they migrate, but after weeks on the spawning grounds they turn sluggish and ragged. Females live several weeks after spawning, rarely more than a month.",
+      "unlock": [
+        "spawn.senescence",
+        "spawn.spentFemale",
+        "spawn.spentMale",
+        "spawn.spentJack"
       ]
     },
     {
@@ -435,7 +487,7 @@
       "id": "spawn.afterlife",
       "stage": "spawn",
       "title": "After spawning",
-      "text": "Like every Pacific salmon, a sockeye dies after spawning. Its body feeds the stream, the insects, the bears and the trees along the bank, and under the gravel the next generation is already growing.",
+      "text": "Like other Pacific salmon, a sockeye dies after spawning. Its body feeds the stream, the insects, the bears and the trees along the bank, and under the gravel the next generation is already growing.",
       "unlock": [
         "life.complete"
       ]

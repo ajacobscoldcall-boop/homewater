@@ -209,6 +209,8 @@ export class World {
     // Siblings share the fate decided so far (jack status, ocean years) from the checkpoint.
     this.fish = sib;
     this.progress = { ...this.checkpoint.progress };
+    // One-time captions are per fish: a sibling sees them again.
+    this.shownOnce.clear();
     this.startStage(this.checkpoint.stageIndex, this.checkpoint.marker);
     return sib;
   }

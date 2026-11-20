@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { ANIMALS, fishAnimal, type Animal, type AnimalPose } from './animals';
 import type { FishLook, FishShape } from './fishMesh';
+import { krillGeometry, squidGeometry } from './krill';
 
 interface Item {
   id: string;
@@ -33,6 +34,13 @@ const fish = (id: string, look: FishLook, shape: Partial<FishShape>, label: stri
   make: () => fishAnimal(id, look, { depth: 1, hump: 0, kype: 0, yolk: 0, ...shape }),
 });
 
+/** A static prey model (krill, squid) wrapped as a gallery animal. */
+function preyModel(kind: string, geo: THREE.BufferGeometry, opacity: number): Animal {
+  const root = new THREE.Group();
+  root.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, transparent: true, opacity })));
+  return { kind, root, update: () => {} };
+}
+
 const ITEMS: Item[] = [
   fish('alevin', 'alevin', { depth: 0.8, yolk: 1 }, 'Alevin', 'yolk sac, large eye, fin fold'),
   fish('fry', 'fry', { depth: 0.95 }, 'Fry', 'faint parr marks, deep fork'),
@@ -43,7 +51,9 @@ const ITEMS: Item[] = [
   fish('spawnMale', 'spawnMale', { depth: 1.15, hump: 1, kype: 1 }, 'Spawning male', 'hump, hooked kype, teeth'),
   fish('spawnFemale', 'spawnFemale', { depth: 1.05, hump: 0.15 }, 'Spawning female', 'red body, green head, no hump'),
   fish('spawnJack', 'spawnJack', { depth: 1, hump: 0.3, kype: 0.4 }, 'Jack', '~300 mm in life; drawn enlarged here'),
-  fish('herring', 'herring', { depth: 0.9 }, 'Herring', 'prey; no adipose fin'),
+  fish('herring', 'herring', { depth: 0.9 }, 'Small forage fish', 'prey at sea; no adipose fin'),
+  { id: 'krill', label: 'Krill', note: 'main food at sea; drawn larger than life in play', group: 'animals', make: () => preyModel('krill', krillGeometry(), 0.78) },
+  { id: 'squid', label: 'Small squid', note: 'occasional food at sea', group: 'animals', make: () => preyModel('squid', squidGeometry(), 0.85) },
   { id: 'char', label: 'Dolly Varden (char)', note: 'pale spots on dark, white fin edges', group: 'animals', make: ANIMALS.char! },
   { id: 'orca', label: 'Orca', note: 'tall dorsal fin, eye and flank patches', group: 'animals', make: ANIMALS.orca! },
   { id: 'shark', label: 'Salmon shark', note: 'stocky, crescent tail, white belly', group: 'animals', make: ANIMALS.shark! },

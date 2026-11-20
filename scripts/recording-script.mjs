@@ -26,10 +26,12 @@ const VARIANTS = { 'ocean.revealLarge': ['2', '3'], 'ocean.revealFemale': ['2', 
 const ORDER = ['egg', 'fry', 'smolt', 'ocean', 'return', 'spawn', 'death', 'end'];
 const rows = [];
 const entries = Object.entries(captions).sort((a, b) => ORDER.indexOf(a[0].split('.')[0]) - ORDER.indexOf(b[0].split('.')[0]));
-for (const [id, text] of entries) {
+for (const [id, raw] of entries) {
   const [group, key] = id.split('.');
   const stage = STAGE[group] ?? group;
   const when = group === 'death' ? 'On the death screen' : group === 'end' ? 'After spawning, as the life ends' : WHEN[key] ?? 'When it happens in play';
+  // Key placeholders ({key:burst}, {hold:act}) show the player's key on screen only; narration leaves them out.
+  const text = raw.replace(/\s*\{(key|hold):\w+\}/g, '');
   const vars = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
   if (!vars.length) rows.push({ file: `${id}.mp3`, stage, when, text });
   else if (VARIANTS[id]) for (const v of VARIANTS[id]) rows.push({ file: `${id}--${v}.mp3`, stage, when, text: text.replace(/\{\w+\}/g, v) });

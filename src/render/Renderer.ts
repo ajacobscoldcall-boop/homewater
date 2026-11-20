@@ -14,7 +14,13 @@ import { headingVec } from '../sim/vec';
 import type { World } from '../sim/world';
 import { animalOf, createBear, createChar, createGull, createMerganser, createOrca, createSeal, createShark } from './animals';
 import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape } from './fishMesh';
+import { FoodSwarm } from './krill';
 import { causticFloorMaterial, LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
+// Gore: wounds, senescence, death beats and the carcass (render only).
+import { GoreLayer } from './gore';
+// Graphics quality (Low/Medium/High/Auto): see quality.ts. Hooks are marked "quality".
+import { quality, type Quality } from './quality';
+import { adaptDetail, frameQuality, pixelRatioFor, skipInstance } from './qualityRender';
 
 export type CameraMode = 'third' | 'first';
 
@@ -43,6 +49,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** Width of the gravel banks drawn beyond the spawning bed's edges (render only). */
 const SPAWN_BANK = 5;
 const tmpTarget = new THREE.Vector3();
+const projV = new THREE.Vector3();
+const projF = new THREE.Vector3();
+const projD = new THREE.Vector3();
 
 export class Renderer {
   readonly renderer: THREE.WebGLRenderer;
@@ -64,7 +73,7 @@ export class Renderer {
   private baseDensity = 0.05;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: quality.antialias, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.scene.fog = this.fog;
@@ -72,12 +81,25 @@ export class Renderer {
     this.sun = new THREE.DirectionalLight(0xffffff, 1.3);
     this.sun.position.set(20, 60, 10);
     this.scene.add(this.hemi, this.sun);
-    this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points);
+    this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points, this.food.group);
   }
 
+  /** Ocean food patch: krill swarm with small fish and squid (krill.ts). */
+  private food = new FoodSwarm();
+
+  /** Gore layer (src/render/gore.ts): wounds, wear, the death beat and the carcass. App sets its mode. */
+  readonly gore = new GoreLayer(this.scene);
   private shafts = new LightShafts(10);
   private snow = new MarineSnow();
   private surfaceMat: THREE.ShaderMaterial | null = null;
+
+  /** Graphics quality changed (quality.ts). rebuild: materials or geometry depend on it, so build the stage again. */
+  applyQuality(q: Quality, rebuild: boolean): void {
+    this.renderer.setPixelRatio(pixelRatioFor(q, window.devicePixelRatio));
+    this.shafts.setCount(q.lightShafts);
+    this.snow.setCount(q.marineSnow);
+    if (rebuild) this.builtStage = -1;
+  }
 
   resize(width: number, height: number): void {
     this.renderer.setSize(width, height, false);
@@ -87,11 +109,10 @@ export class Renderer {
 
   /** Screen position (0..1) of a world point, and whether it is behind the camera. */
   project(x: number, y: number, z: number): { x: number; y: number; behind: boolean } {
-    const v = new THREE.Vector3(x, y, z);
-    const toPoint = v.clone().sub(this.camera.position);
-    const forward = new THREE.Vector3();
-    this.camera.getWorldDirection(forward);
-    const behind = toPoint.dot(forward) < 0;
+    // Called for every threat marker every frame: reuse vectors.
+    const v = projV.set(x, y, z);
+    const forward = this.camera.getWorldDirection(projF);
+    const behind = projD.copy(v).sub(this.camera.position).dot(forward) < 0;
     v.project(this.camera);
     return { x: (v.x + 1) / 2, y: (1 - v.y) / 2, behind };
   }
@@ -103,11 +124,14 @@ export class Renderer {
   render(w: World, frameDt: number): void {
     if (this.builtFor !== w || this.builtStage !== w.stageIndex || this.lastArena !== w.arena) this.buildStage(w);
     this.syncEntities(w);
+    this.food.update(w.stageId === 'ocean' ? w.live('herring') : [], w.stageTime);
     this.syncPlayer(w, frameDt);
     this.updateCamera(w, frameDt);
+    this.gore.update(w, frameDt, this.player, this.objects, this.camera);
     sharedWater.uTime.value += frameDt;
     this.updateAlevin(w, frameDt);
     this.updateHidingSpots(w);
+    frameQuality(this.fog, this.camera, 400); // quality: fog scale and far clip
     if (this.surfaceMat) this.surfaceMat.uniforms.uFogDensity!.value = this.fog.density;
     this.shafts.update(this.camera, (x, z) => w.arena.floor(x, z), w.arena.surfaceY, sharedWater.uTime.value);
     this.snow.update(this.camera);
@@ -200,8 +224,13 @@ export class Renderer {
         const m = o as THREE.Mesh;
         if (m.geometry) m.geometry.dispose();
         const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-        if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
-        else mat?.dispose();
+        // Textures made per stage (e.g. the gillnet mesh) are freed with their materials.
+        const free = (x: THREE.Material) => {
+          (x as THREE.MeshBasicMaterial).map?.dispose();
+          x.dispose();
+        };
+        if (Array.isArray(mat)) mat.forEach(free);
+        else if (mat) free(mat);
       });
     }
   }
@@ -274,12 +303,11 @@ export class Renderer {
     this.makeInstanced('plankton', new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), 160);
     this.makeInstanced('scent', new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: 0xd7ffe8, transparent: true, opacity: 0.55 }), 200);
     this.makeInstanced('eggs', new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf28a3a, roughness: 0.25, transparent: true, opacity: 0.85 }), 20);
-    this.makeInstanced('herring', buildFishGeometry({ depth: 0.9, hump: 0, kype: 0, yolk: 0 }, 'herring', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 160);
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
     this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
     this.makeInstanced('weed', new THREE.CylinderGeometry(0.07, 0.12, 1, 5), new THREE.MeshStandardMaterial({ color: 0x3f6b2f, roughness: 0.9 }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
-    this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'ocean'), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
+    this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'ocean', { lod: quality.fishDetail }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
 
     if (a.kind === 'gravel') {
       // Stones around the egg.
@@ -354,13 +382,12 @@ export class Renderer {
       panel.rotation.y = Math.PI / 2;
       panel.position.set(x, -depth / 2, (z0 + z1) / 2);
       this.stageGroup.add(panel);
-      // Float line.
+      // Float line: one instanced draw per span (it was one draw per float).
       const floats = Math.max(1, Math.floor(width / 1.6));
-      for (let i = 0; i <= floats; i++) {
-        const f = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff7a1a }));
-        f.position.set(x, -0.05, z0 + (width * i) / floats);
-        this.stageGroup.add(f);
-      }
+      const line = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff7a1a }), floats + 1);
+      for (let i = 0; i <= floats; i++) line.setMatrixAt(i, tmpM.makeTranslation(x, -0.05, z0 + (width * i) / floats));
+      line.computeBoundingSphere();
+      this.stageGroup.add(line);
     }
   }
 
@@ -372,16 +399,16 @@ export class Renderer {
       const inst = this.instanced.get(e.kind);
       if (inst) {
         const n = counts.get(e.kind) ?? 0;
-        if (n >= inst.max) continue;
+        if (n >= inst.max || skipInstance(e)) continue; // quality: thinner schools
         this.writeInstance(w, e, inst.mesh, n);
         counts.set(e.kind, n + 1);
         continue;
       }
-      if (e.kind === 'netLine' || e.kind === 'netGap' || e.kind === 'wall') continue;
+      if (e.kind === 'netLine' || e.kind === 'netGap' || e.kind === 'wall' || e.kind === 'herring') continue;
       seen.add(e.id);
       let obj = this.objects.get(e.id);
       if (!obj) {
-        obj = this.makeObject(w, e);
+        obj = adaptDetail(this.makeObject(w, e)); // quality: fish detail
         this.objects.set(e.id, obj);
         this.entityGroup.add(obj);
       }
@@ -425,10 +452,6 @@ export class Renderer {
         tmpS.set(1, h, 1);
         break;
       }
-      case 'herring':
-        tmpQ.setFromAxisAngle(UP, -e.yaw + Math.PI);
-        tmpS.setScalar(0.35);
-        break;
       case 'smolt':
         tmpQ.setFromAxisAngle(UP, -e.yaw);
         tmpS.setScalar(0.6 * (0.95 + 0.1 * Math.sin(w.time * 12 + e.id)));
@@ -715,6 +738,8 @@ export class Renderer {
         obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.04;
         const s = 0.4 + 0.8 * (e.value ?? 0);
         obj.scale.set(s, s, s);
+        // Spawning hook: a covered redd takes the colour of the gravel around it.
+        (((obj as THREE.Mesh).material as THREE.MeshStandardMaterial).color).setHex(e.state === 'buried' ? 0x6a604c : 0x3a3024);
         break;
       }
       default:

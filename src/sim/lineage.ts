@@ -31,6 +31,21 @@ export interface LifeRecord {
   result: SpawnResult | null;
   isStray: boolean;
   lockedJack: boolean;
+  /** The played fish's breeding values (null in records from saves before schema 3). */
+  bv: TraitValues | null;
+  habitat: Habitat;
+  /** Offspring offered after this life's spawn, the chosen one included (schema 3). */
+  offspring: OffspringNote[];
+  /** Which offspring carried the line on, once chosen. */
+  chosenId: string | null;
+}
+
+/** What is kept of an offspring on offer, chosen or not, for the family tree and trait history. */
+export interface OffspringNote {
+  id: string;
+  name: string;
+  sex: Sex;
+  bv: TraitValues;
 }
 
 export interface Lineage {
@@ -45,7 +60,12 @@ export interface Lineage {
   records: LifeRecord[];
   extinct: boolean;
   usedNames: string[];
+  /** A line founded by a stray after another line died out in the same river (schema 3). */
+  ancestor: { id: string; name: string } | null;
 }
+
+/** A lineage is known by its founder's name. */
+export const lineageName = (l: Lineage): string => l.usedNames[0] ?? l.records[0]?.name ?? l.current.name;
 
 export function suggestName(rng: Rng, used: readonly string[]): string {
   const free = NAMES.filter((n) => !used.includes(n));
@@ -87,6 +107,7 @@ export function foundLineage(p: Params, o: FoundOptions): Lineage {
     records: [],
     extinct: false,
     usedNames: [o.name],
+    ancestor: null,
   };
 }
 
@@ -110,6 +131,8 @@ export function offerOffspring(p: Params, l: Lineage, parent: FishIdentity): Fis
     return n;
   });
   l.rngState = rng.state;
+  const last = l.records.at(-1);
+  if (last && last.generation === parent.generation) last.offspring = kids.map((k) => ({ id: k.id, name: k.name, sex: k.sex, bv: { ...k.bv } }));
   return kids;
 }
 
@@ -120,6 +143,12 @@ export function recordLife(l: Lineage, rec: LifeRecord): void {
 /** Start the next generation with the chosen offspring, in a new year. */
 export function advanceGeneration(p: Params, l: Lineage, chosen: FishIdentity, name: string): void {
   const rng = lineageRng(l);
+  const last = l.records.at(-1);
+  if (last && last.generation === chosen.generation - 1) {
+    last.chosenId = chosen.id;
+    const note = last.offspring.find((o) => o.id === chosen.id);
+    if (note) note.name = name;
+  }
   chosen.name = name;
   l.current = chosen;
   l.generation = chosen.generation;
@@ -139,6 +168,31 @@ export function strayRescue(p: Params, l: Lineage, name: string): void {
   l.conditions = rollYear(p, rng, l.generation);
   l.usedNames.push(name);
   l.rngState = rng.state;
+}
+
+/**
+ * After a line dies out (Wild), a new line can start from a stray that has
+ * joined the same river: it comes from another population but spawns here.
+ */
+export function foundFromStray(p: Params, extinct: Lineage, seed: number, name: string): Lineage {
+  const rng = new Rng(seed);
+  const origin = rng.pick(HABITATS);
+  const sex: Sex = rng.chance(0.5) ? 'F' : 'M';
+  const fish = makeFish(p, rng, { sex, name, generation: 1, bv: populationBv(p, rng, origin), isStray: true, habitat: extinct.current.habitat });
+  return {
+    id: `L${seed.toString(36)}`,
+    createdAt: new Date().toISOString(),
+    difficulty: extinct.difficulty,
+    seed,
+    rngState: rng.state,
+    generation: 1,
+    current: fish,
+    conditions: rollYear(p, rng, 1),
+    records: [],
+    extinct: false,
+    usedNames: [name],
+    ancestor: { id: extinct.id, name: lineageName(extinct) },
+  };
 }
 
 export function markExtinct(l: Lineage): void {

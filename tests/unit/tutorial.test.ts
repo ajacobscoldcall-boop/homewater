@@ -157,26 +157,35 @@ describe('guide progression', () => {
   });
 
   it('spawn: steps follow the role', () => {
-    const female = snap({ stage: 'spawn', role: 'female', spawn: { dig: 0, spawned: false, hiding: false, nearFemale: false } });
+    const female = snap({ stage: 'spawn', role: 'female', spawn: { dig: 0, spawned: false, hiding: false, nearFemale: false, burial: 0 } });
     expect(guidePrompt(start(female), female)?.text).toMatch(/cobble/);
-    let st = advanceGuide(start(female), { ...female, spawn: { dig: 0.3, spawned: false, hiding: false, nearFemale: false } }, 0.1);
+    let st = advanceGuide(start(female), { ...female, spawn: { dig: 0.3, spawned: false, hiding: false, nearFemale: false, burial: 0 } }, 0.1);
     expect(st.index).toBe(1);
-    st = advanceGuide(st, { ...female, spawn: { dig: 1, spawned: true, hiding: false, nearFemale: false } }, 0.1);
+    st = advanceGuide(st, { ...female, spawn: { dig: 1, spawned: false, hiding: false, nearFemale: false, burial: 0 } }, 0.1);
     expect(st.index).toBe(2);
+    expect(guidePrompt(st, female)?.text).toMatch(/male joins you/);
+    st = advanceGuide(st, { ...female, spawn: { dig: 1, spawned: true, hiding: false, nearFemale: false, burial: 0.5 } }, 0.1);
+    expect(st.index).toBe(3);
+    expect(guidePrompt(st, { ...female, spawn: { dig: 1, spawned: true, hiding: false, nearFemale: false, burial: 0.5 } })?.progress).toBe('covered 50%');
+    st = advanceGuide(st, { ...female, spawn: { dig: 1, spawned: true, hiding: false, nearFemale: false, burial: 1 } }, 0.1);
+    expect(st.index).toBe(4);
 
-    const jack = snap({ stage: 'spawn', role: 'jack', spawn: { dig: 0, spawned: false, hiding: true, nearFemale: false } });
+    const jack = snap({ stage: 'spawn', role: 'jack', spawn: { dig: 0, spawned: false, hiding: true, nearFemale: false, burial: 0 } });
     st = advanceGuide(start(jack), jack, 0.1);
     expect(st.index).toBe(1);
     st = advanceGuide(countGuideEvents(st, [ev('spawned', 'spawn.jackSuccess')]), jack, 0.1);
     expect(st.index).toBe(2);
 
-    const male = snap({ stage: 'spawn', role: 'largeMale', spawn: { dig: 0, spawned: false, hiding: false, nearFemale: true } });
+    const male = snap({ stage: 'spawn', role: 'largeMale', spawn: { dig: 0, spawned: false, hiding: false, nearFemale: true, burial: 0 } });
     st = advanceGuide(start(male), male, 1);
     expect(st.index).toBe(0);
     st = advanceGuide(st, male, 1);
     expect(st.index).toBe(1);
     st = advanceGuide(countGuideEvents(st, [ev('caption', 'spawn.fightWonSide')]), male, 0.1);
     expect(st.index).toBe(2);
+    st = advanceGuide(st, { ...male, spawn: { dig: 0, spawned: true, hiding: false, nearFemale: true, burial: 0 } }, 0.1);
+    expect(st.index).toBe(3);
+    expect(guidePrompt(st, male)?.text).toMatch(/Another female/);
   });
 
   it('starts afresh for a new stage or a new fish', () => {
