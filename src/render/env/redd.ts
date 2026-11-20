@@ -123,7 +123,7 @@ export function buildRedd(w: World, detail: Detail): EnvParts {
 
   const update = (world: World, dt: number) => {
     const v = alevinView(world);
-    const surge = v?.pulse ? 1 : v?.warning ? 0.25 : 0;
+    const surge = v?.flood === 'flood' ? 1.4 : v?.pulse ? 1 : v?.warning || v?.flood === 'warning' ? 0.25 : 0;
     wobble += dt * (4 + 14 * surge);
     const ang = v?.currentAngle ?? 0;
     const cx = Math.cos(ang);

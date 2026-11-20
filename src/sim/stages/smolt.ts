@@ -24,6 +24,8 @@ interface SmoltState {
   sealTimer: number;
   lost: number;
   schoolStart: number;
+  /** Seconds left after a near miss during which predators pick school-mates over the player. */
+  grace: number;
 }
 
 const st = (w: World) => w.stage as unknown as SmoltState;
@@ -47,6 +49,8 @@ function schoolmatesNear(w: World, r = 6): Entity[] {
  */
 function pickTarget(w: World): Entity | null {
   const near = schoolmatesNear(w);
+  // Just after a near miss the fish is lost among the others for a moment.
+  if (st(w).grace > 0 && near.length) return w.rng.pick(near);
   const pPlayer = 1 / (1 + w.p.get('smolt.schoolShield') * near.length);
   if (!near.length || w.rng.chance(pPlayer)) return null;
   return w.rng.pick(near);
@@ -58,6 +62,25 @@ const targetVel = (w: World, t: Entity | null): Vec3 => (t ? t.vel : w.body.vel)
 function takeSchoolmate(w: World, s: Entity): void {
   s.alive = false;
   st(w).lost += 1;
+}
+
+/**
+ * A strike that reaches the player among school-mates takes only one fish:
+ * with n others in reach, the player is the one with chance 1 / (1 + dilution * n).
+ * Returns true if the player is caught; otherwise one of the others is taken.
+ */
+function strikeLands(w: World, others: Entity[]): boolean {
+  const n = others.length;
+  if (!n || w.rng.chance(1 / (1 + w.p.get('smolt.strikeDilution') * n))) return true;
+  takeSchoolmate(w, w.rng.pick(others));
+  nearMiss(w);
+  return false;
+}
+
+/** A strike or lunge just missed the player: a moment's grace, and the lesson once. */
+function nearMiss(w: World): void {
+  st(w).grace = w.p.get('smolt.nearMissGrace');
+  w.emitOnce('caption', 'smolt.nearMiss');
 }
 
 function stepSchool(w: World, dt: number): void {
@@ -162,10 +185,15 @@ function stepBirds(w: World, dt: number, section: SmoltSection): void {
         if (distXZ(b.pos, f.pos) < b.radius * 0.8 && -f.pos.y < reach + 0.6 && w.rng.chance(0.85)) takeSchoolmate(w, f);
       }
       const underCover = Math.abs(fish.z) > COVER_Z;
-      if (distXZ(b.pos, fish) < b.radius && depthOf(w) < reach && !underCover) {
-        w.die('bird');
-        return;
-      }
+      const d = distXZ(b.pos, fish);
+      if (d < b.radius && depthOf(w) < reach && !underCover) {
+        // School-mates in the same strike zone and depth: the bird takes one fish.
+        const others = w.live('smolt').filter((f) => distXZ(b.pos, f.pos) < b.radius && -f.pos.y < reach + 0.6);
+        if (strikeLands(w, others)) {
+          w.die('bird');
+          return;
+        }
+      } else if (d < b.radius * p.get('smolt.nearMissRange')) nearMiss(w);
     } else if (b.state === 'strike' && b.timer <= 0) {
       b.alive = false;
     }
@@ -259,12 +287,30 @@ function stepSeals(w: World, dt: number, section: SmoltSection): void {
         seal.vel = scale(norm(sub(aim, seal.pos)), p.get('smolt.sealSpeed'));
       }
     } else if (seal.state === 'lunge') {
-      for (const f of w.live('smolt')) if (dist(seal.pos, f.pos) < 1.4) takeSchoolmate(w, f);
-      if (dist(seal.pos, w.body.pos) < p.get('smolt.sealCatchRadius')) {
-        w.die('seal');
-        return;
+      const catchR = p.get('smolt.sealCatchRadius');
+      const d = dist(seal.pos, w.body.pos);
+      if (d < catchR) {
+        // Others right beside the player: the seal may take one of them instead.
+        const others = w.live('smolt').filter((f) => dist(f.pos, w.body.pos) < p.get('smolt.strikeCrowdRadius'));
+        if (strikeLands(w, others)) {
+          w.die('seal');
+          return;
+        }
+        // It has its fish and turns away.
+        seal.state = 'away';
+        seal.timer = 1.2;
+        seal.vel = v3(seal.vel.x * 0.3, -2, seal.vel.z * 0.3);
+      } else {
+        for (const f of w.live('smolt')) if (dist(seal.pos, f.pos) < 1.4) takeSchoolmate(w, f);
+        if (d < catchR * p.get('smolt.nearMissRange')) seal.value = 1;
+        if (seal.timer <= 0) {
+          // The lunge passed close by without a catch.
+          if (seal.value === 1) nearMiss(w);
+          seal.alive = false;
+        }
       }
-      if (seal.timer <= 0) seal.alive = false;
+    } else if (seal.state === 'away' && seal.timer <= 0) {
+      seal.alive = false;
     }
     seal.pos.x += seal.vel.x * dt;
     seal.pos.y = Math.min(-0.5, Math.max(w.arena.floor(seal.pos.x, seal.pos.z) + 0.6, seal.pos.y + seal.vel.y * dt));
@@ -297,7 +343,7 @@ export const smoltStage: StageDef = {
     // A fish that grew more in the lake (or stayed a second year) leaves it visibly bigger.
     w.body.scale = p.get('smolt.baseScale') + p.get('smolt.scalePerLakeGrowth') * Math.min(lakeGrowth(p, w.progress), p.get('fry.fullLakeGrowth'));
     const n = p.get('smolt.schoolSize');
-    const s: SmoltState = { birdTimer: p.get('smolt.birdInterval') * 0.5, mergTimer: p.get('smolt.mergInterval') * 0.4, sealTimer: 1, lost: 0, schoolStart: n };
+    const s: SmoltState = { birdTimer: p.get('smolt.birdInterval') * 0.5, mergTimer: p.get('smolt.mergInterval') * 0.4, sealTimer: 1, lost: 0, schoolStart: n, grace: 0 };
     w.stage = s as unknown as Record<string, unknown>;
     for (let i = 0; i < n; i++) {
       const home = v3(w.rng.range(-5, 3), w.rng.range(-1.2, 1.2), w.rng.range(-3.5, 3.5));
@@ -318,6 +364,8 @@ export const smoltStage: StageDef = {
   step(w, intent, dt) {
     swimStep(w, intent, dt);
     const section = smoltSection(w);
+    const ss = st(w);
+    ss.grace = Math.max(0, ss.grace - dt);
     stepSchool(w, dt);
     for (const c of w.live('trout')) {
       stepChar(w, c, dt);

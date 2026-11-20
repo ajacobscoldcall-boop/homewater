@@ -86,7 +86,9 @@ export type EntityKind =
   /** Lake ice in winter (fry stage). */
   | 'ice'
   /** Pink salmon competing for food in a crowded ocean year. */
-  | 'pink';
+  | 'pink'
+  /** Brood-mates hatched in the same redd (egg stage): 'hidden' in the gravel, or 'washed' out by the flow. */
+  | 'brood';
 
 export interface Entity {
   id: number;

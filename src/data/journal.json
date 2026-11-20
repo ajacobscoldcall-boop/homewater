@@ -47,7 +47,18 @@
       "text": "Floods are the great killer of eggs and alevin. High flows can scour the gravel and tear them out of the redd before they ever emerge. How many survive depends heavily on the year's water, which no fish can control.",
       "unlock": [
         "death.scour",
-        "egg.loosening"
+        "egg.loosening",
+        "egg.floodComing",
+        "warning.flood"
+      ]
+    },
+    {
+      "id": "egg.brood",
+      "stage": "egg",
+      "title": "Brothers and sisters",
+      "text": "A female lays 2,000 to 5,000 eggs, buried in the gravel together. Only about 10 to 20 percent of them survive to emerge as fry, and scouring floods are the main killer. Whether a young salmon lives through its first flood is mostly chance: it depends on the year's water and where in the gravel it lies.",
+      "unlock": [
+        "egg.floodOver"
       ]
     },
     {
@@ -95,7 +106,8 @@
       "title": "Smolts on the move",
       "text": "In spring the young fish turn silver and become smolts. They leave the lake in large groups and tend to travel at night. Going together swamps the predators: they cannot eat everyone. Predation in the first weeks at sea is usually the bottleneck that shapes how many adults return.",
       "unlock": [
-        "smolt.intro"
+        "smolt.intro",
+        "smolt.nearMiss"
       ]
     },
     {

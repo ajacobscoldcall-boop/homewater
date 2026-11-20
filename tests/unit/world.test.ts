@@ -37,6 +37,45 @@ describe('egg and alevin stage', () => {
     expect(high.stageTime).toBeLessThanOrEqual(still.stageTime);
   });
 
+  it('a flood comes once, after a warning, and washes out most of the brood around the player', () => {
+    for (const seed of [1, 2, 3]) {
+      const { w } = newWorld({ seed });
+      const keys: string[] = [];
+      let level = 0;
+      run(w, 120 * SEC, (ww) => {
+        for (const e of ww.drainEvents()) if (e.key) keys.push(`${e.type}.${e.key}`);
+        level = Math.max(level, alevinView(ww)?.floodLevel ?? 0);
+        return goodAlevin(ww);
+      });
+      for (const e of w.drainEvents()) if (e.key) keys.push(`${e.type}.${e.key}`);
+      expect(w.status, `seed ${seed}`).toBe('stageComplete');
+      const at = (k: string) => keys.indexOf(k);
+      expect(at('warning.flood')).toBeGreaterThanOrEqual(0);
+      expect(at('caption.egg.floodComing')).toBeLessThan(at('caption.egg.flood'));
+      expect(at('caption.egg.flood')).toBeLessThan(at('caption.egg.floodOver'));
+      // The flood is over before the guide sends the fish up out of the gravel.
+      expect(at('caption.egg.floodOver')).toBeLessThan(at('caption.egg.ready'));
+      expect(keys.filter((k) => k === 'caption.egg.flood').length).toBe(1);
+      expect(level).toBe(1);
+      const v = alevinView(w);
+      expect(v?.broodTotal).toBe(params().get('alevin.broodCount'));
+      // Most of the brood is lost (the advisor: about 10-20% of eggs survive to emerge).
+      expect((v?.broodLost ?? 0) / (v?.broodTotal ?? 1)).toBeGreaterThan(0.6);
+    }
+  });
+
+  it('rising high in the gravel during the flood washes the alevin out', () => {
+    const { w } = newWorld({ seed: 4 });
+    run(w, 120 * SEC, (ww) => {
+      const v = alevinView(ww);
+      const i = goodAlevin(ww);
+      return v?.flood === 'flood' ? { ...i, rise: true, dive: false } : i;
+    });
+    expect(w.status).toBe('dead');
+    expect(w.deathCause).toBe('scour');
+    expect(alevinView(w)?.flood).toBe('flood');
+  });
+
   it('an alevin that faces the current, stays low and rises when ready emerges', () => {
     for (const seed of [1, 2, 3, 4, 5]) {
       const { w } = newWorld({ seed });
@@ -142,6 +181,25 @@ describe('stage tuning sanity', () => {
     expect(inSchool.some((r) => r.lost > 0)).toBe(true);
     expect(rate(inSchool)).toBeGreaterThanOrEqual(rate(alone));
     console.log(`smolt survival: in school ${rate(inSchool).toFixed(2)}, alone ${rate(alone).toFixed(2)}, avg school-mates lost ${(inSchool.reduce((s, r) => s + r.lost, 0) / inSchool.length).toFixed(1)}`);
+  });
+
+  it('a strike among school-mates usually takes one of them; alone, it takes the player', () => {
+    const trial = (crowd: boolean, seed: number) => {
+      const { w } = newWorld({ startStage: 2, seed });
+      w.body.pos = { x: 100, y: -1, z: 0 };
+      for (const f of w.live('smolt')) {
+        if (crowd) f.pos = { x: 100 + ((f.id % 5) - 2) * 0.3, y: -1, z: ((f.id % 3) - 1) * 0.3 };
+        else f.alive = false;
+      }
+      w.spawn('birdShadow', { x: 100, y: 0, z: 0 }, { radius: w.p.get('smolt.birdStrikeRadius'), state: 'warn', timer: 0.01 });
+      w.step(intent());
+      return w.status === 'dead';
+    };
+    const seeds = Array.from({ length: 40 }, (_, i) => i + 1);
+    expect(seeds.every((s) => trial(false, s))).toBe(true);
+    const caught = seeds.filter((s) => trial(true, s)).length / seeds.length;
+    expect(caught).toBeGreaterThan(0);
+    expect(caught).toBeLessThan(0.5);
   });
 
   /** A fish that follows the track, threads the nets, enters the home mouth and takes the home branch. */

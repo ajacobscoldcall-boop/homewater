@@ -83,6 +83,10 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           skipIf: (s) => !!s.alevin?.ready,
         },
         {
+          text: 'When the water rises and clouds, a flood is coming. Get right down in the gravel {key:dive} and keep turning to face upstream until it passes.',
+          done: (_s, c) => n(c, 'egg.floodOver') > 0,
+        },
+        {
           text: 'Keep facing upstream each time the flow swings, and stay low in the gravel {key:dive}. Wait for the yolk to run low.',
           done: (s) => !!s.alevin?.ready,
           progress: (s) => `yolk ${pct(s.yolk)}`,

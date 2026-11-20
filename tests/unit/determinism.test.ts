@@ -92,15 +92,19 @@ const CHUNKS = 4;
 
 /** Recorded from the code before the performance work (one hash per quarter of the run). */
 const EXPECTED: Record<string, string[]> = {
-  egg: ['b2c28344', 'dd10ca25', 'be9caab7', 'dd4ff863'],
-  fry: ['0a9edf9f', '84574f87', '6e0a5427', '64b9cd65'],
-  smolt: ['672c5f08', '257729cb', '5a18184f', 'b80eeafe'],
-  ocean: ['bd400d57', '3f004311', '521dfaa4', '935ae1b3'],
-  return: ['f3781035', 'd2701c0d', '6cc063e2', '6104ecf0'],
-  'spawn female': ['1647f38f', '0eb3e886', '67083792', 'c32285b1'],
-  'spawn male': ['01cf95f0', 'b7eb5338', '78be6385', 'a593f25b'],
-  'spawn jack': ['c8b46c2f', 'b810ddab', '040c82da', 'cf3354e9'], // updated: a jack's charge for a hiding spot now rolls once per press
-  'spawn wild': ['23c00598', '5f0d0306', '908f4866', 'fc24deaa'],
+  // Re-recorded with the egg-stage flood and brood-mates and the smolt run's strike dilution and near-miss grace.
+  // Every case starts its world at the egg stage, whose brood now draws more random numbers at init, so the
+  // later stages' dice shift too. Checked when re-recording: with the egg init's old draw count, fry, ocean,
+  // return and all spawn cases hashed exactly as before, so only the egg and smolt simulations changed.
+  egg: ['d440531c', '29d5d300', '4983bb7e', '22329ec7'],
+  fry: ['dce75a57', 'b0a3b8e7', '1130f779', '6e5ef035'],
+  smolt: ['deff3a8e', 'a11e2f51', '8c16e091', '72d484a5'],
+  ocean: ['cd83d01c', '234f3d3d', '801f6e9d', 'cd5fa0a0'],
+  return: ['6dd2f658', 'c43d3044', 'bb61dc4e', '002fa99b'], // updated: past the fork, bears fish only the home branch
+  'spawn female': ['a6768838', '8510ba56', 'e82f75b8', '262536ce'],
+  'spawn male': ['902334f4', '91f7f224', '3c148d30', '86061c98'],
+  'spawn jack': ['a354110a', '58313fd7', 'a0d75a16', '6ddaa745'], // earlier update: a jack's charge for a hiding spot rolls once per press
+  'spawn wild': ['6452ad8f', 'ee1e8aab', '0305fcf5', 'f8e62fa1'],
 };
 
 describe('simulation determinism', () => {

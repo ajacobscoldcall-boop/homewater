@@ -31,11 +31,11 @@ The advisor said eggs can do little, but alevin orient into the current (positiv
 
 | | Now | Full game |
 |---|---|---|
-| **Verb** | Turn to face into the current (A/D or mouse). Sink (C) or rise (Space) within the gravel. | Same, with more varied flows and a flood event |
+| **Verb** | Turn to face into the current (A/D or mouse). Sink (C) or rise (Space) within the gravel. Ride out one flood. | Same, with more varied flows |
 | **Decision** | **Sink:** deeper is more sheltered from surges. **Time the rise:** swim up toward the light once the yolk is nearly used. Rising early leaves you exposed to surges. Every move costs a little yolk, and leftover yolk becomes the fry's starting energy. | Same |
-| **Threats** | **Flow surges:** the drifting flecks swing to a new direction, then surge. A misaligned alevin gets loosened. | Plus egg predators and freezing |
+| **Threats** | **Flow surges:** the drifting flecks swing to a new direction, then surge. A misaligned alevin gets loosened. **The flood** (once, about a third of the way through the yolk): the water rises, darkens and clouds with silt for about 4 s (longer on Field guide, shorter on Wild) while the flow swings to the flood's direction; then about 7 s of scouring flow that swings suddenly from side to side. Only a fish deep in the gravel and facing upstream holds; the top of the gravel is stripped however well you face. **Brood-mates:** about a dozen alevin hatch around the player; the flood tears most of them out (more in high-water years) and surges take a few more, so the loss the advisor describes (only 10-20% of eggs emerge) is seen. The card after the flood says how many were lost. | Plus egg predators and freezing |
 | **Failure** | Washed out (scour), or exhausted (yolk spent with no emergence) | Same |
-| **Length** | About 40-60 s, including a 4 s egg interlude | 2 min first life, then a 1 min vignette |
+| **Length** | About 35-45 s, including a 4 s egg interlude; the flood fits inside it | 2 min first life, then a 1 min vignette |
 
 ## 2. Fry in the lake
 
@@ -66,7 +66,7 @@ The advisor said predation during outmigration is the key bottleneck, and pictur
 | | Now | Full game |
 |---|---|---|
 | **Verb** | Ride the current downriver in a school of 40 smolts. Dodge, dive and burst. | Same, longer, with night runs |
-| **Decision** | **Stay with the school:** predators pick from the whole school, so close school-mates dilute your risk. **Spend energy:** bursts are limited. **Choose your water:** deep water avoids birds, banks give cover, and open water is fast. | Same |
+| **Decision** | **Stay with the school:** predators pick from the whole school, so close school-mates dilute your risk. A bird strike or seal lunge that reaches you among school-mates takes only one fish, and it is often another one (strongly on Field guide, a little on Wild). After a near miss, predators pick other fish for a moment (2-3 s on Field guide, under 1 s on Wild). **Spend energy:** bursts are limited. **Choose your water:** deep water avoids birds, banks give cover, and open water is fast. | Same |
 | **Threats** | **Lake outlet:** char lunge from below, with a ring warning. **River:** diving birds (a shadow on the surface) and mergansers (a splash ahead, a short dive, then an underwater chase). **River mouth:** gull flocks with several shadows, and seals (bubbles and a dark shape, then a straight lunge aimed ahead of the target). | Plus terns and larger fish |
 | **Failure** | Taken by a char, bird, merganser or seal | Same |
 | **Also** | The stage-end card says how many of the 40 school-mates were taken | Same |

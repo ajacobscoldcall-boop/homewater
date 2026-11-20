@@ -216,8 +216,16 @@ export class Bot {
   private egg(w: World): Intent {
     const v = alevinView(w);
     if (!v || v.phase === 'egg') return intent();
-    const m = this.m as { early?: boolean; readySeen?: number; warned?: boolean; missed?: boolean; frozen?: number; pulseSeen?: number };
+    const m = this.m as { early?: boolean; readySeen?: number; warned?: boolean; missed?: boolean; frozen?: number; pulseSeen?: number; floodSeen?: number; floodMissed?: boolean };
     if (m.early === undefined) m.early = this.rng.chance(this.skill.earlyRiseChance);
+    // The flood: rising, clouding water and a caption. A player who notices it digs in until it passes;
+    // one who misses it carries on as before until the flood itself hits (after their reaction time).
+    const flooding = v.flood === 'warning' || v.flood === 'flood';
+    if (flooding && m.floodSeen === undefined) {
+      m.floodSeen = w.stageTime;
+      m.floodMissed = this.rng.chance(this.skill.missChance);
+    }
+    const floodNoticed = flooding && m.floodSeen !== undefined && (m.floodMissed ? v.flood === 'flood' : w.stageTime - m.floodSeen >= this.skill.reaction);
     // The flecks show the current; the player sees a change after their reaction time.
     const now = w.stageTime;
     this.currentHistory.push({ t: now, a: v.currentAngle });
@@ -245,7 +253,7 @@ export class Bot {
     }
     if (v.ready && m.readySeen === undefined) m.readySeen = now;
     const ready = m.readySeen !== undefined && now - m.readySeen >= this.skill.reaction;
-    const rise = ready || (m.early && w.progress.yolk < 0.45);
+    const rise = !floodNoticed && (ready || (m.early && w.progress.yolk < 0.45));
     // Stay low until it is time to go (diving costs a little yolk, so only when needed).
     const dive = !rise && v.height > 0.05;
     return intent({ ...turn, rise, dive });

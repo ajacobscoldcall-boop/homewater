@@ -227,6 +227,7 @@ export function renderReport(data: ReportData, previous: string): string {
       ['One fish survives', 'Real', ...cellHead],
       [
         realRow('Egg to emergence', `${pct(REAL.eggToEmergence.min)}-${pct(REAL.eggToEmergence.max)}`, ['egg']),
+        ['Egg to emergence, brood-mates in the nest (seen, not played)', `${pct(REAL.eggToEmergence.min)}-${pct(REAL.eggToEmergence.max)}`, ...order.map(([d, s]) => pct(get(d, s).broodEmerged, 0))],
         realRow('Fry to leaving the lake', `${pct(REAL.fryToSmolt.min)}-${pct(REAL.fryToSmolt.max)}`, ['fry']),
         realRow('Marine (smolt run, ocean, return at sea)', `about ${pct(REAL.marine.min)}`, ['smolt', 'ocean', 'return:sea']),
         realRow('Egg to spawning', 'well under 1%', [...ROWS]),

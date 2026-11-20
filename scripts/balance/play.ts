@@ -7,6 +7,7 @@ import { rollYear } from '../../src/sim/genetics';
 import { advanceGeneration, foundLineage, markExtinct, offerOffspring, recordLife, siblingsFor, strayRescue } from '../../src/sim/lineage';
 import { Params, type Difficulty, type ParamFile } from '../../src/sim/params';
 import { Rng } from '../../src/sim/rng';
+import { alevinView } from '../../src/sim/stages/egg';
 import { returnLayout } from '../../src/sim/stages/return';
 import { roleOf } from '../../src/sim/stages/spawn';
 import { STAGE_IDS, TRAIT_IDS, type FishIdentity, type Intent, type StageId, type TraitValues, type YearConditions } from '../../src/sim/types';
@@ -66,6 +67,8 @@ export interface Attempt {
   seconds: number;
   /** Ocean stage, males: whether this fish matured as a jack (decided before the late-ocean roll). */
   jack?: boolean;
+  /** Egg stage: share of the brood-mates in the nest that emerged with the player (completed attempts). */
+  brood?: number;
   /** Where a stuck bot was when the attempt was stopped (for debugging bots). */
   stuckAt?: [number, number, number];
 }
@@ -140,6 +143,8 @@ export function playLife(o: LifeSetupOpts): { result: LifeResult; world: World }
         a.where = L && w.body.pos.x < L.coast ? 'sea' : 'river';
       }
     }
+    const av = alevinView(w);
+    if (av && w.status === 'stageComplete' && av.broodTotal > 0) a.brood = 1 - av.broodLost / av.broodTotal;
     if (w.stageId === 'ocean' && w.fish.sex === 'M' && w.progress.isJack !== null && (w.status !== 'dead' || w.deathCause === 'sea')) a.jack = w.progress.isJack;
     if (w.status === 'playing') a.stuckAt = [w.body.pos.x, w.body.pos.y, w.body.pos.z].map((v) => Math.round(v * 10) / 10) as [number, number, number];
     attempts.push(a);

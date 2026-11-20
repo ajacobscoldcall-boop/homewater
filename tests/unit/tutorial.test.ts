@@ -56,7 +56,7 @@ describe('guide steps', () => {
 });
 
 describe('guide progression', () => {
-  it('egg: hatch, then face the current after it swings, then rise when ready', () => {
+  it('egg: hatch, face the current after it swings, ride out the flood, then rise when ready', () => {
     let s = snap({ alevin: { hatched: false, aligned: true, turning: false, ready: false } });
     let st = advanceGuide(start(s), s, 0.1);
     expect(st.index).toBe(0);
@@ -73,13 +73,19 @@ describe('guide progression', () => {
     expect(st.index).toBe(1); // needs to hold it for half a second
     st = advanceGuide(st, s, 0.3);
     expect(st.index).toBe(2);
+    // The flood: done once it has passed.
+    st = advanceGuide(st, s, 5);
+    expect(st.index).toBe(2);
+    st = countGuideEvents(st, [ev('caption', 'egg.floodOver')]);
+    st = advanceGuide(st, s, 0.1);
+    expect(st.index).toBe(3);
     expect(guidePrompt(st, s)?.progress).toBe('yolk 100%');
     s = snap({ alevin: { hatched: true, aligned: true, turning: false, ready: true } });
     st = advanceGuide(st, s, 0.1);
-    expect(st.index).toBe(3);
+    expect(st.index).toBe(4);
     st = advanceGuide(st, s, 10);
-    expect(st.index).toBe(3);
-    expect(guidePrompt(st, s)).toMatchObject({ step: 4, total: 4 });
+    expect(st.index).toBe(4);
+    expect(guidePrompt(st, s)).toMatchObject({ step: 5, total: 5 });
     expect(guidePrompt(st, s)?.text).toMatch(/Space/);
   });
 

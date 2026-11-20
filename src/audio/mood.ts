@@ -84,7 +84,7 @@ export function cueForEvent(ev: Pick<SimEvent, 'type' | 'key'>): Cue | null {
     case 'warning':
       if (ev.key === 'orca' || ev.key === 'shark') return 'pulse';
       if (ev.key === 'opening') return 'opening';
-      if (ev.key === 'flow') return 'surge';
+      if (ev.key === 'flow' || ev.key === 'flood') return 'surge';
       return 'sting';
     case 'eat':
       return 'eat';

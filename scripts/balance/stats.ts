@@ -50,6 +50,8 @@ export interface CellStats {
   /** Jacks per maturation decision (every male fish that finished feeding at sea, siblings included). */
   jackPerDecision: number;
   decisions: number;
+  /** Egg stage: mean share of the nest's brood-mates that emerged alongside the player. */
+  broodEmerged: number;
 }
 
 export interface RoleStats {
@@ -102,10 +104,16 @@ export function cellStats(difficulty: Difficulty, skill: SkillName, lives: LifeR
   let jacks = 0;
   let decisions = 0;
   let decidedJack = 0;
+  let broodSum = 0;
+  let broodN = 0;
   for (const l of lives) {
     const seen = new Set<StageId>();
     for (const a of l.attempts) {
       seen.add(a.stage);
+      if (a.brood !== undefined) {
+        broodSum += a.brood;
+        broodN++;
+      }
       if (a.jack !== undefined) {
         decisions++;
         if (a.jack) decidedJack++;
@@ -180,6 +188,7 @@ export function cellStats(difficulty: Difficulty, skill: SkillName, lives: LifeR
     malesMatured: males,
     jackPerDecision: decisions ? decidedJack / decisions : 0,
     decisions,
+    broodEmerged: broodN ? broodSum / broodN : 0,
   };
 }
 

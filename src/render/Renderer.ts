@@ -54,6 +54,8 @@ const tmpQ = new THREE.Quaternion();
 const tmpS = new THREE.Vector3();
 const tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
+/** Flood water colour in the redd (silt). */
+const SILT = new THREE.Color(0x6e5c3c);
 const UP = new THREE.Vector3(0, 1, 0);
 /** Ring and circle geometry faces +z. */
 const FACING = new THREE.Vector3(0, 0, 1);
@@ -246,16 +248,19 @@ export class Renderer {
       (this.scene.background as THREE.Color).copy(this.fog.color);
       return;
     }
-    sharedWater.uLight.value = v.phase === 'egg' ? 0.8 : v.light;
-    const light = v.phase === 'egg' ? 0.8 : v.light;
+    // The flood: the water rises, darkens and clouds with silt, then clears.
+    const flood = v.floodLevel;
+    const light = (v.phase === 'egg' ? 0.8 : v.light) * (1 - 0.35 * flood);
+    sharedWater.uLight.value = light;
     this.hemi.intensity = 0.2 + 0.95 * light;
     this.sun.intensity = 0.1 + 1.3 * light;
-    this.fog.color.copy(this.baseFog).multiplyScalar(0.25 + 0.75 * light);
+    this.fog.color.copy(this.baseFog).lerp(SILT, 0.75 * flood).multiplyScalar(0.25 + 0.75 * light);
     (this.scene.background as THREE.Color).copy(this.fog.color);
-    this.fog.density = this.baseDensity;
+    this.fog.density = this.baseDensity * (1 + 2.5 * flood);
     const flow = this.flow;
     if (!flow) return;
-    const speed = v.pulse ? 2.4 : v.warning ? 1.2 : 0.5;
+    const flooding = v.flood === 'flood';
+    const speed = flooding ? 3.4 : v.pulse ? 2.4 : v.warning || v.flood === 'warning' ? 1.2 + flood : 0.5;
     const dx = Math.cos(v.currentAngle) * speed * frameDt;
     const dz = Math.sin(v.currentAngle) * speed * frameDt;
     this.flowPts.forEach((pt, i) => {
@@ -266,7 +271,7 @@ export class Renderer {
         const a = v.currentAngle + Math.PI + (Math.random() - 0.5) * 2;
         pt.set(Math.cos(a) * 2.5, -1.55 + Math.random() * 0.8, Math.sin(a) * 2.5);
       }
-      tmpS.set(v.pulse ? 3 : 1.4, 1, 1);
+      tmpS.set(flooding ? 2.4 : v.pulse ? 3 : 1.4, 1, 1);
       tmpQ.setFromAxisAngle(UP, -v.currentAngle);
       flow.setMatrixAt(i, tmpM.compose(pt, tmpQ, tmpS));
     });
@@ -333,6 +338,8 @@ export class Renderer {
     this.makeInstanced('plankton', new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), 160);
     this.makeInstanced('scent', new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: 0xd7ffe8, transparent: true, opacity: 0.55 }), 200);
     this.makeInstanced('eggs', new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf28a3a, roughness: 0.25, transparent: true, opacity: 0.85 }), 20);
+    // Brood-mates after hatching: alevin with their yolk sacs, one draw call for the nest.
+    this.makeInstanced('brood', buildFishGeometry({ depth: 0.8, hump: 0, kype: 0, yolk: 1 }, 'alevin', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4 }), 20);
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
     this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
@@ -479,6 +486,18 @@ export class Renderer {
         break;
       case 'eggs':
         tmpS.setScalar(e.radius);
+        break;
+      case 'brood':
+        if (e.state === 'washed') {
+          // Tumbling away on the flood.
+          tmpQ.setFromEuler(tmpE.set(e.timer * 9 + e.id, -e.yaw, e.timer * 5));
+        } else {
+          // Deeper ones sit lower among the stones; all wriggle a little.
+          tmpP.y -= 0.06 * (e.value ?? 0.5);
+          tmpQ.setFromEuler(tmpE.set(0, -e.yaw + 0.08 * Math.sin(w.time * 5 + e.id), 0.05 * Math.sin(w.time * 3 + e.id * 2)));
+        }
+        // A little smaller than the player's alevin (0.35), so the player's own fish stands out.
+        tmpS.setScalar(0.28);
         break;
       case 'track': {
         // The magnetic sense: a shimmer that fades in and out.

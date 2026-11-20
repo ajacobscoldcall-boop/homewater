@@ -41,7 +41,7 @@ export function stageCardLine(stage: StageId, oceanYears: number | null): string
 
 /** Objectives with key placeholders ({key:dive}); read through OBJECTIVES, which fills in the player's keys. */
 const OBJECTIVE_TEXT: Record<StageId, string> = {
-  egg: 'Face into the current {key:steer}. Stay low {key:dive} in surges. When the yolk is nearly used, swim up {key:rise}.',
+  egg: 'Face into the current {key:steer}. Stay low {key:dive} in surges, and deep through the flood. When the yolk is nearly used, swim up {key:rise}.',
   fry: 'Feed on the plankton, and dart into the weeds when a Dolly Varden chases. Rest through the winter. In spring, follow the current out or stay another year.',
   smolt: 'Ride the current to the sea with the school. Go deep for birds, burst from mergansers, swim across a seal\'s path.',
   ocean: 'Feed where the food gathers. When an orca or shark charges, swim across its path.',
