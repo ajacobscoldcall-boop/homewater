@@ -247,7 +247,9 @@ export class App {
   private pending: SimEvent[] = [];
 
   private afterStatus(w: World): void {
-    const key = `${w.status}:${w.stageIndex}:${w.time.toFixed(3)}`;
+    // Which fish is part of the key: a sibling resumes at the same checkpoint time, so two deaths there
+    // before a frame has run would otherwise look like one and the second would never be handled.
+    const key = `${w.status}:${w.stageIndex}:${w.time.toFixed(3)}:${w.siblingsLeft}:${w.fish.name}`;
     if (w.status === 'playing' || this.lastHandledStatus === key) return;
     this.lastHandledStatus = key;
     if (w.status === 'stageComplete') this.onStageComplete(w);

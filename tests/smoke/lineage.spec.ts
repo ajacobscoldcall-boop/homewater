@@ -85,9 +85,11 @@ test('a Wild line dies out: the extinction screen, then a stray from this river'
   await page.click('[data-offspring="0"]');
   await page.click('#btn-accept-name');
   // Then the whole brood dies: the fish and its three siblings on Wild.
+  // Each death lands in the same tick as Play, before a frame runs, so every sibling dies at the same
+  // checkpoint time: each death must still be handled (it once was not, and the test hung in CI).
   for (let i = 0; i < 4; i++) {
-    await page.click('#btn-play');
     await page.evaluate(() => {
+      (document.getElementById('btn-play') as HTMLButtonElement).click();
       window.__hw?.app.world?.die('bear');
       window.__hw?.step(0);
     });

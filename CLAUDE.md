@@ -202,3 +202,4 @@ GitHub Pages, deployed by `.github/workflows/pages.yml` on pushes to `main`. The
     - Threat markers draw above captions and toasts.
   - **Checks:** `node tests/smoke/feel-shots.mjs` against a preview on 4185. It checks camera clearance per stage and photographs each warning; shots are in `docs/gallery/feel-*.png`.
   - **Shallows (fixed at merge):** water too shallow for the fish (the lake beach, the return's banks) now stops it like a wall in `constrain` (`swim.ts`): it slides along the edge instead of swimming onto dry ground. `tests/unit/shallows.test.ts`; no determinism hash moved.
+- **Same-time deaths:** `App.afterStatus` remembers the last status it handled by status, stage, sim time, siblings left and fish name. Without the fish, a sibling that died at its checkpoint before a frame ran had the same key as the fish before it and was never handled (the public repo's CI hung on this in `lineage.spec.ts`, which now dies in the same tick as Play on purpose).
