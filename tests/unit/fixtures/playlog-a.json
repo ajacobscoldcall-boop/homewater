@@ -1,0 +1,498 @@
+{
+ "kind": "homewater-playlog",
+ "version": 1,
+ "exportedAt": "2026-11-22T12:00:00.000Z",
+ "lives": [
+  {
+   "id": "a",
+   "version": 1,
+   "startedAt": "2026-11-21T10:00:00.000Z",
+   "endedAt": "2026-11-21T10:00:00.000Z",
+   "difficulty": "fieldGuide",
+   "habitat": "creek",
+   "sex": "F",
+   "role": "female",
+   "lockedJack": false,
+   "isStray": false,
+   "generation": 1,
+   "firstLife": true,
+   "partial": false,
+   "conditions": {
+    "flow": 1,
+    "temperature": 1,
+    "oceanCrowding": 1,
+    "runSize": 1
+   },
+   "siblingsAtStart": 5,
+   "settings": {
+    "graphics": "Auto: Medium",
+    "gameSpeed": 1,
+    "guidance": true,
+    "gore": "unflinching",
+    "cinematics": true,
+    "reducedMotion": false
+   },
+   "outcome": "spawned",
+   "attempts": [
+    {
+     "stage": "egg",
+     "stageIndex": 0,
+     "fish": "Ada",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 40,
+     "playSeconds": 42,
+     "outcome": "completed",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 5,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    },
+    {
+     "stage": "fry",
+     "stageIndex": 1,
+     "fish": "Ada",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 80,
+     "playSeconds": 85,
+     "outcome": "completed",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 5,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    },
+    {
+     "stage": "smolt",
+     "stageIndex": 2,
+     "fish": "Ada",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 20,
+     "playSeconds": 22,
+     "outcome": "died",
+     "deathCause": "seal",
+     "endPos": [
+      10,
+      -2,
+      3
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 5,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {
+      "seal": 2
+     },
+     "warningTimes": [
+      [
+       1.0,
+       "seal"
+      ]
+     ],
+     "nearMisses": 1,
+     "nearMissTimes": [
+      2.0
+     ],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    },
+    {
+     "stage": "smolt",
+     "stageIndex": 2,
+     "fish": "Bea",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 40,
+     "playSeconds": 41,
+     "outcome": "completed",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 4,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    },
+    {
+     "stage": "ocean",
+     "stageIndex": 3,
+     "fish": "Bea",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 90,
+     "playSeconds": 95,
+     "outcome": "completed",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 4,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    },
+    {
+     "stage": "return",
+     "stageIndex": 4,
+     "fish": "Bea",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 2,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 70,
+     "playSeconds": 75,
+     "outcome": "completed",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 4,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    },
+    {
+     "stage": "spawn",
+     "stageIndex": 5,
+     "fish": "Bea",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 100,
+     "playSeconds": 104,
+     "outcome": "spawned",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 4,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "c",
+   "version": 1,
+   "startedAt": "2026-11-22T09:00:00.000Z",
+   "endedAt": null,
+   "difficulty": "fieldGuide",
+   "habitat": "creek",
+   "sex": "F",
+   "role": "female",
+   "lockedJack": false,
+   "isStray": false,
+   "generation": 1,
+   "firstLife": true,
+   "partial": true,
+   "conditions": {
+    "flow": 1,
+    "temperature": 1,
+    "oceanCrowding": 1,
+    "runSize": 1
+   },
+   "siblingsAtStart": 5,
+   "settings": {
+    "graphics": "Auto: Medium",
+    "gameSpeed": 1,
+    "guidance": true,
+    "gore": "unflinching",
+    "cinematics": true,
+    "reducedMotion": false
+   },
+   "outcome": "unfinished",
+   "attempts": [
+    {
+     "stage": "ocean",
+     "stageIndex": 3,
+     "fish": "Fay",
+     "role": "female",
+     "startMarker": 0,
+     "endMarker": 0,
+     "startedAt": "2026-11-21T10:00:00.000Z",
+     "endedAt": "2026-11-21T10:01:00.000Z",
+     "simSeconds": 30,
+     "playSeconds": 31,
+     "outcome": "unfinished",
+     "deathCause": null,
+     "endPos": [
+      0,
+      0,
+      0
+     ],
+     "endFat": 0.8,
+     "endEnergy": 0.6,
+     "siblingsLeft": 5,
+     "settings": {
+      "graphics": "Auto: Medium",
+      "gameSpeed": 1,
+      "guidance": true,
+      "gore": "unflinching",
+      "cinematics": true,
+      "reducedMotion": false
+     },
+     "warnings": {},
+     "warningTimes": [],
+     "nearMisses": 0,
+     "nearMissTimes": [],
+     "trace": [
+      [
+       0,
+       0,
+       0,
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       0.5,
+       0,
+       0,
+       0.98,
+       1
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

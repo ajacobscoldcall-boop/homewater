@@ -93,3 +93,56 @@ Warning times on Wild are unchanged.
 | Ocean years | 40% → 42% | 30% → 24% | 19% → 22% |
 | Return: home river | 64% → 58% | 46% → 45% | 6% → 8% |
 | Spawning | 24% → 26% | 8% → 3% | 8% → 14% |
+
+## Camera framing, Documentary view and the minimal HUD (2026-11-20)
+
+Track 1 items 1 and 3 of `docs/IMPROVEMENT_PLAN.md`, and the owner's "Documentary view" decision. Render and UI only: the simulation, params and saves are unchanged (no determinism hash moved). Shots: `node tests/smoke/camera-shots.mjs` and `node tests/smoke/camera-cues.mjs` against a preview on port 4194 (`npx vite preview --port 4194`); saved as `docs/gallery/camera-*.png`.
+
+### Camera
+
+**Before.** The default view hung above and behind the fish and looked down on its back. The fish read as a thin stick, the surface and horizon were out of frame, and threats arrived from off screen.
+
+**Now** (`cameraRig.ts`, tuning in `cameraConfig.ts`):
+- **Low chase (default).** The boom hangs near the fish's depth (a little above it), behind it and swung about 0.5 rad (29°) to one side, so the body is seen three-quarter side-on in silhouette, with the water column and the surface above it in frame. The side is chosen for open water when the stage starts, and again when a framed moment begins (it swings round smoothly). The gaze sits just ahead of the fish at about its depth, so it sits near the middle of the screen, above the captions.
+- **High.** The feel pass's view, unchanged: behind and above, looking down on the back.
+- **The view key (V)** cycles low chase, high, and first-person. The Readability page's **Camera view** sets which third-person view the game starts in; cycling remembers the last one used (`access().cameraView`, per browser).
+- **Side-on framing** (low chase only): the boom swings round to about 80° off the tail axis, drops level with the fish and lengthens a little, for
+  - a fight beside the fish on the spawning grounds (rival or guarding male in state `fight` within 10 units): centred between the two fish, lengthened by their spread;
+  - the female's spawning act (settled over the finished redd with a male beside her);
+  - the plunge pool below the falls (partly, 60%) and the leap itself (fully).
+
+  It comes and goes over about half a second (instantly-ish with reduced motion).
+- **A soft look toward a threat.** The most pressing threat (the nearest attack, else the nearest warning; never a lure, an opening or a rival) pulls the camera round: the boom swings up to half the bearing to it (at most 1 rad) and the gaze moves up to 30% of the way toward it, capped at 0.4 of the boom so the fish never leaves the frame. A warning pulls at 60% strength, an attack fully. It is off with reduced motion and while a cinematic shot plays. In the shots, a salmon shark placed behind and to the side comes on screen beside the fish within about a second.
+- **The egg stage** has a fixed view per camera choice: low chase sits low among the stones, looking across the nest; high looks down on it as before.
+- **Unchanged:** collision handling (pull in, rise, swing aside), the surface line, shake on near misses, cinematics on top, first-person.
+
+**Known limits.** The camera does not avoid other fish: at the falls a fellow migrant can pass right in front of the lens (`camera-falls-pool.png`). Huge eggs fill the egg-stage chase view until the scale session shrinks them.
+
+### Documentary view
+
+A Readability-page setting, off by default (`access().documentaryView`, per browser). Nothing in the simulation changes: the warning times in params are the same, and every predator still gives its warning at the same moment. Only how the warning is shown changes.
+
+| Aid (default view) | Documentary view |
+|---|---|
+| Labelled ring on a warning or attacking predator | Nothing on screen: the predator itself, its approach and its own tell (rings in the water, the bird's shadow, the bear's shadow on the surface, splash rings) |
+| Arrow at the screen edge for a threat off screen | A soft dark shadow at that edge (`#edge-shadow`; darker for an attack), only while the threat is off screen |
+| (none) | A soft shadow on the bed under a warning predator that swims (char, Dolly Varden, seal, orca, salmon shark, merganser), darker as it attacks |
+| Merganser target ring on the surface | None (its splash rings and the merganser remain) |
+| "lure" marker on a swinging lure | None (the lure and its line remain) |
+| "now" marker on the female during a fight | None (the green edge flash and the opening sound remain) |
+| Jack hiding-spot rings | Faint marks on the gravel |
+| Home scent as specks | A faint shimmer in the water: soft, flickering, camera-facing glows, larger and brighter where the smell is clearer |
+| Magnetic track as small blue markers | Soft glows of pale light along the track that swell and fade |
+
+In both views:
+- **The fish startles.** When a predator first warns or turns to strike within 22 units, your fish flinches away from it: a quick turn and roll and a burst of tail beats (`ThreatCues.startle`, tuning `CAMERA.startle`). Render only; the sim's fish does not move.
+- **Sound.** The existing cues stay: a sting (or a low pulse for orcas and sharks) on each warning, a splash or pulse on the strike, and the danger layer of the score while anything is warning.
+- **The camera's soft look** toward the threat.
+
+### Minimal HUD
+
+- **Two thin rings, always shown, bottom-left** (`src/ui/vitals.ts`, `#hud-vitals`; tuning `src/ui/hudConfig.ts`): energy (yolk for the alevin), plus fat on the return and strength on the spawning grounds. Silver when fine, amber when low, red and pulsing when critical (no pulse with reduced motion).
+- **Early fat warning.** The fat ring watches the recent rate of burn. It turns amber when fat is under 40% or would run out within 75 s at that rate, and red under 20% or within 30 s. A long burst up the rapids therefore shows amber well before the store is low, while there is still time to rest in slack water.
+- **Water temperature only when it matters.** On the return, a small amber chip (for example "water 19°C · warm") appears beside the rings when the water is within 1.5 °C of the heat-stress temperature, the fish is under any heat stress, or oxygen is low. Otherwise it is hidden.
+- **The H details panel** keeps the rest (hold, daylight, growth, home scent, depth, oxygen, heat stress), moved up above the rings. Energy, yolk and fat are no longer repeated there.
+- Written through `HudView` (`rings`, `edgeShadow`): DOM writes only when the shown value changes (ring arcs to the nearest 1%).

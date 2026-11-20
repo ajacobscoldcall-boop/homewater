@@ -8,6 +8,8 @@
  *   gallery=salmon       the salmon life stages
  *   gallery=animals      predators and other species
  *   gallery=return       the return as a sequence: sea, river mouth, up the river, grounds (rows: male, female, jack)
+ *   gallery=scale        every stage's models in rows at the size they are drawn in play (scaleGallery.ts);
+ *                        gallery=scale-ocean (egg, fry, smolt, ocean, adult) for one row
  *   gallery=<item id>    one item, large (e.g. gallery=spawnMale)
  *   spin=<rad/s>         turning speed (default 0.25; 0 holds still)
  *   angle=<rad>          starting angle (0 = side view, head to the right)
@@ -19,6 +21,8 @@ import { ANIMALS, fishAnimal, type Animal, type AnimalPose } from './animals';
 import { bodyLook, type BodyRole, type BodyState } from './bodyChange';
 import type { FishLook, FishShape } from './fishMesh';
 import { krillGeometry, squidGeometry } from './krill';
+import { buildEggGeometry, eggMaterial } from './eggMesh';
+import { startScaleGallery } from './scaleGallery';
 
 interface Item {
   id: string;
@@ -82,9 +86,21 @@ function bearWithFish(): Animal {
   return { kind: 'bearCatch', root: bear.root, update: (p) => { bear.update(p); fishA.update({ mode: 'swim', t: p.t, phase: p.t * 20, amp: 0.06 }); } };
 }
 
+/** An egg in the redd: eyed (eyes 1) or before the eyes show (0). */
+function eggModel(eyed: number): Animal {
+  const root = new THREE.Group();
+  const mat = eggMaterial();
+  (mat.userData.uEyed as { value: number }).value = eyed;
+  root.add(new THREE.Mesh(buildEggGeometry(), mat));
+  root.scale.setScalar(0.5);
+  return { kind: 'egg', root, update: () => {} };
+}
+
 const ITEMS: Item[] = [
-  fish('alevin', 'alevin', { depth: 0.8, yolk: 1 }, 'Alevin', 'yolk sac, large eye, fin fold'),
-  fish('fry', 'fry', { depth: 0.95 }, 'Fry', 'faint parr marks, deep fork'),
+  { id: 'egg', label: 'Egg (eyed)', note: 'about 6 mm; the eyes show weeks before hatching', group: 'salmon', make: () => eggModel(1) },
+  { id: 'eggEarly', label: 'Egg (before the eyes)', note: 'translucent orange-red, oil drop on top', group: 'salmon', make: () => eggModel(0) },
+  fish('alevin', 'alevin', { depth: 0.8, yolk: 1 }, 'Alevin', 'big orange yolk sac, large eye, fin fold'),
+  fish('fry', 'fry', { depth: 0.95 }, 'Fry', 'short oval parr marks, speckled back, deep fork'),
   fish('smolt', 'smolt', { depth: 0.95 }, 'Smolt', 'silver, dark back, no spots'),
   fish('ocean', 'ocean', { depth: 1 }, 'Ocean adult', 'steel-blue back, silver, no spots'),
   fish('returnSilver', 'returnSilver', { depth: 1.02 }, 'Return (sea)', 'still silver'),
@@ -95,7 +111,7 @@ const ITEMS: Item[] = [
   fish('pink', 'pink', { depth: 0.95 }, 'Pink salmon (at sea)', 'large oval spots on back and both tail lobes'),
   fish('herring', 'herring', { depth: 0.9 }, 'Small forage fish', 'slim, forked tail, blue-green back, no adipose fin'),
   ...returnItems(),
-  { id: 'krill', label: 'Krill', note: 'main food at sea; drawn larger than life in play', group: 'animals', make: () => preyModel('krill', krillGeometry(), 0.78) },
+  { id: 'krill', label: 'Krill', note: 'main food at sea; about 2 cm, drawn at life size in play', group: 'animals', make: () => preyModel('krill', krillGeometry(), 0.78) },
   { id: 'squid', label: 'Small squid', note: 'occasional food at sea', group: 'animals', make: () => preyModel('squid', squidGeometry(), 0.85) },
   { id: 'char', label: 'Dolly Varden (char)', note: 'pale spots on dark, white fin edges', group: 'animals', make: ANIMALS.char! },
   { id: 'orca', label: 'Orca', note: 'tall dorsal fin, eye and flank patches', group: 'animals', make: ANIMALS.orca! },
@@ -137,6 +153,7 @@ declare global {
 }
 
 export function startGallery(canvas: HTMLCanvasElement, which: string, params: URLSearchParams): void {
+  if (which === 'scale' || which.startsWith('scale-')) return startScaleGallery(canvas, which);
   document.body.classList.add('gallery');
   for (const id of ['vignette', 'flash', 'hud', 'screen', 'debug']) {
     const el = document.getElementById(id);

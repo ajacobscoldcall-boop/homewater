@@ -9,6 +9,16 @@
  * `i > b` meters.
  */
 import { $, h } from './dom';
+import { VITALS } from './hudConfig';
+
+/** One ring of the always-visible minimal HUD (vitals.ts). */
+export interface VitalRing {
+  name: string;
+  value: number;
+  level: 'ok' | 'low' | 'critical';
+}
+
+const SVG = 'http://www.w3.org/2000/svg';
 
 export interface ThreatMarker {
   x: number;
@@ -39,6 +49,8 @@ export class HudView {
   private shown = 0;
   private barKey = '';
   private barEls: { row: HTMLElement; fill: HTMLElement; cls: string; width: string }[] = [];
+  private ringKey = '';
+  private ringEls: { row: HTMLElement; arc: SVGCircleElement; cls: string; dash: string }[] = [];
 
   /** The element with this id, looked up once. */
   el(id: string): HTMLElement {
@@ -93,6 +105,68 @@ export class HudView {
       const width = `${Math.round(Math.max(0, Math.min(1, r.value)) * 100)}%`;
       if (width !== b.width) b.fill.style.width = b.width = width;
     });
+  }
+
+  /** The minimal HUD's rings: rebuilt when the set of rings changes, otherwise only the arc and the level class. */
+  rings(id: string, rows: readonly VitalRing[]): void {
+    const { r, stroke } = VITALS.ring;
+    const c = 2 * Math.PI * r;
+    const key = rows.map((x) => x.name).join('|');
+    if (key !== this.ringKey || this.ringEls.length !== rows.length) {
+      this.ringKey = key;
+      this.ringEls = rows.map((x) => {
+        const svg = document.createElementNS(SVG, 'svg');
+        const size = 2 * (r + stroke);
+        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+        svg.setAttribute('aria-hidden', 'true');
+        const track = document.createElementNS(SVG, 'circle');
+        const arc = document.createElementNS(SVG, 'circle');
+        for (const el of [track, arc]) {
+          el.setAttribute('cx', String(size / 2));
+          el.setAttribute('cy', String(size / 2));
+          el.setAttribute('r', String(r));
+          el.setAttribute('stroke-width', String(stroke));
+        }
+        track.setAttribute('class', 'track');
+        arc.setAttribute('class', 'arc');
+        arc.setAttribute('stroke-dasharray', `${c.toFixed(2)} ${c.toFixed(2)}`);
+        arc.setAttribute('transform', `rotate(-90 ${size / 2} ${size / 2})`);
+        svg.append(track, arc);
+        const row = h('div', { class: 'vital', 'data-vital': x.name }, svg, h('span', {}, x.name));
+        return { row, arc, cls: 'vital', dash: '' };
+      });
+      this.el(id).replaceChildren(...this.ringEls.map((x) => x.row));
+    }
+    rows.forEach((x, i) => {
+      const e = this.ringEls[i]!;
+      const cls = `vital${x.level === 'ok' ? '' : ` ${x.level}`}`;
+      if (cls !== e.cls) e.row.className = e.cls = cls;
+      const v = Math.round(Math.max(0, Math.min(1, x.value)) * 100) / 100;
+      const dash = (c * (1 - v)).toFixed(2);
+      if (dash !== e.dash) {
+        e.arc.setAttribute('stroke-dashoffset', dash);
+        e.dash = dash;
+        e.row.setAttribute('aria-label', `${x.name} ${Math.round(v * 100)}%`);
+      }
+    });
+  }
+
+  /** Documentary view: a soft shadow at the screen edge toward an off-screen threat, or none. */
+  edgeShadow(id: string, cue: { angle: number; strength: number } | null): void {
+    const value = cue ? `${cue.angle.toFixed(2)}|${cue.strength.toFixed(2)}` : '';
+    if (!this.changed(`edge:${id}`, value)) return;
+    const el = this.el(id);
+    if (!cue) {
+      el.style.opacity = '0';
+      return;
+    }
+    // Centre of the shadow on the edge, in the threat's direction from the middle of the screen.
+    const dx = Math.cos(cue.angle);
+    const dy = Math.sin(cue.angle);
+    const k = 0.5 / Math.max(Math.abs(dx), Math.abs(dy), 1e-3);
+    el.style.setProperty('--ex', `${((0.5 + dx * k) * 100).toFixed(1)}%`);
+    el.style.setProperty('--ey', `${((0.5 + dy * k) * 100).toFixed(1)}%`);
+    el.style.opacity = cue.strength.toFixed(2);
   }
 
   /** Threat markers, updated in place. */

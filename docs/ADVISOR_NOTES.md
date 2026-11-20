@@ -231,3 +231,21 @@ Game choices made without advisor input, marked placeholder in params.json.
 - **Bears walking the bank:** a bear patrols the bank between strikes and hurries along it to a chosen fish. **Open:** do bears on spawning streams fish from one spot, or walk the bank?
 - **Scavengers:** gulls and a bald eagle come to carcasses and to dead fish drifting late in the season. **Open:** which scavengers are commonest on sockeye spawning grounds, and do eagles take floating carcasses?
 - **Predator personalities:** individual char, mergansers, seals and orcas differ a little in speed, patience and the angle they come in from (`behaviour.*`). This is a game mechanic.
+
+## Open questions from the scale and fish-looks stream
+
+Render only: nothing here changes the simulation. Sizes come from published sources listed in `tests/unit/scale.test.ts`; the choices below are presentation, not new biology.
+
+- **Drawn sizes:** every model is now drawn within about a third of its real size beside the player's fish (`?gallery=scale`). Krill are about 2 cm beside a 60 cm sockeye, a harbor seal is about 15 times a smolt's length, eggs are about 6 mm. **Open:** do any of the sizes look wrong to you?
+- **Eyed eggs:** the game's egg stage is the last stretch before hatching, so the eggs are shown eyed throughout, the eyes darkening as hatching nears, with the curled embryo and an oil drop showing through a translucent orange-red shell. **Open:** is that a fair picture of sockeye eggs just before hatching?
+- **Alevin, fry and smolt looks:** the alevin carries a large orange yolk sac under the front half of its body; fry have a row of short dark oval parr marks along the lateral line and a speckled olive back; smolts are bright silver with a dark blue-green back and dark-edged tail. **Open:** are the parr marks the right shape and number for sockeye fry?
+- **Plankton swarms:** each bite of food in the lake is drawn as a small swarm of zooplankton a few millimetres long, not one large ball. **Open:** which zooplankton matter most to sockeye fry in Bristol Bay-type lakes (Daphnia, Bosmina, copepods), and should rich patches look different?
+- **The night run:** the smolt run is drawn as a clear moonlit night (moon and stars through the surface, dark water, silver school). **Open:** do smolts mostly run on dark nights, or does moonlight matter?
+- **Dolly Varden in the lake:** drawn about 24 cm long, the low end of lake char sizes, so the fry stage stays readable. **Open:** how big are the char that eat sockeye fry?
+- **School-mates:** smolt school-mates are drawn the player's size or a little smaller (84-100%), so the player's fish stands out. This is a game device.
+## Open questions from the camera and Documentary view stream
+
+Presentation only; nothing in the simulation changed.
+
+- **The startle:** in both views the player's fish flinches away when a predator first warns or turns to strike near it (render only). Fast-start escape responses are well described in fishes. **Open:** is a visible flinch at the first sight of a predator a fair picture for juvenile and adult sockeye, or would they more often freeze or hold still?
+- **Scent as a shimmer:** in Documentary view the home scent is drawn as a faint shimmer in the water and the magnetic track as soft glows of light. Both are game devices: neither smell nor the magnetic field can be seen. **Open:** none for the biology; noted so captions never describe the shimmer as something real.

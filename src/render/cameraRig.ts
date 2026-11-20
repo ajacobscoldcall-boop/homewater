@@ -1,7 +1,12 @@
 /**
  * The third-person play camera (render only; reads sim state, never writes it).
  *
- * - Hangs on a boom behind and above the fish. The boom's heading follows the
+ * - Two views (cameraConfig.ts `views`): `chase` (default) hangs low near the fish's depth, a little above,
+ *   behind and off to one side, so the fish is seen side-on in silhouette with the surface in view; `high`
+ *   hangs behind and above, looking down on the back (the feel pass's view).
+ * - Side-on framing (`CameraAim.side`, chase only) for the spawning act, fights and leaps at the falls.
+ * - A soft look toward a hot threat (`CameraAim.threat`), off with reduced motion.
+ * - Hangs on a boom behind the fish. The boom's heading follows the
  *   fish's with a little lag, so a turn swings the fish across the frame and
  *   shows which way it is going; the gaze looks slightly ahead of the fish.
  * - Never clips: the boom is marched against the scenery's ground (banks
@@ -13,7 +18,7 @@
  *
  * Plain vector maths so it can be unit tested without WebGL. Tuning: cameraConfig.ts.
  */
-import { CAMERA } from './cameraConfig';
+import { CAMERA, type CameraView } from './cameraConfig';
 
 export interface V3 {
   x: number;
@@ -34,6 +39,18 @@ export interface CameraProbe {
   walls?: readonly CameraBox[];
   /** Distance from `from` along unit `dir` to the first solid scenery, or Infinity (up to `max`). */
   rayHit?(from: V3, dir: V3, max: number): number;
+}
+
+/** What the camera should frame besides the fish. All optional; the Renderer fills it from sim views each frame. */
+export interface CameraAim {
+  /** 0..1: how far to swing round to a side-on view (spawning act, fight, leap). Chase view only. */
+  side?: number;
+  /** A point to centre the side-on view on (e.g. between the fish and a rival), with `spread` extra boom length. */
+  centre?: V3 | null;
+  spread?: number;
+  /** A hot threat to bring on screen, and how strongly (0..1). Pass null while a cinematic shot plays. */
+  threat?: V3 | null;
+  threatWeight?: number;
 }
 
 export interface FishPose {
@@ -136,6 +153,19 @@ export class CameraRig {
   private dodge = 0;
   private dir: V3 = { x: 0, y: 0, z: 0 };
   private lookWant: V3 = { x: 0, y: 0, z: 0 };
+  /** Which view the rig shows. */
+  view: CameraView = 'chase';
+  /** Which side of the fish the chase view sits on (+1 / -1), chosen for open water when it snaps. */
+  private sideSign = 1;
+  /** Smoothed side-on framing (0..1), threat swing (rad) and threat look (0..1). */
+  private sideOn = 0;
+  /** Smoothed yaw of the boom off the tail axis (rad), so a change of side swings round rather than jumping. */
+  private baseYaw = 0;
+  private framing = false;
+  private swing = 0;
+  private threatLook = 0;
+  private lastThreat: V3 = { x: 0, y: 0, z: 0 };
+  private centre: V3 = { x: 0, y: 0, z: 0 };
 
   /** Snap to the fish on the next update (a new stage, a teleport). */
   reset(): void {
@@ -152,13 +182,53 @@ export class CameraRig {
     return this.shakeLeft > 0;
   }
 
-  update(f: FishPose, dt: number, probe: CameraProbe, reducedMotion: boolean): void {
+  /** How far the view is swung round to side-on (0..1), for tests and the debug panel. */
+  get sideOnShare(): number {
+    return this.sideOn;
+  }
+
+  /** The boom's current swing toward a threat (rad). */
+  get threatSwing(): number {
+    return this.swing;
+  }
+
+  update(f: FishPose, dt: number, probe: CameraProbe, reducedMotion: boolean, aim: CameraAim = {}): void {
     const c = CAMERA;
+    const v = c.views[this.view];
     const snap = !this.started;
     const fh = heading(f.yaw, f.pitch, this.hf);
+    // Side-on framing and the threat swing, smoothed.
+    const sideWant = this.view === 'chase' ? Math.max(0, Math.min(1, aim.side ?? 0)) : 0;
+    let swingWant = 0;
+    let lookWant = 0;
+    const t = aim.threat;
+    if (t && !reducedMotion && (aim.threatWeight ?? 1) > 0) {
+      const dist = Math.hypot(t.x - f.pos.x, t.z - f.pos.z);
+      if (dist < c.threat.range) {
+        const wgt = Math.max(0, Math.min(1, aim.threatWeight ?? 1));
+        const bearing = Math.atan2(t.z - f.pos.z, t.x - f.pos.x);
+        const delta = wrap(bearing - (this.yaw + this.sideSign * v.side));
+        swingWant = Math.max(-c.threat.maxSwing, Math.min(c.threat.maxSwing, delta * c.threat.swingShare)) * wgt;
+        lookWant = wgt;
+        this.lastThreat.x = t.x;
+        this.lastThreat.y = t.y;
+        this.lastThreat.z = t.z;
+      }
+    }
+    if (snap) {
+      this.sideOn = sideWant;
+      this.swing = 0;
+      this.threatLook = 0;
+    } else {
+      this.sideOn += (sideWant - this.sideOn) * follow(reducedMotion ? c.frame.followReduced : c.frame.follow, dt);
+      const k = follow(c.threat.follow, dt);
+      this.swing += (swingWant - this.swing) * k;
+      this.threatLook += (lookWant - this.threatLook) * k;
+    }
+    const side = this.sideOn;
     if (snap) {
       this.yaw = f.yaw;
-      this.pitch = f.pitch * c.pitchShare;
+      this.pitch = f.pitch * v.pitchShare;
       this.pivot.x = f.pos.x;
       this.pivot.y = f.pos.y;
       this.pivot.z = f.pos.z;
@@ -167,7 +237,7 @@ export class CameraRig {
       this.dodge = 0;
     } else {
       this.yaw += wrap(f.yaw - this.yaw) * follow(reducedMotion ? c.yawFollowReduced : c.yawFollow, dt);
-      this.pitch += (f.pitch * c.pitchShare - this.pitch) * follow(c.pitchFollow, dt);
+      this.pitch += (f.pitch * v.pitchShare * (1 - side) - this.pitch) * follow(c.pitchFollow, dt);
       const k = follow(c.pivotFollow, dt);
       this.pivot.x += (f.pos.x - this.pivot.x) * k;
       this.pivot.y += (f.pos.y - this.pivot.y) * k;
@@ -179,13 +249,35 @@ export class CameraRig {
     // ...and out of the ground: the drawn banks can stand a little above the sim's bed at the edges.
     o.y = Math.min(top, Math.max(o.y, probe.ground(o.x, o.z) + c.margin * 0.5));
 
-    // Where the camera wants to be: behind the fish (swung aside by `dodge` when blocked), under the surface.
-    const d = c.boom.perScale * f.scale + c.boom.base;
+    // Where the camera wants to be: behind the fish, off to its side (chase), swung round further for side-on
+    // framing and toward a threat, and aside by `dodge` when blocked; under the surface.
+    const spread = side * Math.max(0, aim.spread ?? 0);
+    const d = (v.boom.perScale * f.scale + v.boom.base) * (1 + c.frame.longer * side) + spread;
+    const up = v.boom.up + (c.frame.up - v.boom.up) * side;
+    const back = v.boom.back;
+    // Which side: open water when the stage starts, and again when a framed moment begins (side-on wants room).
+    const trySide = (sign: number, angle: number) => {
+      const h = heading(this.yaw + sign * angle, this.pitch, this.h);
+      const e = { x: o.x - h.x * d * back, y: Math.min(top, o.y + up * d), z: o.z - h.z * d * back };
+      return this.march(o, e, probe).clear;
+    };
+    if (snap && v.side > 0) this.sideSign = trySide(-1, v.side) > trySide(1, v.side) + 0.05 ? -1 : 1;
+    const framing = sideWant > 0;
+    if (framing && !this.framing && !snap) {
+      const a = c.frame.angle;
+      const here = trySide(this.sideSign, a);
+      if (trySide(-this.sideSign, a) > here + 0.3) this.sideSign = -this.sideSign;
+    }
+    this.framing = framing;
+    const baseWant = this.sideSign * (v.side + (c.frame.angle - v.side) * side);
+    if (snap) this.baseYaw = baseWant;
+    else this.baseYaw += (baseWant - this.baseYaw) * follow(reducedMotion ? c.frame.followReduced : c.frame.follow, dt);
+    const baseYaw = this.baseYaw + this.swing;
     const boomTo = (yawOffset: number, end: V3): V3 => {
-      const h = heading(this.yaw + yawOffset, this.pitch, this.h);
-      end.x = o.x - h.x * d * c.boom.back;
-      end.y = o.y - h.y * d * c.boom.back + c.boom.up * d;
-      end.z = o.z - h.z * d * c.boom.back;
+      const h = heading(this.yaw + baseYaw + yawOffset, this.pitch, this.h);
+      end.x = o.x - h.x * d * back;
+      end.y = o.y - h.y * d * back + up * d;
+      end.z = o.z - h.z * d * back;
       end.y = Math.min(top, Math.max(probe.ground(end.x, end.z) + c.margin, end.y));
       return end;
     };
@@ -259,8 +351,8 @@ export class CameraRig {
     this.pos.y = Math.min(top, Math.max(this.pos.y, probe.ground(this.pos.x, this.pos.z) + c.margin * 0.5));
 
     // Gaze: a little ahead of the fish, along its own heading and its travel.
-    const la = c.lookAhead;
-    const ahead = la.perScale * f.scale + la.base;
+    const la = { ...v.look, ...c.lookLead };
+    const ahead = (la.perScale * f.scale + la.base) * (1 - 0.6 * side);
     let lx = f.vel.x * la.velLead;
     let ly = f.vel.y * la.velLead;
     let lz = f.vel.z * la.velLead;
@@ -275,6 +367,33 @@ export class CameraRig {
     lw.x = f.pos.x + fh.x * ahead + lx;
     lw.y = f.pos.y + fh.y * ahead + ly - la.down * ahead;
     lw.z = f.pos.z + fh.z * ahead + lz;
+    // Side-on framing: centre on what is framed (the fish and a rival, say).
+    const cen = aim.centre;
+    if (cen && side > 0) {
+      this.centre.x = cen.x;
+      this.centre.y = cen.y;
+      this.centre.z = cen.z;
+    }
+    if (side > 1e-3) {
+      const ce = cen ? this.centre : f.pos;
+      lw.x += (ce.x - lw.x) * side;
+      lw.y += (ce.y - lw.y) * side;
+      lw.z += (ce.z - lw.z) * side;
+    }
+    // Threat: look part of the way toward it.
+    if (this.threatLook > 1e-3) {
+      const th = this.lastThreat;
+      const dx = th.x - lw.x;
+      const dy = th.y - lw.y;
+      const dz = th.z - lw.z;
+      const dl = Math.hypot(dx, dy, dz);
+      const m = Math.min(c.threat.lookShare * dl, c.threat.maxLook * Math.max(this.boom, 0)) * this.threatLook;
+      if (dl > 1e-6) {
+        lw.x += (dx / dl) * m;
+        lw.y += (dy / dl) * m;
+        lw.z += (dz / dl) * m;
+      }
+    }
     if (snap) {
       this.look.x = lw.x;
       this.look.y = lw.y;

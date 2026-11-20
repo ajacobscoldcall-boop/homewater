@@ -6,6 +6,7 @@
  * attributes and CSS variables on <html> (see styles.css).
  */
 import { h } from './dom';
+import type { CameraView } from '../render/cameraConfig';
 
 export type CaptionSize = 'normal' | 'large' | 'largest';
 export type PressMode = 'hold' | 'toggle';
@@ -29,6 +30,13 @@ export interface AccessOptions {
   mouseSensitivity: number;
   /** Mouse up steers down (Controls page). */
   invertY: boolean;
+  /** The third-person view the game starts in: the low chase camera or the high view (V cycles them and first-person). */
+  cameraView: CameraView;
+  /**
+   * Documentary view: no labels, rings, arrows, scent specks or track markers; a predator is told by its own
+   * approach, its shadow, a shadow at the screen edge, the sound and the fish's startle (docs/feel.md). Off by default.
+   */
+  documentaryView: boolean;
 }
 
 /** Mouse sensitivity steps on the Controls page. */
@@ -53,7 +61,7 @@ function systemReducedMotion(): boolean {
 }
 
 export function defaultAccess(): AccessOptions {
-  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true, mouseSensitivity: 1, invertY: false };
+  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true, mouseSensitivity: 1, invertY: false, cameraView: 'chase', documentaryView: false };
 }
 
 /** Rebuild options from stored data; anything malformed falls back to the default. */
@@ -74,6 +82,8 @@ export function parseAccess(raw: unknown): AccessOptions {
     cinematics: s.cinematics !== false,
     mouseSensitivity: (MOUSE_SENSITIVITIES as readonly number[]).includes(s.mouseSensitivity as number) ? (s.mouseSensitivity as number) : 1,
     invertY: s.invertY === true,
+    cameraView: s.cameraView === 'high' ? 'high' : 'chase',
+    documentaryView: s.documentaryView === true,
   };
 }
 
@@ -118,6 +128,7 @@ export function applyAccess(): void {
   root.dataset.threats = current.highContrast ? 'contrast' : 'standard';
   root.dataset.colours = current.colourBlind ? 'safe' : 'standard';
   root.dataset.motion = current.reducedMotion ? 'reduced' : 'full';
+  root.dataset.view = current.documentaryView ? 'documentary' : 'game';
 }
 
 // ---------- The Readability page ----------
@@ -167,6 +178,21 @@ export function accessPanel(back: () => void): HTMLElement {
       choiceRow('Text size', (Object.keys(CAPTION_SIZES) as CaptionSize[]).map((k) => ({ value: k, label: CAPTION_SIZES[k].label })), o.captionSize, (v) => set({ captionSize: v }), 'captionSize'),
       h('label', { class: 'opt-row' }, h('span', { class: 'opt-label' }, 'Background'), bg),
       sample,
+      h('p', { class: 'label' }, 'Aids'),
+      choiceRow(
+        'Documentary view',
+        onOff,
+        o.documentaryView ? 'on' : 'off',
+        (v) => set({ documentaryView: v === 'on' }),
+        'documentaryView',
+      ),
+      h(
+        'p',
+        { class: 'muted small' },
+        o.documentaryView
+          ? 'No labels, rings or arrows. Watch for the predator itself, its shadow, a darkening at the edge of the screen where it is coming from, and your fish flinching. Listen for the warning sounds. Home scent is a faint shimmer in the water and the sense of the way home a soft pull of light. Warnings come just as early as before.'
+          : 'Off: threats are marked with labelled rings and arrows, home scent shows as specks and the way home as small markers. On: subtler cues, closer to watching a film.',
+      ),
       h('p', { class: 'label' }, 'Threat markers'),
       choiceRow('High contrast', onOff, o.highContrast ? 'on' : 'off', (v) => set({ highContrast: v === 'on' }), 'highContrast'),
       choiceRow('Colour-blind-safe colours', onOff, o.colourBlind ? 'on' : 'off', (v) => set({ colourBlind: v === 'on' }), 'colourBlind'),
@@ -184,6 +210,17 @@ export function accessPanel(back: () => void): HTMLElement {
       choiceRow('Game speed', GAME_SPEEDS.map((s) => ({ value: s, label: s === 1 ? 'Normal' : `${s}×` })), o.gameSpeed, (v) => set({ gameSpeed: v }), 'gameSpeed'),
       h('p', { class: 'muted small' }, 'Slows the whole game, so there is more time to react. Everything else stays the same.'),
       h('p', { class: 'label' }, 'Camera'),
+      choiceRow(
+        'Camera view',
+        [
+          { value: 'chase', label: 'Low chase' },
+          { value: 'high', label: 'High' },
+        ],
+        o.cameraView,
+        (v) => set({ cameraView: v as CameraView }),
+        'cameraView',
+      ),
+      h('p', { class: 'muted small' }, 'Low chase follows near the fish’s depth, so you see it side-on with the surface above. High looks down on its back. In play, the view key cycles low chase, high and through the fish’s eyes.'),
       choiceRow('Cinematic moments', onOff, o.cinematics ? 'on' : 'off', (v) => set({ cinematics: v === 'on' }), 'cinematics'),
       h(
         'p',

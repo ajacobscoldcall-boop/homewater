@@ -1,0 +1,22 @@
+You are working on Homewater, a 3D sockeye salmon lifecycle game (TypeScript, three.js 0.180 WebGL, Vite, Vitest, Playwright). Start by reading CLAUDE.md (the handbook; follow its rules exactly) and docs/IMPROVEMENT_PLAN.md (the critical review and plan your task comes from, including the owner's decisions at the end).
+
+Ground rules for this session:
+- Work on the branch named below, created from the current claude/inspiring-heisenberg-gza4er. Commit as you go and push only to that branch. Do not open a pull request. Do not touch the public homewater repository or main.
+- Other sessions are working in parallel on other parts of the plan (listed below). Keep your changes inside your scope, keep edits to shared files (src/app/App.ts, src/render/Renderer.ts, src/sim/stages/*.ts, params.json, captions.json, CLAUDE.md, docs/milestones/M1.md) small and localised so the coordinator can merge everything.
+- The scientific advisor must never be named or credited in any player-facing or public text, and nobody they know may be contacted. Published papers may be cited in DESIGN.md sources and params.json.
+- Do not state biology that docs/ADVISOR_NOTES.md does not support; anything new that is a simplification or game device goes into ADVISOR_NOTES.md as an Open question under a heading for your stream.
+- Every number in game logic goes in src/data/params.json (with units, range, source, placeholder); every player-facing science line goes in src/data/captions.json by stable ID. Presentation tuning goes in a config file next to the render/UI code, not params.json.
+- If you change the simulation on purpose, re-record only the determinism hashes that should change (tests/unit/determinism.test.ts) and say why in the comment. If you change saved data, bump SCHEMA_VERSION with a migration and test.
+- Verified means: npm run verify passes (typecheck, unit tests, build, smoke). Run smoke with PW_PORT set to a free port (your port is given below) and, if the machine is busy, --workers 1. Look at the smoke screenshots and at your own review screenshots (use ?quality=high; save the ones worth keeping in docs/gallery/<stream>-*.png).
+- At the end: add a decision-log bullet to CLAUDE.md for your stream; add owner checklist items for anything about feel to docs/milestones/M1.md under a new "### <stream name>" heading at the end of the "Try these" list, numbered from 101 (the coordinator renumbers); push; and finish with a short report: what changed, files touched, tests, screenshots, open questions, and anything you left undone and why.
+- The owner is not a programmer: checklist items must say what to do and what to look for in plain words.
+
+Branch: claude/hw-playlog. Smoke port: 4192.
+Parallel sessions: App.ts and spawn.ts split into modules (claude/hw-split; keep your App.ts edits to a few hook lines so they merge easily), scale and fish looks (claude/hw-scale), camera and documentary view (claude/hw-camera).
+
+Your task: Track 0 of the plan, the opt-in local play log, so balance can move from bots to real players.
+1. src/telemetry/ (or similar): an opt-in, local-only play log. Nothing is ever sent anywhere; no network code at all. Kept per browser (IndexedDB or localStorage with a size cap), not in the save, so no schema change.
+2. Record per life: difficulty, habitat, sex and role, year conditions, settings that matter (graphics level, game speed, guidance on/off, gore, cinematics), and per stage attempt: start and end time, outcome, death cause and position, fat and energy at the end, siblings used, and a coarse position trace (for example one sample per second) plus warnings shown and near misses. Fed from the SimEvents and world summaries App already handles, through one small hook.
+3. A "Play log" section (in the pause menu's or title's existing settings area for now; another session is redesigning menus later, so keep the UI self-contained in one module): on/off (default off, with a plain explanation), how many lives are logged, Export (a JSON file download), Clear.
+4. scripts/playlog/: a Node script that reads one or more exported files and writes a short markdown summary in the same shape as the balance report (deaths per stage and cause, stage lengths, completion), so the owner's and playtesters' files can be compared with the bots. Add a unit test for the summariser with a small fixture.
+5. Document it in docs/playtesting.md for the owner (how to turn it on, play, export and send the file) and add the checklist item.

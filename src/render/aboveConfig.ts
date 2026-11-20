@@ -47,7 +47,8 @@ export interface SkyLook {
 export const SKY: Record<'day' | 'dusk' | 'night' | 'winter', SkyLook> = {
   day: { zenith: 0x6fa6d6, horizon: 0xd6e6ea, glow: 0xfff3d6, glowStrength: 0.35, trees: 0x1e2c22, hills: 0x6d8790 },
   dusk: { zenith: 0x34446e, horizon: 0xe0956a, glow: 0xffb070, glowStrength: 0.9, trees: 0x161614, hills: 0x4a4458 },
-  night: { zenith: 0x0a1222, horizon: 0x1e2c40, glow: 0x9fb4d0, glowStrength: 0.25, trees: 0x05080a, hills: 0x121a26 },
+  // A clear night with a bright moon (the smolt run): a deep blue sky, paler toward the moon's side (water.ts draws the moon).
+  night: { zenith: 0x14223a, horizon: 0x2c3c56, glow: 0xaec2e0, glowStrength: 0.4, trees: 0x05080a, hills: 0x121a26 },
   winter: { zenith: 0x9aa8b2, horizon: 0xd2d6d4, glow: 0xf2f0e6, glowStrength: 0.15, trees: 0x2a302e, hills: 0x8a949a },
 };
 

@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { bell, col, decal, finPatch, GeoBuilder, hash3, keyed, loft, smooth, type Ring } from './geo';
 // Gore: wounds and senescence drawn in the fish shader (goreShader.ts, driven by gore.ts).
 import { goreUniforms, injectGore } from './goreShader';
+import { SWIM_GLSL } from './swimWave';
 
 export type FishLook =
   | 'alevin'
@@ -92,9 +93,12 @@ interface Palette {
  * return; red body and olive-green head only on the spawning grounds).
  */
 const PALETTES: Record<FishLook, Palette> = {
-  alevin: { back: col(0xa89886), side: col(0xcdbca8), belly: col(0xe9d9c8), fin: col(0xcfc2b2), iris: col(0x8f8a70) },
-  fry: { back: col(0x56653f), side: col(0xb4bda6), belly: col(0xe6e9e0), parr: col(0x5a6644), fin: col(0xc8c6a8), iris: col(0xb9b07a), line: 0.3 },
-  smolt: { back: col(0x2f5a62), side: col(0xd2dde1), belly: col(0xf4f6f6), fin: col(0xb8c4c6), finTip: col(0x3b4a4e), caudal: col(0x6d8086), iris: col(0xc8c3a0), line: 0.38 },
+  // Alevin: pale and nearly see-through, the big orange yolk sac below (addYolkSac).
+  alevin: { back: col(0x9a8a7a), side: col(0xd2c4b2), belly: col(0xe9ddd0), fin: col(0xd8cdbf), iris: col(0x8f8a70) },
+  // Fry: olive-green back speckled dark, pale sides with short oval parr marks along the lateral line.
+  fry: { back: col(0x4f5c38), side: col(0xb9c0a8), belly: col(0xeceee6), parr: col(0x3a4330), fin: col(0xc8c6a8), iris: col(0xb9b07a), line: 0.32 },
+  // Smolt: bright silver, a dark blue-green back sharply set off, dark-edged tail; the parr marks gone.
+  smolt: { back: col(0x173540), side: col(0xdde6ea), belly: col(0xf7f9f9), fin: col(0xbcc8cb), finTip: col(0x26343a), caudal: col(0x4f6168), iris: col(0xc8c3a0), line: 0.42 },
   ocean: { back: col(0x24557c), side: col(0xc3d0d8), belly: col(0xf2f4f5), fin: col(0x8fa0aa), finTip: col(0x2d3c48), caudal: col(0x4c6070), iris: col(0xc8c3a0), line: 0.42 },
   returnSilver: { back: col(0x2f5370), side: col(0xc8d2d6), belly: col(0xf0f2f2), fin: col(0x8d9aa2), finTip: col(0x2d3a44), caudal: col(0x4f5f6b), iris: col(0xc8c3a0), line: 0.42 },
   returnBlush: { back: col(0x5b4b55), side: col(0xc99a92), belly: col(0xe8dcd6), head: col(0x6f7b5c), fin: col(0x9a7a72), caudal: col(0x6b6556), iris: col(0xc4b88a), line: 0.4 },
@@ -131,18 +135,21 @@ const EYE: Partial<Record<FishLook, number>> = { alevin: 1.9, fry: 1.6, smolt: 1
 const TEETH: Partial<Record<FishLook, number>> = { spawnMale: 1, spawnJack: 0.55, spawnFemale: 0.3, char: 0.2 };
 
 /** Body keyframes for a salmon: [x, top, bottom, half-width, centre y]. Tail base at -0.40, snout at 0.50. */
+// A fusiform body: deepest just ahead of the dorsal fin (about a fifth of the length), about an eighth as wide,
+// a slim tail stalk, the width falling away behind the middle so the fish is not a tube seen from above,
+// and a conical head whose back slopes evenly down to a pointed snout.
 const BODY: number[][] = [
-  [-0.4, 0.033, 0.033, 0.015, 0],
-  [-0.34, 0.04, 0.04, 0.021, 0],
-  [-0.22, 0.064, 0.058, 0.034, 0],
-  [-0.06, 0.092, 0.08, 0.047, 0],
-  [0.1, 0.103, 0.088, 0.051, 0],
-  [0.22, 0.095, 0.083, 0.05, -0.002],
-  [0.3, 0.083, 0.073, 0.046, -0.004],
-  [0.37, 0.067, 0.058, 0.039, -0.006],
-  [0.43, 0.048, 0.042, 0.03, -0.008],
-  [0.47, 0.031, 0.028, 0.021, -0.01],
-  [0.495, 0.012, 0.012, 0.01, -0.011],
+  [-0.4, 0.032, 0.032, 0.012, 0],
+  [-0.34, 0.039, 0.039, 0.017, 0],
+  [-0.22, 0.064, 0.059, 0.03, 0],
+  [-0.06, 0.097, 0.084, 0.048, 0],
+  [0.08, 0.108, 0.091, 0.058, 0],
+  [0.2, 0.1, 0.086, 0.06, -0.002],
+  [0.3, 0.085, 0.074, 0.054, -0.004],
+  [0.37, 0.067, 0.058, 0.044, -0.006],
+  [0.43, 0.047, 0.041, 0.031, -0.008],
+  [0.47, 0.029, 0.026, 0.02, -0.01],
+  [0.495, 0.011, 0.011, 0.008, -0.011],
   [0.5, 0.002, 0.002, 0.002, -0.011],
 ];
 
@@ -183,11 +190,11 @@ function bodyRing(p: Plan, xo: number, forJaw = false): Ring {
   let y = keyed(BODY, xo, 4);
   // Spawning hump: rises steeply behind the head, highest in front of the dorsal fin.
   if (s.hump > 0) top += s.hump * 0.075 * Math.pow(bell(-0.08, 0.34, xo), 1.3) * (xo > 0.18 ? 1 - 0.4 * smooth(0.18, 0.32, xo) : 1);
-  // Yolk sac.
+  // Alevin: a slender body; the belly swells a little where the yolk sac joins it (addYolkSac).
   if (s.yolk > 0) {
-    const yb = bell(-0.05, 0.36, xo);
-    bottom += s.yolk * 0.1 * yb;
-    width += s.yolk * 0.045 * yb;
+    const yb = bell(-0.08, 0.34, xo);
+    bottom += s.yolk * 0.025 * yb;
+    width += s.yolk * 0.012 * yb;
   }
   // Fry and alevin: bigger heads, rounder snouts.
   if (p.look === 'alevin' || p.look === 'fry') {
@@ -239,19 +246,23 @@ function bodyColor(p: Plan, xo: number, s: number, side: number, out: THREE.Colo
   if (Math.abs(xo - op) < 0.0045 && s > -0.75 && s < 0.65) out.multiplyScalar(pal.head ? 0.7 : 0.78);
   // Mouth line along the underside of the upper jaw.
   if (xo > p.corner - 0.005 && s < -0.82) out.multiplyScalar(0.45);
-  // Parr marks: a few short, faint ovals along the side (fry only).
-  if (pal.parr && xo > -0.3 && xo < 0.26) {
-    const k = Math.round((xo + 0.3) / 0.062);
-    const cx = -0.3 + k * 0.062;
-    const d = ((xo - cx) / 0.016) ** 2 + ((s - 0.16) / 0.27) ** 2;
-    if (d < 1) out.lerp(pal.parr, 0.24 * (1 - d * d));
+  // Parr marks (fry): a row of short dark ovals centred on the lateral line, a little taller than wide,
+  // spaced evenly from behind the gill cover to the tail stalk, each a little different.
+  if (pal.parr && xo > -0.33 && xo < 0.27) {
+    const k = Math.round((xo + 0.33) / 0.066);
+    const cx = -0.33 + k * 0.066 + 0.006 * (hash3(k, 3.1, side) - 0.5);
+    const h = 0.2 + 0.07 * hash3(k, 7.7, side);
+    const d = ((xo - cx) / 0.019) ** 2 + ((s - 0.08) / h) ** 2;
+    if (d < 1) out.lerp(pal.parr, 0.62 * (1 - d * d));
   }
+  // Fry: fine dark speckles on the back.
+  if (pal.parr && s > 0.45 && hash3(Math.round(xo * 90), Math.round(s * 9), side) > 0.86) out.multiplyScalar(0.72);
   // Silver sheen: a slightly brighter lateral band on silver fish.
   if (!pal.head && !pal.parr && !pal.spots && Math.abs(s - 0.05) < 0.25 && p.look !== 'alevin') out.lerp(col(0xffffff), 0.06);
-  // Belly of the alevin shows the orange yolk.
+  // The belly of the alevin is pinkish where it meets the yolk sac.
   if (p.shape.yolk > 0) {
-    const yb = bell(-0.05, 0.36, xo) * smooth(-0.1, -0.6, s);
-    out.lerp(col(0xf08a3c), Math.min(1, yb * 1.3));
+    const yb = bell(-0.08, 0.34, xo) * smooth(-0.2, -0.8, s);
+    out.lerp(col(0xe9a080), Math.min(1, yb));
   }
   // Very faint mottling so large flat areas don't look plastic.
   const n = hash3(Math.round(xo * 160), Math.round(s * 14), side);
@@ -490,7 +501,7 @@ function addFins(b: GeoBuilder, p: Plan): void {
         (s, o) => {
           const r = bodyRing(p, 0.295 - 0.03 * s);
           // A fan: the leading rays are longest and reach furthest out and down.
-          o.set(r.x - 0.1 + 0.04 * s, r.y - r.bottom * 0.62 - 0.042 + 0.028 * s, side * (r.width * 0.8 + 0.05 - 0.02 * s));
+          o.set(r.x - 0.1 + 0.04 * s, r.y - r.bottom * 0.62 - 0.036 + 0.026 * s, side * (r.width * 0.8 + 0.064 - 0.024 * s));
         },
         (s, r, c) => finColor(p, 'pectoral', s, r, c),
         { rows: lo ? 2 : 3, cols: lo ? 2 : 5, flex: 'paired', rays: lo ? 0 : 7 },
@@ -548,6 +559,42 @@ function addFins(b: GeoBuilder, p: Plan): void {
       for (const face of [-1, 1]) decal(b, at, new THREE.Vector3(0, 0, face), size * 1.3, size, sp.color, 7, 0.0012, 0.4 * (hash3(k, 1, 1) - 0.5), undefined, [rr, 0]);
     }
   }
+}
+
+/**
+ * The alevin's yolk sac: a big, bright orange-red bag hanging under the front half of the body,
+ * with pale oil droplets and fine red blood vessels on its surface. It shrinks as the yolk is used.
+ */
+function addYolkSac(b: GeoBuilder, p: Plan, along: number, around: number): void {
+  const y = p.shape.yolk;
+  if (y <= 0) return;
+  const x0 = -0.14;
+  const x1 = 0.31;
+  const depth = 0.085 * Math.sqrt(y);
+  const sac = col(0xf06a26);
+  const pale = col(0xf7b25c);
+  const vessel = col(0xb8331c);
+  loft(
+    b,
+    Math.max(8, Math.round(along * 0.35)),
+    around,
+    (t) => {
+      const xo = x0 + (x1 - x0) * t;
+      const body = bodyRing(p, xo, true);
+      // Fullest a little behind the middle, rounded at both ends.
+      const r = depth * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, t))), 0.6) * (1 - 0.15 * t);
+      return { x: body.x, y: body.y - body.bottom * 0.55 - r * 0.62, top: r * 0.75, bottom: r, width: r * 0.95 };
+    },
+    (t, s, side, _pos, out) => {
+      out.copy(sac);
+      // Oil droplets show as pale spots; the top, against the body, is paler.
+      if (hash3(Math.round(t * 22), Math.round(s * 6), side) > 0.88) out.lerp(pale, 0.7);
+      if (s > 0.6) out.lerp(pale, 0.35);
+      // Blood vessels: thin dark lines winding round the sac.
+      if (Math.abs(Math.sin(t * 19 + s * 3.5 + side)) < 0.06) out.lerp(vessel, 0.6);
+    },
+    { caps: true, fullness: 0.9 },
+  );
 }
 
 function addSpots(b: GeoBuilder, p: Plan): void {
@@ -631,6 +678,7 @@ export function buildFishGeometry(shape: FishShape, look: FishLook, opts: { lod?
     { caps: true, fullness: 0.92 },
   );
   addJaws(b, plan, along, around);
+  addYolkSac(b, plan, along, around);
   addFins(b, plan);
   addSpots(b, plan);
   for (const side of [-1, 1]) addEye(b, plan, side);
@@ -642,15 +690,15 @@ export function buildFishGeometry(shape: FishShape, look: FishLook, opts: { lod?
 export interface FishUniforms {
   uTime: { value: number };
   uAmp: { value: number };
-  uFreq: { value: number };
 }
 
 /**
- * Material with a swimming wave; the uniforms are shared through userData.
+ * Material with a swimming wave (swimWave.ts: the head steady, one sweep through the
+ * back half and tail); the uniforms are shared through userData.
  * vertical: the wave bends the body up and down (whales), not side to side.
  */
 export function fishMaterial(opts: { transparent?: boolean; opacity?: number; vertical?: boolean; roughness?: number; metalness?: number } = {}): THREE.MeshStandardMaterial {
-  const uniforms: FishUniforms = { uTime: { value: 0 }, uAmp: { value: 0.06 }, uFreq: { value: 9 }, ...goreUniforms() };
+  const uniforms: FishUniforms = { uTime: { value: 0 }, uAmp: { value: 0.06 }, ...goreUniforms() };
   const m = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: opts.roughness ?? 0.42,
@@ -664,14 +712,13 @@ export function fishMaterial(opts: { transparent?: boolean; opacity?: number; ve
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uAmp;\nuniform float uFreq;\nattribute vec2 aFin;')
+      .replace('#include <common>', `#include <common>\nuniform float uTime;\nuniform float uAmp;\nattribute vec2 aFin;\n${SWIM_GLSL}`)
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
-        float tailW = pow(clamp(0.6 - position.x, 0.0, 1.2), 2.0);
-        transformed.${axis} += uAmp * tailW * sin(uFreq * position.x - uTime);
+        transformed.${axis} += hwSwim(position.x, uAmp, uTime);
         // Fins trail the body wave a little, and paired fins scull.
-        transformed.${axis} += aFin.x * uAmp * 0.35 * sin(uFreq * position.x - uTime - 1.4);
+        transformed.${axis} += aFin.x * uAmp * 0.35 * (0.3 + hwSwimW(position.x)) * sin(5.0 * position.x - uTime - 1.4);
         transformed.z += aFin.y * sign(position.z) * (0.006 + uAmp * 0.08) * sin(uTime * 0.6 + position.x * 20.0);`,
       );
     injectGore(shader);

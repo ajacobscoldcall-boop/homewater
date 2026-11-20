@@ -39,10 +39,19 @@ import { MigrantLayer } from './migrants';
 import { ProgramKeeper } from './programKeeper';
 import { WaterFeel } from './waterFeel';
 // Feel pass: the third-person camera rig (collision, lag, look-ahead, shake) and banking into turns.
-import { CameraRig, type CameraProbe } from './cameraRig';
+import { CameraRig, type CameraAim, type CameraProbe } from './cameraRig';
+// Camera framing and Documentary view: live threats (threats.ts), the fish's startle and the natural cues (threatCues.ts).
+import { activeThreats, threatFocus, type ActiveThreat } from './threats';
+import { ThreatCues } from './threatCues';
+import { fallsView } from '../sim/stages/falls';
 import { CAMERA } from './cameraConfig';
 import { SceneryProbe } from './sceneryProbe';
-import { access } from '../ui/accessibility';
+import { access, setAccess } from '../ui/accessibility';
+// Scale and looks (scaleConfig.ts): every model's drawn size, eggs, plankton swarms, drifting matter, the smolt run's night.
+import { eggRadius, MODEL_SCALE, smoltMateScale } from './scaleConfig';
+import { buildEggGeometry, eggMaterial, eggTint } from './eggMesh';
+import { pixelsPerUnit, PlanktonSwarm } from './midwater';
+import { NIGHT } from './nightConfig';
 
 export type CameraMode = 'third' | 'first';
 const NO_WALLS: readonly never[] = [];
@@ -92,6 +101,18 @@ export class Renderer {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(65, 1, 0.05, 400);
   cameraMode: CameraMode = 'third';
+  /** Threats live this frame (threats.ts), the startle and Documentary view's cues (threatCues.ts). */
+  threats: ActiveThreat[] = [];
+  readonly cues = new ThreatCues(this.scene);
+
+  /** The view key: low chase, high, then through the fish's eyes. The third-person view is kept in access().cameraView. */
+  cycleView(): void {
+    if (this.cameraMode === 'first') {
+      this.cameraMode = 'third';
+      setAccess({ cameraView: 'chase' });
+    } else if (access().cameraView === 'chase') setAccess({ cameraView: 'high' });
+    else this.cameraMode = 'first';
+  }
   /** Scenery detail, 0 (low) to 2 (high); read when a stage is built. */
   /** Scenery detail, from the graphics preset (quality.envDetail). */
   get envDetail(): Detail {
@@ -137,11 +158,16 @@ export class Renderer {
     this.sun.position.set(20, 60, 10);
     this.scene.add(this.hemi, this.sun);
     this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points, this.food.group, this.splash.group);
-    this.scene.add(this.scavengers.group);
+    this.scene.add(this.scavengers.group, this.plankton.points);
   }
 
   /** Ocean food patch: krill swarm with small fish and squid (krill.ts). */
-  private food = new FoodSwarm();
+  private food = new FoodSwarm(this.fog);
+  /** The fry's food: each plankton bite drawn as a small swarm (midwater.ts). */
+  private plankton = new PlanktonSwarm(this.fog);
+  /** The player's own egg before hatching (eggMesh.ts), and the egg material's eye strength. */
+  private ownEgg: THREE.Mesh | null = null;
+  private eggEyed: { value: number } | null = null;
 
   /** Gore layer (src/render/gore.ts): wounds, wear, the death beat and the carcass. App sets its mode. */
   readonly gore = new GoreLayer(this.scene);
@@ -193,8 +219,13 @@ export class Renderer {
     const photo = this.photo.active;
     if (photo) frameDt = 0;
     if (this.builtFor !== w || this.builtStage !== w.stageIndex || this.lastArena !== w.arena) this.buildStage(w);
+    this.threats = w.status === 'playing' ? activeThreats(w) : [];
+    this.cues.update(w, this.threats, frameDt, access().documentaryView, (x, z) => this.groundAt(w, x, z));
+    this.cues.applyLook(this.instanced);
     this.syncEntities(w);
-    this.food.update(w.stageId === 'ocean' ? w.live('herring') : [], w.stageTime);
+    const px = pixelsPerUnit(this.renderer, this.camera);
+    this.food.update(w.stageId === 'ocean' ? w.live('herring') : [], w.stageTime, px, this.fog.density);
+    this.plankton.update(w.stageId === 'fry' ? w.live('plankton') : [], w.stageTime, px, this.fog, sharedWater.uLight.value);
     this.syncPlayer(w, frameDt);
     if (photo) this.photo.place(this.camera, w, this.player);
     else this.updateCamera(w, frameDt);
@@ -264,6 +295,8 @@ export class Renderer {
       ring.quaternion.setFromUnitVectors(FACING, tmpTarget.set(f(sp.x - 0.5, sp.z) - f(sp.x + 0.5, sp.z), 1, f(sp.x, sp.z - 0.5) - f(sp.x, sp.z + 0.5)).normalize());
       const owner = s.owners[i];
       (ring.material as THREE.MeshBasicMaterial).color.setHex(owner === 0 ? 0x8fa04a : owner === -1 ? 0xdfe8dc : 0xd9473a);
+      // Documentary view: just a faint mark on the gravel.
+      (ring.material as THREE.MeshBasicMaterial).opacity = this.cues.doc ? 0.14 : 0.55;
     });
   }
   private waterFeel = new WaterFeel(this.scene);
@@ -287,6 +320,20 @@ export class Renderer {
       // The sky above: night for the smolt run; dusk and winter in the lake; an autumn evening for the maturation reveal.
       const skyLight = 1 - 0.9 * (moment?.fade ?? 0);
       if (night) this.above.setSky('night', 'night', 0, skyLight);
+      if (night) {
+        // A real night (nightConfig.ts): moonlight from above, dark water, the school lit faintly.
+        this.hemi.color.setHex(NIGHT.sky);
+        this.hemi.groundColor.setHex(NIGHT.ground);
+        this.hemi.intensity = NIGHT.hemi * dim;
+        this.sun.color.setHex(NIGHT.moon);
+        this.sun.position.set(NIGHT.moonDir[0] * 60, NIGHT.moonDir[1] * 60, NIGHT.moonDir[2] * 60);
+        this.sun.intensity = NIGHT.moonStrength * dim;
+        this.fog.density = this.baseDensity * NIGHT.fogDensity * (1 + 30 * (moment?.fade ?? 0));
+        sharedWater.uLight.value = NIGHT.water * dim;
+        this.fog.color.setHex(NIGHT.fog).multiplyScalar(dim);
+        (this.scene.background as THREE.Color).copy(this.fog.color);
+        return;
+      }
       else if (fry?.phase === 'winter') this.above.setSky('winter', 'winter', 0, skyLight);
       else if (fry && (fry.phase === 'dusk' || fry.phase === 'second')) {
         const duskLight = w.p.get('fry.duskLight');
@@ -307,6 +354,13 @@ export class Renderer {
       (this.scene.background as THREE.Color).copy(this.fog.color);
       return;
     }
+    // The player's own egg, until it hatches: its eyes darken as hatching nears.
+    if (this.ownEgg) {
+      this.ownEgg.visible = v.phase === 'egg';
+      const r = eggRadius(0);
+      this.ownEgg.position.set(w.body.pos.x, w.arena.floor(w.body.pos.x, w.body.pos.z) + r * 0.9, w.body.pos.z);
+    }
+    if (this.eggEyed) this.eggEyed.value = 0.4 + 0.6 * Math.min(1, w.stageTime / Math.max(0.1, w.p.get('alevin.eggPhase')));
     // The flood: the water rises, darkens and clouds with silt, then clears.
     const flood = v.floodLevel;
     const light = (v.phase === 'egg' ? 0.8 : v.light) * (1 - 0.35 * flood);
@@ -372,16 +426,26 @@ export class Renderer {
     this.baseDensity = look.density;
     this.flow = null;
     this.scene.background = new THREE.Color(look.fog);
+    // Day light colours (the smolt run's night sets its own every frame).
+    this.hemi.color.setHex(0xcfe8e2);
+    this.hemi.groundColor.setHex(0x2a2a20);
+    this.sun.color.setHex(0xffffff);
+    this.sun.position.set(20, 60, 10);
+    // Fine marine snow at sea; drifting organic matter in fresh water (water.ts).
+    this.snow.setLook(a.water === 'fresh' ? 'organic' : 'snow');
+    this.ownEgg = null;
 
     // The place itself: terrain, banks, rocks, plants (src/render/env).
     this.env = buildEnvironment(w, { detail: this.envDetail, fog: this.fog });
     this.stageGroup.add(this.env.group);
     this.scenery.build(this.env.group);
     this.rig.reset();
+    this.cues.reset();
     this.probe = null;
     const sx = a.max.x - a.min.x;
     const sz = a.max.z - a.min.z;
-    this.shafts.setStrength(look.shafts, look.shaftColor);
+    if (w.stageId === 'smolt') this.shafts.setStrength(NIGHT.shafts, NIGHT.shaftColor);
+    else this.shafts.setStrength(look.shafts, look.shaftColor);
 
     // The surface, seen from below, and the world above it seen through Snell's window.
     this.above.build(w, (x, z) => this.groundAt(w, x, z));
@@ -397,13 +461,24 @@ export class Renderer {
     for (const net of w.live('netLine')) this.buildNet(w, net);
 
     // Instanced kinds.
-    this.makeInstanced('plankton', new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), 160);
-    this.makeInstanced('scent', new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: 0xd7ffe8, transparent: true, opacity: 0.55 }), 200);
-    this.makeInstanced('eggs', new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf28a3a, roughness: 0.25, transparent: true, opacity: 0.85 }), 20);
+    // Plankton is drawn as small swarms (midwater.ts), not one ball per bite.
+    // Scent: a soft glimmer in the water, not a solid ball.
+    this.makeInstanced('scent', new THREE.SphereGeometry(0.09, 6, 4), new THREE.MeshBasicMaterial({ color: 0xbfeedd, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
+    // Eggs: translucent, eyed, each a little different (eggMesh.ts); the player's own egg uses the same model.
+    const eggGeo = buildEggGeometry(quality.fishDetail);
+    const eggMat = eggMaterial();
+    this.eggEyed = eggMat.userData.uEyed as { value: number };
+    this.makeInstanced('eggs', eggGeo, eggMat, 20);
+    if (a.kind === 'gravel') {
+      this.ownEgg = new THREE.Mesh(eggGeo, eggMat);
+      this.ownEgg.scale.setScalar(eggRadius(0));
+      this.ownEgg.rotation.set(0.3, 1.1, 0.2);
+      this.stageGroup.add(this.ownEgg);
+    }
     // Brood-mates after hatching: alevin with their yolk sacs, one draw call for the nest.
     this.makeInstanced('brood', buildFishGeometry({ depth: 0.8, hump: 0, kype: 0, yolk: 1 }, 'alevin', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4 }), 20);
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
-    this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
+    this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3, emissive: new THREE.Color(NIGHT.schoolGlow) }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
     // Other returning sockeye travelling the home river with the player (migrants.ts).
     const mig = this.migrants.make();
@@ -413,7 +488,8 @@ export class Renderer {
 
     if (a.kind === 'gravel') {
       // Flecks carried by the flow show which way the water is moving.
-      const flow = new THREE.InstancedMesh(new THREE.SphereGeometry(0.018, 5, 3), new THREE.MeshBasicMaterial({ color: 0xd8cfb8 }), 140);
+      // Fine silt and bits of organic matter, small and translucent (not white chips).
+      const flow = new THREE.InstancedMesh(new THREE.SphereGeometry(0.008, 5, 3), new THREE.MeshBasicMaterial({ color: 0xb8ad90, transparent: true, opacity: 0.55, depthWrite: false }), 140);
       flow.frustumCulled = false;
       this.flowPts = Array.from({ length: 140 }, () => {
         const a = Math.random() * Math.PI * 2;
@@ -463,7 +539,7 @@ export class Renderer {
     for (const [z0, z1] of spans) {
       const width = z1 - z0;
       const t = tex.clone();
-      t.repeat.set(width / 0.6, depth / 0.6);
+      t.repeat.set(width / MODEL_SCALE.netMesh, depth / MODEL_SCALE.netMesh);
       t.needsUpdate = true;
       const panel = new THREE.Mesh(
         new THREE.PlaneGeometry(width, depth),
@@ -477,9 +553,9 @@ export class Renderer {
       for (let i = 0; i <= floats; i++) floatsAt.push(z0 + (width * i) / floats);
     }
     // All the floats of one line in a single draw call.
-    const floatMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff7a1a }), Math.max(1, floatsAt.length));
+    const floatMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(MODEL_SCALE.netFloat, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff7a1a }), Math.max(1, floatsAt.length));
     floatMesh.count = floatsAt.length;
-    floatsAt.forEach((fz, i) => floatMesh.setMatrixAt(i, tmpM.makeTranslation(x, -0.05, fz)));
+    floatsAt.forEach((fz, i) => floatMesh.setMatrixAt(i, tmpM.makeTranslation(x, -0.02, fz)));
     floatMesh.computeBoundingSphere();
     this.stageGroup.add(floatMesh);
   }
@@ -500,7 +576,7 @@ export class Renderer {
         counts.set(e.kind, n + 1);
         continue;
       }
-      if (e.kind === 'netLine' || e.kind === 'netGap' || e.kind === 'wall' || e.kind === 'herring' || e.kind === 'carcass') continue;
+      if (e.kind === 'netLine' || e.kind === 'netGap' || e.kind === 'wall' || e.kind === 'herring' || e.kind === 'carcass' || e.kind === 'plankton') continue;
       seen.add(e.id);
       let obj = this.objects.get(e.id);
       if (!obj) {
@@ -535,12 +611,6 @@ export class Renderer {
     tmpP.set(e.pos.x, e.pos.y, e.pos.z);
     tmpQ.identity();
     switch (e.kind) {
-      case 'plankton': {
-        const pulse = 1 + 0.25 * Math.sin(w.stageTime * 3 + e.id);
-        tmpS.setScalar(pulse * (e.value === 1 ? 1.15 : 0.8));
-        mesh.setColorAt(i, tmpC.setHex(e.value === 1 ? 0xf6ff9a : 0xb8d88a));
-        break;
-      }
       case 'smolt': {
         // Pitch with its climb or dive, a slight roll of its own, and (bursting away from a strike,
         // flock.ts) a hard bank that flashes its silver side. The tail beat quickens with speed.
@@ -549,7 +619,8 @@ export class Renderer {
         const flash = e.state === 'flash' ? Math.min(1, e.timer / 0.4) : 0;
         const roll = 0.1 * Math.sin(w.time * 1.7 + e.id * 1.3) + flash * 0.85 * (e.id % 2 ? 1 : -1);
         tmpQ.setFromEuler(smoltE.set(roll, -e.yaw, pitch));
-        tmpS.setScalar(0.6 * (0.96 + 0.08 * Math.sin(w.time * (10 + sp * 1.5) + e.id)));
+        // The player's own size (scale audit), a little smaller on average so the player stands out.
+        tmpS.setScalar(smoltMateScale(w.body.scale, e.id) * (0.98 + 0.04 * Math.sin(w.time * (10 + sp * 1.5) + e.id)));
         break;
       }
       case 'migrant':
@@ -557,12 +628,18 @@ export class Renderer {
         break;
       case 'pink':
         tmpQ.setFromAxisAngle(UP, -e.yaw);
-        tmpS.setScalar(0.72);
+        tmpS.setScalar(MODEL_SCALE.pink);
         mesh.setColorAt(i, tmpC.setHex(0xb8c4cc));
         break;
-      case 'eggs':
-        tmpS.setScalar(e.radius);
+      case 'eggs': {
+        // Life size (about 6 mm; the sim's radius is only where the egg lies), resting in the gravel, each turned its own way.
+        const r = eggRadius(e.id);
+        tmpS.setScalar(r);
+        tmpP.y = w.arena.floor(e.pos.x, e.pos.z) + r * (0.9 - 0.5 * (e.value ?? 0.5));
+        tmpQ.setFromEuler(tmpE.set(e.id * 1.7, e.id * 2.3, e.id * 0.9));
+        mesh.setColorAt(i, eggTint(e.id, tmpC));
         break;
+      }
       case 'brood':
         if (e.state === 'washed') {
           // Tumbling away on the flood.
@@ -573,9 +650,14 @@ export class Renderer {
           tmpQ.setFromEuler(tmpE.set(0, -e.yaw + 0.08 * Math.sin(w.time * 5 + e.id), 0.05 * Math.sin(w.time * 3 + e.id * 2)));
         }
         // A little smaller than the player's alevin (0.35), so the player's own fish stands out.
-        tmpS.setScalar(0.28);
+        tmpS.setScalar(MODEL_SCALE.brood);
         break;
       case 'track': {
+        // Documentary view: a soft glow of light instead (threatCues.ts).
+        if (this.cues.doc) {
+          this.cues.writeSoft(w, e, this.camera, tmpQ, tmpS);
+          break;
+        }
         // The magnetic sense: a shimmer that fades in and out.
         const life = Math.max(0, Math.min(1, e.timer / 1.4));
         tmpS.setScalar((0.25 + 0.55 * (e.value ?? 0)) * Math.sin(Math.PI * life));
@@ -583,6 +665,11 @@ export class Renderer {
         break;
       }
       case 'scent':
+        // Documentary view: a faint shimmer in the water instead of specks (threatCues.ts).
+        if (this.cues.doc) {
+          this.cues.writeSoft(w, e, this.camera, tmpQ, tmpS);
+          break;
+        }
         // Home scent on the return and the lake's home-water plume: size shows how clear the smell is (imprint.ts).
         if (w.stageId === 'return' || e.state === 'plume') tmpS.setScalar(Math.max(0.3, (e.timer ?? 1) / 9) * SCENT_SCALE * (SCENT_FLOOR + (1 - SCENT_FLOOR) * (e.value ?? 1)));
         else tmpS.setScalar(Math.max(0.3, (e.timer ?? 1) / 9) * (e.value ?? 1));
@@ -602,39 +689,41 @@ export class Renderer {
       case 'trout': {
         // Dolly Varden / char (advisor: char, not trout, hunt fry and wait at the outlet).
         const g = createChar().root;
-        g.scale.setScalar(3.2);
+        g.scale.setScalar(MODEL_SCALE.char);
         return g;
       }
       case 'orca': {
         const g = createOrca().root;
-        g.scale.setScalar(9);
+        g.scale.setScalar(MODEL_SCALE.orca);
         return g;
       }
       case 'shark': {
         const g = createShark().root;
-        g.scale.setScalar(4.5);
+        g.scale.setScalar(MODEL_SCALE.shark);
         return g;
       }
       case 'seal': {
         const g = createSeal().root;
-        g.scale.setScalar(2.8);
+        // Life size: a harbor seal is about 15 times a smolt's length, three times an adult salmon's.
+        g.scale.setScalar(w.stageId === 'smolt' ? MODEL_SCALE.sealSmolt : MODEL_SCALE.sealOcean);
         return g;
       }
       case 'merganser': {
         // Males and females both hunt; which one is just the entity id.
+        // Life size on the holder (so the death beat finds its bill: gore.ts reads the holder's scale); the warning ring keeps its own size.
         const g = createMerganser(e.id % 2 === 0).root;
-        g.scale.setScalar(1.15);
         const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.0, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
         ring.rotation.x = -Math.PI / 2;
         ring.name = 'ring';
         const holder = new THREE.Group();
+        holder.scale.setScalar(MODEL_SCALE.merganser);
         holder.add(g, ring);
         holder.userData.animal = animalOf(g);
         return holder;
       }
       case 'jackAI': {
         const m = createFish({ depth: 1, hump: 0.3, kype: 0.4, yolk: 0 }, 'spawnJack');
-        m.scale.setScalar(0.42);
+        m.scale.setScalar(MODEL_SCALE.jack);
         return m;
       }
       case 'rival':
@@ -654,7 +743,7 @@ export class Renderer {
         shadow.position.y = -0.06;
         shadow.name = 'shadow';
         const bird = createGull().root;
-        bird.scale.setScalar(1.3);
+        bird.scale.setScalar(MODEL_SCALE.gullPlunge);
         bird.name = 'bird';
         bird.visible = false;
         g.add(shadow, bird);
@@ -675,7 +764,8 @@ export class Renderer {
       case 'lure': {
         const g = new THREE.Group();
         const spoon = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.9, roughness: 0.2, emissive: 0x332a10 }));
-        spoon.scale.set(1.6, 0.6, 0.8);
+        // A spoon lure of about 8 cm.
+        spoon.scale.set(MODEL_SCALE.lure, MODEL_SCALE.lure * 0.375, MODEL_SCALE.lure * 0.5);
         spoon.name = 'spoon';
         const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]);
         const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xe8eee8, transparent: true, opacity: 0.6 }));
@@ -732,10 +822,10 @@ export class Renderer {
       case 'merganser': {
         const ring = obj.getObjectByName('ring') as THREE.Mesh;
         const warn = e.state === 'warn';
-        ring.visible = warn;
+        ring.visible = warn && !this.cues.doc; // Documentary view: no target ring
         if (warn) {
           const k = 1 + ((w.time * 2) % 1) * 2;
-          ring.scale.setScalar(k);
+          ring.scale.setScalar(k / obj.scale.x);
           (ring.material as THREE.MeshBasicMaterial).opacity = 0.7 * (1 - (k - 1) / 2);
           obj.position.y = -0.05;
         }
@@ -905,6 +995,8 @@ export class Renderer {
         this.programs.release(this.player.material as THREE.Material);
       }
       this.player = createFish(shape, look);
+      // At night (the smolt run) the player's fish keeps a faint glow, so it stays readable.
+      if (w.stageId === 'smolt') (this.player.material as THREE.MeshStandardMaterial).emissive.setHex(NIGHT.playerGlow);
       this.entityGroup.add(this.player);
       this.playerKey = key;
     }
@@ -913,7 +1005,9 @@ export class Renderer {
     const b = w.body;
     p.position.set(b.pos.x, b.pos.y, b.pos.z);
     p.rotation.set(0, 0, 0);
-    p.rotateY(-b.yaw);
+    // The startle (threatCues.ts): a quick flinch away from a threat that has just appeared or turned to strike.
+    const st = w.stageId === 'egg' ? { yaw: 0, roll: 0, tail: 0 } : this.cues.startle();
+    p.rotateY(-(b.yaw + st.yaw));
     p.rotateZ(b.pitch);
     // Bank into turns: the back tilts toward the inside of the turn.
     const bank = CAMERA.bank;
@@ -924,11 +1018,12 @@ export class Renderer {
     this.lastYaw = b.yaw;
     const wantRoll = Math.max(-bank.max, Math.min(bank.max, this.yawRate * bank.perYawRate));
     this.roll += (wantRoll - this.roll) * (1 - Math.exp(-bank.follow * frameDt));
-    p.rotateX(this.roll);
+    p.rotateX(this.roll + st.roll);
     p.scale.setScalar(b.scale);
     const speed = Math.hypot(b.vel.x, b.vel.y, b.vel.z);
     this.swimPhase += frameDt * (w.stageId === 'egg' ? 2 : 4 + speed * 2.5 + (b.burst ? 6 : 0));
-    setSwim(p, this.swimPhase, w.stageId === 'egg' ? 0.03 : 0.04 + 0.03 * b.thrust + (b.burst ? 0.04 : 0));
+    this.swimPhase += frameDt * st.tail * 60;
+    setSwim(p, this.swimPhase, w.stageId === 'egg' ? 0.03 : 0.04 + 0.03 * b.thrust + (b.burst ? 0.04 : 0) + st.tail);
     p.visible = (this.cameraMode === 'third' || w.stageId === 'egg') && !(w.stageId === 'egg' && alevinView(w)?.phase === 'egg');
   }
 
@@ -939,9 +1034,11 @@ export class Renderer {
     const look = camLookAt;
     if (w.stageId === 'egg' || this.cameraMode === 'first') this.lastMode = 'other';
     if (w.stageId === 'egg') {
-      // Looking down on the alevin, so its heading against the flow is clear.
-      want.set(0.35, b.pos.y + 1.05, 0.75);
-      look.set(0, b.pos.y - 0.05, 0);
+      // Chase: low among the stones, side-on to the flow; high: looking down on the alevin (cameraConfig.ts egg).
+      const v = CAMERA.egg[access().cameraView];
+      want.set(v.pos.x, b.pos.y + v.pos.y, v.pos.z);
+      look.set(v.look.x, b.pos.y + v.look.y, v.look.z);
+      want.y = Math.max(want.y, this.groundAt(w, want.x, want.z) + 0.12);
     } else if (this.cameraMode === 'first') {
       const h = headingVec(b.yaw, b.pitch);
       want.copy(fish).add(camH.set(h.x, h.y, h.z).multiplyScalar(0.55 * b.scale));
@@ -956,7 +1053,8 @@ export class Renderer {
       }
       if (w.stageTime < 0.05 || this.lastMode !== 'third') this.rig.reset();
       this.lastMode = 'third';
-      this.rig.update(b, frameDt, this.cameraProbe(w), access().reducedMotion);
+      this.rig.view = access().cameraView;
+      this.rig.update(b, frameDt, this.cameraProbe(w), access().reducedMotion, this.cameraAim(w));
       this.camPos.set(this.rig.pos.x, this.rig.pos.y, this.rig.pos.z);
       this.camLook.set(this.rig.look.x, this.rig.look.y, this.rig.look.z);
       this.placeCamera(w, frameDt);
@@ -974,6 +1072,62 @@ export class Renderer {
       this.camLook.lerp(look, k);
     }
     this.placeCamera(w, frameDt);
+  }
+
+  private aim: CameraAim = {};
+  private aimCentre = { x: 0, y: 0, z: 0 };
+  private aimThreat = { x: 0, y: 0, z: 0 };
+
+  /**
+   * What the play camera should frame besides the fish (cameraRig.ts): side-on for the spawning act, fights and
+   * the falls, and a soft look toward the most pressing threat (not while a cinematic shot plays).
+   */
+  private cameraAim(w: World): CameraAim {
+    const a = this.aim;
+    const fish = w.body.pos;
+    a.side = 0;
+    a.centre = null;
+    a.spread = 0;
+    a.threat = null;
+    a.threatWeight = 0;
+    const s = spawnState(w);
+    if (s) {
+      // A fight beside the fish: frame both fighters side-on.
+      let fighter: Entity | null = null;
+      let best = 10;
+      for (const e of w.entities) {
+        if (!e.alive || e.state !== 'fight' || (e.kind !== 'rival' && e.kind !== 'guardMale')) continue;
+        const d = Math.hypot(e.pos.x - fish.x, e.pos.z - fish.z);
+        if (d < best) {
+          best = d;
+          fighter = e;
+        }
+      }
+      if (fighter) {
+        a.side = 1;
+        const c = this.aimCentre;
+        c.x = (fish.x + fighter.pos.x) / 2;
+        c.y = (fish.y + fighter.pos.y) / 2;
+        c.z = (fish.z + fighter.pos.z) / 2;
+        a.centre = c;
+        a.spread = best * 0.6;
+      } else if (s.role === 'female' && s.act > 0 && !s.spawned) a.side = 1; // the spawning act
+    }
+    const falls = fallsView(w);
+    if (falls && !falls.passed) {
+      if (falls.leapT !== null) a.side = 1;
+      else if (fish.x > falls.poolStart && fish.x < falls.lipEnd) a.side = 0.6; // in the plunge pool, facing the step
+    }
+    const focus = this.cinematics.active ? null : threatFocus(this.threats, fish);
+    if (focus) {
+      const t = this.aimThreat;
+      t.x = focus.threat.at.x;
+      t.y = Math.min(focus.threat.at.y, w.arena.surfaceY);
+      t.z = focus.threat.at.z;
+      a.threat = t;
+      a.threatWeight = focus.weight;
+    }
+    return a;
   }
 
   /** What the play camera must stay clear of: the surface, the scenery's ground, the sim's walls, solid scenery. */

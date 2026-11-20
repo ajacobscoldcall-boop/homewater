@@ -11,6 +11,7 @@ import type { World } from '../sim/world';
 import { buildFishGeometry } from './fishMesh';
 import { quality } from './quality';
 import type { Splashes } from './splash';
+import { SWIM_GLSL } from './swimWave';
 
 /** Presentation tuning. */
 export const MIGRANT_FX = {
@@ -19,7 +20,6 @@ export const MIGRANT_FX = {
   /** Drawn size relative to the sim's size value. */
   scale: 0.85,
   swimAmp: 0.05,
-  swimFreq: 9,
   /** Wave speed: base, and extra per unit of speed. */
   swimRate: 5,
   swimRatePerSpeed: 1.2,
@@ -31,7 +31,7 @@ export const MIGRANT_FX = {
 const tmpE = new THREE.Euler();
 
 export class MigrantLayer {
-  private uniforms = { uTime: { value: 0 }, uAmp: { value: MIGRANT_FX.swimAmp }, uFreq: { value: MIGRANT_FX.swimFreq } };
+  private uniforms = { uTime: { value: 0 }, uAmp: { value: MIGRANT_FX.swimAmp } };
   private lastY = new Map<number, number>();
   private playerY: number | null = null;
 
@@ -49,12 +49,12 @@ export class MigrantLayer {
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, u);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uAmp;\nuniform float uFreq;\nattribute float aPhase;')
+        .replace('#include <common>', `#include <common>\nuniform float uTime;\nuniform float uAmp;\nattribute float aPhase;\n${SWIM_GLSL}`)
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-          float tailW = pow(clamp(0.6 - position.x, 0.0, 1.2), 2.0);
-          transformed.z += uAmp * tailW * sin(uFreq * position.x - uTime - aPhase);`,
+          // The same bend as every other fish (swimWave.ts).
+          transformed.z += hwSwim(position.x, uAmp, uTime + aPhase);`,
         );
     };
     mat.customProgramCacheKey = () => 'migrant-fish';

@@ -80,8 +80,9 @@ describe('camera rig', () => {
     expect(len).toBeLessThanOrEqual(2);
   });
 
-  it('lags a little on a turn, then settles behind the fish', () => {
+  it('lags a little on a turn, then settles behind the fish (high view)', () => {
     const rig = new CameraRig();
+    rig.view = 'high';
     run(rig, fish(), flat());
     const turned = fish({ yaw: Math.PI / 2 }); // now facing +z
     rig.update(turned, 1 / 60, flat(), false);

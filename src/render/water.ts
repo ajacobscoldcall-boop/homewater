@@ -151,6 +151,10 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
         if (uStars > 0.0) {
           vec2 g = floor(rd.xz / (rd.y + 0.25) * 90.0);
           c += vec3(0.6, 0.65, 0.75) * uStars * step(0.997, hwHash(g)) * e;
+          // The moon, high in the sky, with a soft halo that lights the surface around it.
+          vec3 moonDir = normalize(vec3(-0.25, 1.0, 0.35));
+          float m = max(0.0, dot(rd, moonDir));
+          c += uStars * (vec3(0.92, 0.95, 1.0) * smoothstep(0.9988, 0.9993, m) + vec3(0.32, 0.38, 0.5) * pow(m, 24.0) + vec3(0.05, 0.07, 0.1) * pow(m, 3.0));
         }
         return c;
       }
@@ -312,7 +316,12 @@ export class LightShafts {
   }
 }
 
-/** Drifting particles that wrap around the camera so the water always has texture. */
+/**
+ * Drifting particles that wrap around the camera so the water always has texture.
+ * Two looks: marine snow at sea (fine pale specks), and in fresh water drifting
+ * organic matter (bits of leaf, algae and detritus): soft, translucent, olive-brown
+ * flakes of mixed size and shape, each tumbling slowly, fading with distance.
+ */
 export class MarineSnow {
   readonly points: THREE.Points;
   private material: THREE.ShaderMaterial;
@@ -320,34 +329,66 @@ export class MarineSnow {
   constructor(count = 700, size = 14) {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count * 3; i++) pos[i] = Math.random() * size;
+    const seed = new Float32Array(count);
+    for (let i = 0; i < count; i++) seed[i] = Math.random();
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     this.material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      uniforms: { uTime: sharedWater.uTime, uLight: sharedWater.uLight, uSize: { value: size }, uColor: { value: new THREE.Color(0xdfe8dc) }, uCam: { value: new THREE.Vector3() } },
+      uniforms: {
+        uTime: sharedWater.uTime,
+        uLight: sharedWater.uLight,
+        uSize: { value: size },
+        uColor: { value: new THREE.Color(0xdfe8dc) },
+        uCam: { value: new THREE.Vector3() },
+        uOrganic: { value: 0 },
+      },
       vertexShader: /* glsl */ `
-        uniform float uTime; uniform float uSize; uniform vec3 uCam;
+        uniform float uTime; uniform float uSize; uniform vec3 uCam; uniform float uOrganic;
+        attribute float aSeed;
         varying float vFade;
+        varying float vSeed;
         void main() {
-          vec3 p = position + vec3(uTime * 0.05, -uTime * 0.03, uTime * 0.02);
+          // Organic matter sinks and drifts more slowly than the fine snow, each piece at its own pace.
+          float pace = mix(1.0, 0.45 + 0.6 * aSeed, uOrganic);
+          vec3 p = position + vec3(uTime * 0.05, -uTime * 0.03, uTime * 0.02) * pace;
           p = mod(p - uCam + uSize * 0.5, uSize) - uSize * 0.5 + uCam;
           vec4 mv = viewMatrix * vec4(p, 1.0);
-          vFade = 1.0 - smoothstep(uSize * 0.25, uSize * 0.5, length(p - uCam));
-          gl_PointSize = clamp(18.0 / -mv.z, 1.0, 4.0);
+          vFade = 1.0 - smoothstep(uSize * 0.2, uSize * 0.5, length(p - uCam));
+          vSeed = aSeed;
+          // Snow: 1-4 px. Organic: larger and more varied, from fine silt to small flakes.
+          float big = mix(18.0, 10.0 + 34.0 * aSeed * aSeed, uOrganic);
+          gl_PointSize = clamp(big / -mv.z, 1.0, mix(4.0, 9.0, uOrganic));
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */ `
-        uniform vec3 uColor; uniform float uLight;
+        uniform vec3 uColor; uniform float uLight; uniform float uOrganic; uniform float uTime;
         varying float vFade;
+        varying float vSeed;
         void main() {
           vec2 c = gl_PointCoord - 0.5;
-          float a = smoothstep(0.5, 0.1, length(c)) * vFade * (0.25 + 0.35 * uLight);
-          gl_FragColor = vec4(uColor, a);
+          // Organic: a tumbling flake, stretched and ragged, darker at its edge.
+          float ang = vSeed * 6.283 + uTime * (0.2 + 0.3 * vSeed) * uOrganic;
+          vec2 q = mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * c;
+          q.x *= mix(1.0, 1.0 + 1.6 * fract(vSeed * 7.3), uOrganic);
+          float edge = 0.5 - uOrganic * (0.08 * sin(atan(q.y, q.x) * 3.0 + vSeed * 20.0) + 0.06);
+          float r = length(q);
+          float a = smoothstep(edge, edge * 0.2, r) * vFade * mix(0.25 + 0.35 * uLight, (0.18 + 0.3 * uLight) * (0.6 + 0.6 * fract(vSeed * 3.7)), uOrganic);
+          vec3 col = uColor * mix(1.0, 0.75 + 0.45 * fract(vSeed * 13.1), uOrganic);
+          gl_FragColor = vec4(col, a);
         }`,
     });
     this.points = new THREE.Points(geo, this.material);
     this.points.frustumCulled = false;
+  }
+
+  /** Marine snow at sea; drifting organic matter in fresh water. */
+  setLook(look: 'snow' | 'organic'): void {
+    const u = this.material.uniforms;
+    u.uOrganic!.value = look === 'organic' ? 1 : 0;
+    (u.uColor!.value as THREE.Color).setHex(look === 'organic' ? 0x8f8a62 : 0xdfe8dc);
   }
 
   update(camera: THREE.Camera): void {

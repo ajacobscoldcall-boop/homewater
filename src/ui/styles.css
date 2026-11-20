@@ -33,7 +33,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 #hud-who { font-family: var(--f-mono); font-size: 13px; color: var(--muted); text-shadow: 0 1px 3px #000; }
 #hud-who b { color: var(--fg); font-weight: 500; }
 #hud-objective { font-size: 14px; max-width: 42ch; text-align: right; color: var(--fg); text-shadow: 0 1px 3px #000; }
-#hud-bars { position: absolute; left: 16px; bottom: 16px; display: grid; gap: 6px; font-family: var(--f-mono); font-size: 12px; }
+#hud-bars { position: absolute; left: 16px; bottom: 84px; display: grid; gap: 6px; font-family: var(--f-mono); font-size: 12px; }
 .bar { display: grid; grid-template-columns: 92px 140px; align-items: center; gap: 8px; text-shadow: 0 1px 2px #000; }
 .bar i { display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
 .bar i b { display: block; height: 100%; background: var(--silver); }
@@ -42,6 +42,21 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 .caption { background: rgba(8, 26, 30, var(--caption-bg, 0.78)); border-left: 3px solid var(--kype); padding: 10px 14px; font-size: var(--caption-size, 16px); line-height: 1.45; border-radius: 4px; transition: opacity 0.6s; }
 .caption.warn { border-left-color: var(--warn); }
 .caption.fade { opacity: 0; }
+/* Always-visible minimal HUD (src/ui/vitals.ts): thin rings in the bottom-left corner, and a water chip when it matters. */
+#hud-vitals-wrap { position: absolute; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 12px; }
+#hud-vitals { display: flex; gap: 10px; }
+.vital { display: grid; justify-items: center; gap: 1px; font: 500 10px var(--f-mono); color: var(--muted); text-shadow: 0 1px 2px #000; opacity: 0.8; }
+.vital svg { width: 36px; height: 36px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.vital .track { fill: none; stroke: rgba(255, 255, 255, 0.16); }
+.vital .arc { fill: none; stroke: var(--silver); stroke-linecap: round; transition: stroke 0.3s; }
+.vital.low { opacity: 1; color: var(--warn); }
+.vital.low .arc { stroke: var(--warn); }
+.vital.critical { opacity: 1; color: var(--sockeye); }
+.vital.critical .arc { stroke: var(--sockeye); animation: vital-pulse 0.8s ease-in-out infinite alternate; }
+@keyframes vital-pulse { from { opacity: 1; } to { opacity: 0.45; } }
+#hud-water { font: 500 11px var(--f-mono); color: var(--warn); text-shadow: 0 1px 2px #000; padding: 2px 8px; border: 1px solid rgba(240, 179, 90, 0.5); border-radius: 10px; }
+/* Documentary view: a soft shadow at the edge toward a threat off screen (no labels, no arrows). */
+#edge-shadow { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(circle at var(--ex, 50%) var(--ey, 0%), rgba(2, 8, 12, 0.95) 0%, rgba(2, 8, 12, 0.55) 18%, transparent 42%); }
 #hud-hint { position: absolute; bottom: 16px; right: 16px; font-family: var(--f-mono); font-size: 12px; color: var(--muted); text-shadow: 0 1px 2px #000; }
 
 #screen { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px 16px; overflow-y: auto; }
@@ -100,7 +115,7 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 .threat.hot { color: var(--sockeye); }
 .threat.opening { color: var(--kype); }
 @keyframes pulse { from { transform: scale(0.85); opacity: 0.7; } to { transform: scale(1.1); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .threat .ring { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .threat .ring { animation: none; } .vital.critical .arc { animation: none; } }
 
 /* Field journal */
 .journal { gap: 16px; }
@@ -251,6 +266,7 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 :root[data-motion='reduced'] #flash.hit { box-shadow: inset 0 0 80px 10px rgba(235, 240, 245, 0.25); }
 :root[data-motion='reduced'] #vignette { transition: opacity 1.2s; }
 :root[data-motion='reduced'] .threat .ring,
+:root[data-motion='reduced'] .vital.critical .arc,
 :root[data-motion='reduced'] .fade-line,
 :root[data-motion='reduced'] #guide.advance,
 :root[data-motion='reduced'] .journal-toast { animation: none; }
@@ -286,3 +302,6 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 kbd { font: 500 12px var(--f-mono); background: var(--surface); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
 .stage-list, .credits { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; }
 .stage-list b { font-weight: 600; }
+
+/* Play log page (src/ui/playLogPanel.ts) */
+#playlog-panel button:disabled { opacity: 0.45; cursor: default; }

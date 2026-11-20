@@ -286,3 +286,19 @@ the fish alive for 25 seconds at Low, counting shader compiles and frames over
 The 6.9 fps measured earlier for the spawning grounds came from a heavily loaded
 run (load average 9 to 19) plus these recompile stalls. On a quieter machine the
 before build reaches 21 to 31 fps there.
+
+## Scale and fish looks (2026-11-20)
+
+Life-size krill use a lean play model (about 160 vertices, no antennae or legs) and
+the rest of the swarm is one points draw, so the ocean's triangle count fell from
+472k to 121k on Low. Fry plankton is one points draw instead of instanced spheres.
+Measured with `node scripts/perf.mjs low --seconds=4` (SwiftShader), before (the
+starting commit, built with `--dir`) and after:
+
+| Low | egg | fry | smolt | ocean | return | spawn |
+|---|---|---|---|---|---|---|
+| before | 45.1 fps · 10 dc | 24.0 fps · 22 dc | 23.2 fps · 28 dc | 17.7 fps · 10 dc · 472k tri | 21.2 fps · 41 dc | 26.2 fps · 35 dc |
+| after | 46.7 fps · 11 dc | 24.4 fps · 21 dc | 28.2 fps · 27 dc | 36.5 fps · 11 dc · 121k tri | 23.4 fps · 25 dc | 29.7 fps · 39 dc |
+
+High on the stages touched (egg, fry, smolt, ocean) was within run-to-run noise,
+except the ocean, which went from 13.9 to 16.3 fps.

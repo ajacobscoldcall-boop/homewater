@@ -85,7 +85,8 @@ export function buildRiver(w: World, detail: Detail): EnvParts {
     const x = range(rand, -5, L + 25);
     const z = range(rand, -half - 2, half + 2);
     const s = range(rand, 0.1, x > mouth ? 0.18 : 0.32);
-    cobbles.push({ x, y: ground(x, z) - s * 0.2, z, s: [s * 1.2, s * 0.8, s], yaw: rand() * 6, colour: tint(0.42) });
+    // Bedded into the gravel and close to its colour: pale, fully exposed stones read as floating from above at night.
+    cobbles.push({ x, y: ground(x, z) - s * 0.34, z, s: [s * 1.2, s * 0.7, s], yaw: rand() * 6, colour: tint(0.24) });
   }
   group.add(...instancedCells(cobbleGeo, rockMat, cobbles));
 
