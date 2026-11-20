@@ -47,8 +47,7 @@
       "text": "Floods are the great killer of eggs and alevin. High flows can scour the gravel and tear them out of the redd before they ever emerge. How many survive depends heavily on the year's water, which no fish can control.",
       "unlock": [
         "death.scour",
-        "egg.loosening",
-        "death.yolk"
+        "egg.loosening"
       ]
     },
     {
@@ -57,7 +56,8 @@
       "title": "Emergence",
       "text": "When the yolk is nearly used, the young fish wriggles up out of the stones and into open water, ready to feed. Most of its brothers and sisters never get this far.",
       "unlock": [
-        "egg.emerge"
+        "egg.emerge",
+        "death.yolk"
       ]
     },
     {

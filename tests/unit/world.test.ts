@@ -217,6 +217,24 @@ describe('stage tuning sanity', () => {
     expect(w.status, String(w.deathCause)).toBe('playing');
   });
 
+  it('past the fork, bears fish only the home branch and never reach across the divider', () => {
+    for (const seed of [51, 52, 53, 54, 55, 56]) {
+      const { w } = newWorld({ startStage: 4, seed });
+      const L = returnLayout(w);
+      if (!L) throw new Error('no layout');
+      const forkBears = w.live('bear').filter((b) => b.pos.x > L.fork);
+      for (const b of forkBears) expect(Math.sign(b.pos.z - L.homeMouth)).toBe(L.homeSide);
+      // Sit in the other branch, level with a bear, and wait: no bear may take the fish.
+      const bear = forkBears[0];
+      if (!bear) continue;
+      for (const l of w.live('lure')) l.alive = false;
+      w.body.pos = { x: bear.pos.x - 2, y: -1, z: L.homeMouth - L.homeSide * 4 };
+      w.body.vel = { x: 0, y: 0, z: 0 };
+      run(w, 10 * SEC, () => intent({ hold: true }));
+      expect(w.deathCause).not.toBe('bear');
+    }
+  });
+
   it('large fish snag in gillnets; jacks slip through', () => {
     const big = newWorld({ startStage: 4, sex: 'M', seed: 31 }).w;
     big.progress.adultSize = 0.75;

@@ -429,6 +429,7 @@ export class App {
   }
 
   showTitle(save: SaveFile | null): void {
+    this.renderer.cinematics.stop();
     this.titleSave = save;
     this.mode = 'menu';
     this.atTitle = true;

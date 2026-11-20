@@ -121,15 +121,15 @@ export function buildLake(w: World, detail: Detail): EnvParts {
     const x = edgeX + range(rand, 0.1, 2.6);
     const z = range(rand, a.min.z, a.max.z);
     const s = range(rand, 0.35, 1.0);
-    rocks.push({ x, y: a.floor(x, z) + s * 0.15, z, s: [s * 1.2, s, s], yaw: rand() * 6, tilt: rand() * 0.4, colour: rockTint() });
+    rocks.push({ x, y: a.floor(x, z) - s * 0.3, z, s: [s * 1.2, s * 0.8, s], yaw: rand() * 6, tilt: rand() * 0.4, colour: rockTint() }); // half-buried, so the fry don't swim through them
   }
   // Stones set into the drop-off face, so it reads as a bank of rubble rather than a wall.
   for (let i = 0; i < byDetail(110, detail); i++) {
     const z = range(rand, a.min.z, a.max.z);
     const lo = a.floor(edgeX + 0.2, z);
     const hi = a.floor(edgeX - 0.2, z);
-    const s = range(rand, 0.3, 0.75);
-    rocks.push({ x: edgeX + range(rand, -0.2, 0.15), y: range(rand, lo + s * 0.4, hi - s * 0.2), z, s: [s * 0.8, s * 0.75, s * 1.1], yaw: rand() * 6, tilt: rand() * 0.6, colour: rockTint() });
+    const s = range(rand, 0.25, 0.5);
+    rocks.push({ x: edgeX + range(rand, -0.2, 0.05), y: range(rand, lo + s * 0.4, hi - s * 0.2), z, s: [s * 0.8, s * 0.75, s * 1.1], yaw: rand() * 6, tilt: rand() * 0.6, colour: rockTint() });
   }
   for (let i = 0; i < byDetail(120, detail); i++) {
     const x = range(rand, -OUT, OUT);

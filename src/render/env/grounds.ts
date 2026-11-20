@@ -112,7 +112,8 @@ export function buildGrounds(w: World, detail: Detail): EnvParts {
     // Cover boulders where the sim put them: big, leaning over the hiding spot.
     for (const c of covers) {
       const s = c.size ?? { x: 2.2, y: 1.6, z: 1.6 };
-      boulders.push({ x: c.pos.x, y: a.floor(c.pos.x, c.pos.z + 0.8) + s.y * 0.05, z: c.pos.z + 0.1, s: [s.x * 0.62, s.y * 0.68, s.z * 0.72], yaw: 0.3, tilt: -0.18, colour: tint(0.34) });
+      const back = Math.sign(c.pos.z) || 1; // behind the spot, away from open water, so the ring stays clear
+      boulders.push({ x: c.pos.x, y: a.floor(c.pos.x, c.pos.z + back * 1.6) + s.y * 0.05, z: c.pos.z + back * 0.85, s: [s.x * 0.62, s.y * 0.68, s.z * 0.72], yaw: 0.3, tilt: -0.18, colour: tint(0.34) });
     }
   } else {
     const big = kind === 'spawnRiver';

@@ -2,22 +2,26 @@
  * The "How to play" and "About" panels, reached from the title screen.
  * Plain UI text, not science captions: the science itself lives in captions.json.
  */
+import { k } from '../input/bindings';
 import { h } from './dom';
 
-const KEYS: [string, string][] = [
-  ['Click the game', 'Capture the mouse for steering (Esc releases it and pauses)'],
-  ['Mouse or A / D', 'Steer'],
-  ['W', 'Swim forward'],
-  ['S', 'Ease off and hold position against the current'],
-  ['Space / C', 'Rise / dive (in the egg stage, Space wriggles)'],
-  ['Shift', 'Burst: fast, but burns energy (and fat on the return)'],
-  ['E', 'Act: dig the redd, or dart in as a jack'],
-  ['V', 'Switch between third- and first-person'],
-  ['H', 'Show details: energy, fat, oxygen, growth, depth'],
-  ['M', 'Sound on or off'],
-  ['Esc', 'Pause (J opens the field journal while paused)'],
-  ['G', 'Skip the step-by-step guide on a first life'],
-];
+/** The key table, built when shown so it names the player's own bindings. */
+function keys(): [string, string][] {
+  return [
+    ['Click the game', `Capture the mouse for steering (${k('pause')} releases it and pauses)`],
+    [`Mouse or ${k('steer')}`, 'Steer'],
+    [k('forward'), 'Swim forward'],
+    [k('easeOff'), 'Ease off and hold position against the current'],
+    [`${k('rise')} / ${k('dive')}`, `Rise / dive (in the egg stage, ${k('rise')} wriggles)`],
+    [k('burst'), 'Burst: fast, but burns energy (and fat on the return)'],
+    [k('act'), 'Act: dig or cover the redd, or dart in as a jack'],
+    [k('view'), 'Switch between third- and first-person'],
+    [k('details'), 'Show details: energy, fat, growth and depth'],
+    [k('sound'), 'Sound on or off'],
+    [k('pause'), `Pause (${k('journal')} opens the field journal while paused)`],
+    [k('guide'), 'Skip the step-by-step guide on a first life'],
+  ];
+}
 
 const STAGES: [string, string][] = [
   ['Egg and alevin', 'Hatch in the gravel, face the current, then swim up toward the light.'],
@@ -53,7 +57,7 @@ export function howToPlayPanel(back: () => void): HTMLElement {
       'table',
       { class: 'keys' },
       h('thead', {}, h('tr', {}, h('th', {}, 'Key'), h('th', {}, 'Action'))),
-      h('tbody', {}, ...KEYS.map(([k, a]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', {}, a)))),
+      h('tbody', {}, ...keys().map(([key, a]) => h('tr', {}, h('td', {}, h('kbd', {}, key)), h('td', {}, a)))),
     ),
     h('p', { class: 'label' }, 'The six stages'),
     h('ol', { class: 'stage-list' }, ...STAGES.map(([t, d]) => h('li', {}, h('b', {}, t), ' ', d))),

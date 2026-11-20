@@ -69,6 +69,13 @@ export class Cinematics {
     }
   }
 
+  /** End any shot at once and clear the letterbox (pause, title screen, end of a life). */
+  stop(): void {
+    this.director.cancel();
+    this.shot = null;
+    this.letterbox(0);
+  }
+
   /** The shot playing now, if any (tests and the debug panel). */
   get active(): MomentId | null {
     return this.director.current;
@@ -90,13 +97,18 @@ export class Cinematics {
       this.worldRef = w;
       this.director.cancel();
     }
+    // Leaving play (pause, a card, death, the end of the life) ends the shot: never leave bars or framing over a menu.
+    if (!this.running || w.status !== 'playing') {
+      if (this.shot) this.stop();
+      return false;
+    }
     const o = access();
     this.shot = this.director.update(frameDt, {
       fishId: w.fish.id,
       stageKey: stageKey(w),
       enabled: o.cinematics,
       playing: this.running && w.status === 'playing',
-      threat: threatHot(w.entities) || w.status === 'dead',
+      threat: threatHot(w.entities),
       reducedMotion: o.reducedMotion,
     });
     const s = this.shot;

@@ -168,13 +168,18 @@ function stepBear(w: World, bear: Entity, dt: number): void {
   const fish = w.body.pos;
   bear.timer -= dt;
   const s = st(w);
+  // Past the fork a bear works one branch: it can't reach across the divider into the other.
+  const branchSide = bear.pos.x > FORK ? Math.sign(bear.pos.z - s.homeMouth) : 0;
+  const sameBranch = branchSide === 0 || Math.sign(fish.z - s.homeMouth) === branchSide;
   if (bear.state === 'idle') {
-    if (Math.abs(fish.x - bear.pos.x) < 12 && fish.x < bear.pos.x + 4) {
+    if (Math.abs(fish.x - bear.pos.x) < 12 && fish.x < bear.pos.x + 4 && sameBranch) {
       const warn = p.get('return.bearWarning');
       bear.state = 'warn';
       bear.timer = warn;
       const tx = fish.x + w.body.vel.x * warn;
-      const tz = Math.max(s.homeMouth - RIVER_HALF + 0.5, Math.min(s.homeMouth + RIVER_HALF - 0.5, fish.z + w.body.vel.z * warn));
+      const lo = branchSide > 0 ? s.homeMouth + 1.5 : s.homeMouth - RIVER_HALF + 0.5;
+      const hi = branchSide < 0 ? s.homeMouth - 1.5 : s.homeMouth + RIVER_HALF - 0.5;
+      const tz = Math.max(lo, Math.min(hi, fish.z + w.body.vel.z * warn));
       bear.home = v3(tx, 0, tz);
       w.emit('warning', 'bear');
       w.emitOnce('caption', 'return.bear');
@@ -185,7 +190,7 @@ function stepBear(w: World, bear: Entity, dt: number): void {
     const target = bear.home ?? fish;
     const bonus = p.get('return.bearDepthBodyBonus') * Math.max(0, w.fish.z.bodyDepth) + yearEffects(p, w.fish, w.conditions).bearReach;
     const radius = p.get('return.bearStrikeRadius') * (0.75 + 0.35 * (w.progress.adultSize ?? 1));
-    if (distXZ(target, fish) < radius && depthOf(w) < p.get('return.bearReachDepth') + bonus) w.die('bear');
+    if (sameBranch && distXZ(target, fish) < radius && depthOf(w) < p.get('return.bearReachDepth') + bonus) w.die('bear');
   } else if (bear.state === 'strike' && bear.timer <= 0) {
     bear.state = 'rest';
     bear.timer = w.p.get('return.bearRest');
@@ -256,7 +261,9 @@ export const returnStage: StageDef = {
     // Bears at the riffles of the home river.
     for (let x = RIFFLE_PHASE; x < L - 10; x += RIFFLE_PERIOD) {
       if (x < COAST + 15) continue;
-      const side = w.rng.chance(0.5) ? 1 : -1;
+      const coin = w.rng.chance(0.5) ? 1 : -1;
+      // Past the fork, bears fish the home branch from its outer bank.
+      const side = x > FORK - 2 ? homeSide : coin;
       w.spawn('bear', v3(x, 0.8, homeMouth + side * (RIVER_HALF + 0.6)), { radius: 1.2 });
     }
     // Anglers fish the pools between riffles (advisor: gillnets and anglers are the human pressures).
