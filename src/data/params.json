@@ -190,6 +190,7 @@
     {"id": "return.leapTime", "value": 0.8, "units": "s", "min": 0.3, "max": 2, "source": "tuning: time in the air", "placeholder": false},
     {"id": "return.leapEnergy", "value": 0.12, "units": "energy", "min": 0, "max": 1, "source": "tuning: every leap is a hard effort", "placeholder": false},
     {"id": "return.leapFailEnergy", "value": 0.2, "units": "energy", "min": 0, "max": 1, "source": "tuning: a failed leap knocks the wind out of the fish", "placeholder": false},
+    {"id": "return.fallsEffortFat", "value": 0.5, "units": "x", "min": 0.2, "max": 1, "source": "Game mechanic: share of the swimming and bursting fat cost paid in the rapids and at the falls, where fish move in short efforts and hold in slack water between them. Set so the falls do not use up the fat meant for the rest of the river; tuned with the balance bots.", "placeholder": true},
     {"id": "return.leapFailFat", "value": 0.02, "units": "fat", "min": 0, "max": 0.3, "source": "Game mechanic: stored fat spent on a failed leap. Hard efforts on the return burn reserves; the size of the cost is a guess.", "placeholder": true},
     {"id": "return.fallsSideAfter", "value": 4, "units": "failed leaps", "min": 1, "max": 20, "source": "tuning (game fairness): after this many failed leaps a lower side channel opens, so nobody is stuck below the falls (rounded)", "placeholder": false},
     {"id": "return.chuteCurrent", "value": 1.6, "units": "x return.current", "min": 0.5, "max": 4, "source": "tuning: the side channel's fast water; cruising makes slow headway", "placeholder": false},
@@ -500,7 +501,9 @@
       "return.rapidsCurrent": 1.08,
       "return.fallsSideAfter": 1.25,
       "return.migrantShield": 0.6,
-      "return.migrantDilution": 0.6
+      "return.migrantDilution": 0.6,
+      "return.fatDrainBase": 0.8,
+      "return.fatDrainSwim": 0.8
     }
   }
 }

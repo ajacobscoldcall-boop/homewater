@@ -336,7 +336,10 @@ export const returnStage: StageDef = {
 
     // Fat: salmon stop eating on the return. Warm water is harder.
     const heat = ye.temperature * water.effects.fatFactor;
-    const drain = p.get('return.fatDrainBase') * heat + p.get('return.fatDrainSwim') * r.thrust + (r.burst ? p.get('return.fatDrainBurst') : 0);
+    // Through the rapids and at the falls the fish works in bursts and holds in slack water between them,
+    // so its swimming there costs less fat than open-river swimming (the base burn is unchanged).
+    const effort = s.falls && inFallsZone(fish.x) && Math.abs(fish.z - s.homeMouth) < RIVER_HALF + 2 ? p.get('return.fallsEffortFat') : 1;
+    const drain = p.get('return.fatDrainBase') * heat + effort * (p.get('return.fatDrainSwim') * r.thrust + (r.burst ? p.get('return.fatDrainBurst') : 0));
     w.progress.fat = Math.max(0, w.progress.fat - drain * dt);
     if (w.progress.fat < 0.25) w.emitOnce('caption', 'return.lowFat');
     if (w.progress.fat <= 0) {
