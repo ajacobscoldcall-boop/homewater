@@ -62,7 +62,13 @@ export const GORE = {
     /** How far and fast the predator carries the fish away (world units per second, times its scale). */
     carrySpeed: 2.2,
     turnSeconds: 0.55,
+    /** A bear holds the fish at least this far under the surface (times the fish's size), so the underwater camera sees it in the jaws. */
+    bearHoldDepth: 0.45,
+    /** ...and this far (times the fish's size) towards the camera from the middle of its jaws. */
+    bearHoldNear: 0.16,
   },
+  /** Gravel drawn round the carcass after death: stones, radius and stone sizes, times the fish's size. */
+  bed: { stones: 160, radius: 1.2, minStone: 0.03, maxStone: 0.075 },
   /** Blood and scales in the water (Unflinching only). */
   cloud: { blood: 220, scales: 46, seconds: 4.5, spread: 0.9 },
   /** The post-spawn sequence: a series of fades, not a cinematic. */

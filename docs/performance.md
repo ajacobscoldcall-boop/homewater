@@ -165,8 +165,124 @@ clearly; the bottom is flat and there are no light shafts.
 - **Medium's caustics** are still the main cost of Medium. On a real integrated
   GPU, nine sines a pixel should be cheap; on SwiftShader they are not. If the
   owner reports a slow Medium, drop Medium's caustics to 0.
-- **The spawning grounds at Low** were the slowest Low stage (6.9 fps), though
-  each frame drew in only 14 ms. Something besides drawing (bears, rivals or
-  page overlays) costs time there; not yet found.
+- **The spawning grounds at Low** were the slowest Low stage (6.9 fps). The
+  CPU profiling below found the cause, shader recompiles; it is fixed.
+- **The first time an animal appears** in a stage (the first bear on the grounds,
+  say), its shaders still compile then: on software GL a frame or two of 100 to
+  300 ms. Warming them up while the stage card shows would remove this.
+- **The ocean draws about 500,000 triangles** at every level (the krill swarm,
+  14 krill around each of up to 160 food patches) and is the slowest Low stage
+  now (13 fps, 47 ms of GPU time). Low could draw fewer krill per patch, the way
+  it thins schools; that changes the look of Low, so it is left for the owner.
 - **Numbers from this sandbox are noisy** (see the caveat above). Real numbers
   should come from the owner's laptop: item 21 of the M1 checklist.
+
+## CPU profiling (November 2026)
+
+Tools:
+
+```
+npx vite-node scripts/simbench.ts                       # World.step cost per stage, in Node
+npx vite build --minify false --outDir /tmp/hw-prof      # readable function names
+PW_PORT=4183 node scripts/profile.mjs --dir=/tmp/hw-prof [--stages=spawn] [--trace] [--swim] [--out=dir]
+PW_PORT=4182 npm run perf -- low medium --dir=<build>    # fps; --dir compares an older build
+```
+
+`scripts/profile.mjs` drives a quick-start life through the stages with
+`window.__hw`, and records a V8 CPU profile of 10 seconds of each stage over the
+Chrome DevTools Protocol. It prints the top functions by self and total time;
+`--trace` adds the main thread's timeline and the busiest other threads (compositor,
+GPU); `--out` saves `.cpuprofile` files for Chrome DevTools.
+
+### What it found
+
+1. **The simulation is not the cost.** `World.step` takes 1 to 15 µs a step in Node
+   (egg 1.2, fry 2.3, smolt 15, ocean 12, return 4.3, spawning grounds 2.0 µs).
+   That is under 0.1% of a frame.
+2. **Script is small everywhere.** All JavaScript, three.js included, took 20 to
+   55 ms per second of play (2 to 4 ms a frame). The main thread spent most of the
+   rest waiting on the software GPU process (the trace's `Commit`, and a
+   `ReadPixels` of the canvas, which software compositing does every frame).
+3. **Shader programs were compiled again and again.** three.js deletes a shader
+   program when the last material using it is disposed, and compiles it afresh for
+   the next one. Under software GL a compile stalls the page for 100 to 400 ms.
+   - **Egg stage:** the alevin's mesh is rebuilt each time its yolk sac shrinks a
+     step, so its material, and with it the fish shader, was rebuilt about every
+     0.6 seconds. That was 82 compiles in 25 seconds.
+   - **Spawning grounds:** each bear that came and went took its three programs
+     with it, and the next bear compiled them again. A bear's body, head and arm
+     share one material, which was disposed three times over.
+   - In the profiles this showed as `getProgramInfoLog`, `includeReplacer` and
+     `shaderSource`, and as frames of 200 to 485 ms.
+4. **The HUD rebuilt its DOM every frame:** the name line (`innerHTML`, then new
+   nodes), the meter bars, and every threat marker. That cost script time, style and
+   layout work, and garbage collection. `updateHud` was the top app function in
+   the fry, return and spawning profiles (1 to 3 ms/s of self time).
+5. **Smaller per-frame allocations:** `syncEntities` made a new Map and Set every
+   frame, the camera made six vectors, and weed and the magnetic track made a new
+   Euler for every instance.
+
+### What changed
+
+- **`src/render/programKeeper.ts`:** when a material is released, the
+  last one holding its compiled program is kept, never drawn, so the program stays
+  compiled. At most one material is kept per program. The Renderer releases
+  materials through it (entities leaving, the player's mesh changing, stage
+  rebuilds).
+- **`src/ui/hudView.ts`:** HUD elements are looked up once. Text, the vignette's
+  opacity and the bars are written only when they change, and threat markers are
+  kept in a pool and updated in place, with the same markup.
+  - **Side effect:** a marker's ring now pulses as `styles.css` intends. Before,
+    the element was made new every frame, so the pulse never got past its first
+    keyframe.
+- **Renderer:** the per-frame Map, Set, vectors and Eulers are now reused scratch
+  objects.
+- **The simulation is untouched.** `tests/unit/determinism.test.ts` runs each
+  stage (and the spawning grounds as female, large male, jack and on Wild) for
+  2,400 scripted steps with fixed seeds. It hashes the whole world state four
+  times per run and compares the hashes with values recorded before this work.
+
+### Results
+
+Run on this sandbox: 4 shared cores, load average 1.5 to 3.4. Before and after
+were alternated, two rounds each, with `npm run perf` and `--dir`. Each cell
+gives both rounds: **fps** at 1280×720, SwiftShader.
+
+| | Egg | Fry (lake) | Smolt run | Ocean | Return | Spawning |
+|---|---|---|---|---|---|---|
+| **Low, before** | 15.9 / 18.8 | 23.1 / 31.1 | 28.6 / 39.2 | 13.1 / 14.4 | 18.2 / 24.7 | 21.0 / 31.1 |
+| **Low, after** | 34.6 / 32.2 | 33.0 / 38.0 | 24.7 / 32.4 | 8.6 / 13.0 | 30.5 / 35.0 | 31.2 / 34.3 |
+| **Medium, before** | 8.8 / 10.0 | 11.5 / 11.9 | 10.4 / 12.6 | 7.9 / 7.9 | 11.7 / 11.1 | 11.5 / 11.2 |
+| **Medium, after** | 13.0 / 13.1 | 10.9 / 11.8 | 11.1 / 7.5 | 7.9 / 8.3 | 12.7 / 11.3 | 12.2 / 13.4 |
+
+GPU time per frame and draw calls did not change.
+
+Medium is GPU-bound (45 to 85 ms of GPU time a frame), so cheaper script barely
+shows there. The egg stage is the exception, because a recompile costs the GPU
+process too.
+
+The differences at the smolt run and the ocean are within run-to-run noise; the
+same build varied by up to 40% between rounds.
+
+**Stalls** matter more than average fps for how the game feels. These runs kept
+the fish alive for 25 seconds at Low, counting shader compiles and frames over
+100 ms:
+
+| | fps | frames over 100 ms | worst frame | shader compiles |
+|---|---|---|---|---|
+| Egg, before | 20.9 | 41 | 304 ms | 82 |
+| Egg, after | 33.0 | 0 | 59 ms | 0 |
+| Spawning, before | 25.1 | 30 | 375 ms | 12 |
+| Spawning, after | 30.0 | 19 | 276 ms | 6 (the first bear's, once) |
+
+**Top app functions by self time, after** (ms per second of play):
+
+- `updateHud` dropped out of every stage's top ten.
+- The egg stage's shader-compile entries are gone.
+- What remains is three.js's draw loop (`bufferSubData`, `setProgram`), garbage
+  collection (3 to 9 ms/s), and in the ocean the krill swarm's update (about
+  4 ms/s with its hash).
+
+The 6.9 fps measured earlier for the spawning grounds came from a heavily loaded
+run (load average 9 to 19) plus these recompile stalls. On a quieter machine the
+before build reaches 21 to 31 fps there.

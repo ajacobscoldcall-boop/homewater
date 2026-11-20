@@ -19,9 +19,13 @@ import { FoodSwarm } from './krill';
 import { LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
 // Gore: wounds, senescence, death beats and the carcass (render only).
 import { GoreLayer } from './gore';
+// Cinematic camera moments (render only): see cinematics.ts. Hook is in updateCamera.
+import { Cinematics } from './cinematics';
 // Graphics quality (Low/Medium/High/Auto): see quality.ts. Hooks are marked "quality".
 import { quality, type Quality } from './quality';
 import { adaptDetail, frameQuality, pixelRatioFor, skipInstance } from './qualityRender';
+// Performance: keeps shader programs compiled while materials come and go (programKeeper.ts).
+import { ProgramKeeper } from './programKeeper';
 
 export type CameraMode = 'third' | 'first';
 
@@ -50,9 +54,17 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** Ring and circle geometry faces +z. */
 const FACING = new THREE.Vector3(0, 0, 1);
 const tmpTarget = new THREE.Vector3();
+const shotPosV = new THREE.Vector3();
+const shotLookV = new THREE.Vector3();
 const projV = new THREE.Vector3();
 const projF = new THREE.Vector3();
 const projD = new THREE.Vector3();
+// Per-frame scratch (performance: no allocation in the frame loop).
+const tmpE = new THREE.Euler();
+const camFish = new THREE.Vector3();
+const camWant = new THREE.Vector3();
+const camLookAt = new THREE.Vector3();
+const camH = new THREE.Vector3();
 
 export class Renderer {
   readonly renderer: THREE.WebGLRenderer;
@@ -78,11 +90,16 @@ export class Renderer {
   private camLook = new THREE.Vector3();
   private fog = new THREE.FogExp2(0x2d5c60, 0.05);
   private baseDensity = 0.05;
+  private readonly programs: ProgramKeeper;
+  // Reused by syncEntities every frame.
+  private instanceCounts = new Map<EntityKind, number>();
+  private seenIds = new Set<number>();
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: quality.antialias, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.programs = new ProgramKeeper(this.renderer);
     this.scene.fog = this.fog;
     this.hemi = new THREE.HemisphereLight(0xcfe8e2, 0x2a2a20, 1.1);
     this.sun = new THREE.DirectionalLight(0xffffff, 1.3);
@@ -96,6 +113,8 @@ export class Renderer {
 
   /** Gore layer (src/render/gore.ts): wounds, wear, the death beat and the carcass. App sets its mode. */
   readonly gore = new GoreLayer(this.scene);
+  /** Cinematic camera moments (src/render/cinematics.ts). App feeds it sim events. */
+  readonly cinematics = new Cinematics();
   private shafts = new LightShafts(10);
   private snow = new MarineSnow();
   private surfaceMat: THREE.ShaderMaterial | null = null;
@@ -238,7 +257,7 @@ export class Renderer {
         // Textures made per stage (e.g. the gillnet mesh) are freed with their materials.
         const free = (x: THREE.Material) => {
           (x as THREE.MeshBasicMaterial).map?.dispose();
-          x.dispose();
+          this.programs.release(x);
         };
         if (Array.isArray(mat)) mat.forEach(free);
         else if (mat) free(mat);
@@ -289,7 +308,7 @@ export class Renderer {
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
     this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
-    this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'ocean', { lod: quality.fishDetail }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
+    this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'pink', { lod: quality.fishDetail }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
 
     if (a.kind === 'gravel') {
       // Flecks carried by the flow show which way the water is moving.
@@ -365,8 +384,10 @@ export class Renderer {
   }
 
   private syncEntities(w: World): void {
-    const counts = new Map<EntityKind, number>();
-    const seen = new Set<number>();
+    const counts = this.instanceCounts;
+    const seen = this.seenIds;
+    counts.clear();
+    seen.clear();
     for (const e of w.entities) {
       if (!e.alive || this.env?.handles.has(e.kind)) continue;
       const inst = this.instanced.get(e.kind);
@@ -401,8 +422,8 @@ export class Renderer {
           const m = o as THREE.Mesh;
           if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose();
           const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-          if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
-          else mat?.dispose();
+          if (Array.isArray(mat)) mat.forEach((x) => this.programs.release(x));
+          else if (mat) this.programs.release(mat);
         });
       }
     }
@@ -434,7 +455,7 @@ export class Renderer {
         // The magnetic sense: a shimmer that fades in and out.
         const life = Math.max(0, Math.min(1, e.timer / 1.4));
         tmpS.setScalar((0.25 + 0.55 * (e.value ?? 0)) * Math.sin(Math.PI * life));
-        tmpQ.setFromEuler(new THREE.Euler(w.time * 2 + e.id, w.time * 3, 0));
+        tmpQ.setFromEuler(tmpE.set(w.time * 2 + e.id, w.time * 3, 0));
         break;
       }
       default:
@@ -738,7 +759,7 @@ export class Renderer {
       if (this.player) {
         this.entityGroup.remove(this.player);
         this.player.geometry.dispose();
-        (this.player.material as THREE.Material).dispose();
+        this.programs.release(this.player.material as THREE.Material);
       }
       this.player = createFish(shape, look);
       this.entityGroup.add(this.player);
@@ -760,23 +781,23 @@ export class Renderer {
 
   private updateCamera(w: World, frameDt: number): void {
     const b = w.body;
-    const fish = new THREE.Vector3(b.pos.x, b.pos.y, b.pos.z);
-    let want: THREE.Vector3;
-    let look: THREE.Vector3;
+    const fish = camFish.set(b.pos.x, b.pos.y, b.pos.z);
+    const want = camWant;
+    const look = camLookAt;
     if (w.stageId === 'egg') {
       // Looking down on the alevin, so its heading against the flow is clear.
-      want = new THREE.Vector3(0.35, b.pos.y + 1.05, 0.75);
-      look = new THREE.Vector3(0, b.pos.y - 0.05, 0);
+      want.set(0.35, b.pos.y + 1.05, 0.75);
+      look.set(0, b.pos.y - 0.05, 0);
     } else if (this.cameraMode === 'first') {
       const h = headingVec(b.yaw, b.pitch);
-      want = fish.clone().add(new THREE.Vector3(h.x, h.y, h.z).multiplyScalar(0.55 * b.scale));
-      look = want.clone().add(new THREE.Vector3(h.x, h.y, h.z).multiplyScalar(6));
+      want.copy(fish).add(camH.set(h.x, h.y, h.z).multiplyScalar(0.55 * b.scale));
+      look.copy(want).add(camH.set(h.x, h.y, h.z).multiplyScalar(6));
     } else {
       // Behind and above, looking down at the back so the whole body reads.
       const h = headingVec(b.yaw, b.pitch * 0.4);
       const d = 1.6 * b.scale + 1.0;
-      want = fish.clone().add(new THREE.Vector3(-h.x * d * 0.8, -h.y * d * 0.8 + 0.75 * d, -h.z * d * 0.8));
-      look = fish.clone().add(new THREE.Vector3(h.x, h.y, h.z).multiplyScalar(0.9 * b.scale + 0.6));
+      want.copy(fish).add(camH.set(-h.x * d * 0.8, -h.y * d * 0.8 + 0.75 * d, -h.z * d * 0.8));
+      look.copy(fish).add(camH.set(h.x, h.y, h.z).multiplyScalar(0.9 * b.scale + 0.6));
     }
     // Keep the camera under the surface and above the bottom.
     const a = w.arena;
@@ -791,5 +812,13 @@ export class Renderer {
     }
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
+    // Cinematics: blend towards a framed shot; the play camera (camPos/camLook) carries on underneath.
+    const shotPos = shotPosV.copy(this.camPos);
+    const shotLook = shotLookV.copy(this.camLook);
+    if (this.cinematics.apply(w, frameDt, shotPos, shotLook)) {
+      this.camera.position.copy(shotPos);
+      this.camera.lookAt(shotLook);
+      if (this.player && !(w.stageId === 'egg' && alevinView(w)?.phase === 'egg')) this.player.visible = true;
+    }
   }
 }

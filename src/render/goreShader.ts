@@ -25,6 +25,8 @@ export interface GoreUniforms {
   uWA: { value: THREE.Vector4[] };
   /** kind, side, strength, fresh. */
   uWB: { value: THREE.Vector4[] };
+  /** The eye, for a carcass: centre x, y, |z| and radius in the fish's own space (radius 0: off). */
+  uEye: { value: THREE.Vector4 };
 }
 
 export function goreUniforms(): GoreUniforms {
@@ -34,7 +36,17 @@ export function goreUniforms(): GoreUniforms {
     uWoundN: { value: 0 },
     uWA: { value: Array.from({ length: MAX }, () => new THREE.Vector4()) },
     uWB: { value: Array.from({ length: MAX }, () => new THREE.Vector4()) },
+    uEye: { value: new THREE.Vector4() },
   };
+}
+
+/** Where the eye is (from the fish geometry's userData.eye), so a carcass's eye can be drawn sunken and clouded; null turns it off. */
+export function setGoreEye(material: THREE.Material | THREE.Material[] | undefined, eye: readonly number[] | null | undefined): void {
+  if (!material || Array.isArray(material)) return;
+  const u = material.userData.uniforms as Partial<GoreUniforms> | undefined;
+  if (!u?.uEye) return;
+  if (eye && eye.length >= 4) u.uEye.value.set(eye[0]!, eye[1]!, eye[2]!, eye[3]!);
+  else u.uEye.value.set(0, 0, 0, 0);
 }
 
 /** Copy wounds and wear into a material's uniforms (no-op for materials without them). */
@@ -61,6 +73,7 @@ uniform float uGore;
 uniform float uWoundN;
 uniform vec4 uWA[${MAX}];
 uniform vec4 uWB[${MAX}];
+uniform vec4 uEye;
 float gHash(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
   p *= 17.0;
@@ -94,16 +107,35 @@ const FRAGMENT = /* glsl */ `
     diffuseColor.rgb *= 1.0 - 0.36 * dk;
     float lum = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(lum), 0.3 * dk);
+    // A carcass (wear above 1): 0 at death, 1 well into decay.
+    float rot = clamp((wear - 1.0) / 0.3, 0.0, 1.0);
     // Pale fungus: patches that spread from the head, the tail and the fins.
     float region = 0.5 + 0.5 * max(max(smoothstep(-0.18, -0.36, gp.x), smoothstep(0.3, 0.46, gp.x)), finW);
-    float f = gFbm(gp * vec3(15.0, 19.0, 19.0));
-    float th = 1.0 - min(1.0, pow(wear, 1.3) * region * 0.5 + max(0.0, wear - 1.0) * 0.6);
+    float f = gFbm(gp * mix(vec3(15.0, 19.0, 19.0), vec3(24.0, 30.0, 30.0), rot));
+    float th = 1.0 - min(1.0, pow(min(wear, 1.0), 1.3) * region * 0.5 + rot * 0.08);
     float fung = smoothstep(th, th + 0.13, f) * (0.65 + 0.35 * gNoise(gp * 170.0));
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.77, 0.71), fung * 0.82);
-    gMatte = max(gMatte, fung);
-    // A carcass (wear above 1) pales and greys all over.
-    float rot = clamp(wear - 1.0, 0.0, 0.6);
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.38, 0.33), rot * 0.8);
+    // On a carcass the skin itself goes first: a dull, dark red fading to grey-brown
+    // (most at the head, the tail and the belly), and the fungus is a dirty, eroded grey
+    // with darker edges rather than clean white.
+    float lumC = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+    float fade = clamp(0.25 + 0.55 * (region - 0.5) * 2.0 + 0.3 * smoothstep(0.0, -0.06, gp.y) + 0.5 * (gFbm(gp * 7.0) - 0.5), 0.0, 1.0);
+    vec3 dull = mix(vec3(0.1, 0.018, 0.0145) * (0.8 + 1.0 * lumC), vec3(0.13, 0.1, 0.072), fade);
+    diffuseColor.rgb = mix(diffuseColor.rgb, dull, rot * 0.9);
+    vec3 fungC = mix(vec3(0.78, 0.77, 0.71), vec3(0.36, 0.32, 0.25) * (0.8 + 0.35 * gNoise(gp * 90.0)), rot);
+    float rim = smoothstep(th - 0.09, th, f) * (1.0 - smoothstep(th + 0.02, th + 0.1, f));
+    diffuseColor.rgb *= 1.0 - 0.45 * rim * rot;
+    diffuseColor.rgb = mix(diffuseColor.rgb, fungC, fung * mix(0.82, 0.7, rot));
+    gMatte = max(gMatte, max(fung, rot * 0.7));
+    // Fins: ragged, thin and grey-brown.
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.1, 0.08, 0.06), rot * smoothstep(0.02, 0.3, finW) * 0.7);
+    // The eye: clouded over and sunk into a dark socket.
+    if (uEye.w > 0.0 && rot > 0.0 && abs(gp.z) > uEye.z * 0.4) {
+      float de = length(vec2(gp.x - uEye.x, gp.y - uEye.y)) / uEye.w;
+      float socket = (1.0 - smoothstep(1.0, 1.7, de)) * smoothstep(0.75, 1.05, de);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.011, 0.008, 0.006), socket * rot * 0.9);
+      float cloud = 1.0 - smoothstep(0.85, 1.0, de);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.3, 0.27) * (0.75 + 0.35 * gNoise(gp * 400.0)), cloud * rot * 0.85);
+    }
   }
   if (finW < 0.02) {
     for (int i = 0; i < ${MAX}; i++) {

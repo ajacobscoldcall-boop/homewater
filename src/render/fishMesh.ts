@@ -29,7 +29,8 @@ export type FishLook =
   | 'orca'
   | 'seal'
   | 'shark'
-  | 'herring';
+  | 'herring'
+  | 'pink';
 
 export interface FishShape {
   /** Body depth multiplier (deep-bodied > 1). */
@@ -55,7 +56,20 @@ interface Palette {
   /** Faint parr marks (fry). */
   parr?: THREE.Color;
   /** Body spots: species identification (char: pale on dark; trout: dark on light). */
-  spots?: { color: THREE.Color; alt?: THREE.Color; count: number; size: number; minS: number; maxS: number };
+  spots?: {
+    color: THREE.Color;
+    alt?: THREE.Color;
+    count: number;
+    size: number;
+    minS: number;
+    maxS: number;
+    /** Long axis over short axis (1 = round). */
+    oval?: number;
+    /** Spots that identify the species are kept on the low-detail model (fewer of them). */
+    keepLow?: boolean;
+    /** Spots on each lobe of the tail. */
+    tail?: number;
+  };
   /** Fins. */
   fin: THREE.Color;
   finTip?: THREE.Color;
@@ -88,13 +102,26 @@ const PALETTES: Record<FishLook, Palette> = {
   // Dolly Varden: pale spots on a dark olive back; white leading edges on the lower fins.
   char: { back: col(0x3e4a35), side: col(0x7c8468), belly: col(0xe8e2d0), spots: { color: col(0xf0dcae), alt: col(0xe58a5e), count: 72, size: 0.0095, minS: -0.45, maxS: 0.85 }, fin: col(0x5c6449), lowerFin: col(0xc7653e), finEdge: col(0xf6f3ea), caudal: col(0x4d5640), iris: col(0xc9b46a), line: 0.25 },
   orca: { back: col(0x0d0f12), side: col(0x15181c), belly: col(0xf0f2f2), fin: col(0x0d0f12), iris: col(0x222222) },
-  herring: { back: col(0x2f566c), side: col(0xd5e0e5), belly: col(0xf5f7f7), fin: col(0xb0bcc2), iris: col(0xbbb59a), line: 0.4 },
+  // A herring-like forage fish: blue-green back, bright silver sides, slim, deeply forked tail, no adipose fin.
+  herring: { back: col(0x24625f), side: col(0xd2dedd), belly: col(0xf5f7f7), fin: col(0xaebcbc), finTip: col(0x4d6664), caudal: col(0x7f9796), iris: col(0xbbb59a), line: 0.34 },
+  // Pink salmon at sea: like an ocean sockeye but with large dark oval spots on the back and on both tail lobes.
+  pink: {
+    back: col(0x2b5874),
+    side: col(0xc6d2d8),
+    belly: col(0xf2f4f5),
+    fin: col(0x8fa0aa),
+    finTip: col(0x2d3c48),
+    caudal: col(0x5a6c78),
+    iris: col(0xc8c3a0),
+    line: 0.42,
+    spots: { color: col(0x161b20), count: 64, size: 0.0125, minS: 0.45, maxS: 0.92, oval: 1.8, keepLow: true, tail: 7 },
+  },
   shark: { back: col(0x3b4c5c), side: col(0x6f8090), belly: col(0xe8ecee), fin: col(0x3b4c5c), iris: col(0x111111) },
   seal: { back: col(0x4a4f52), side: col(0x7d8285), belly: col(0xa9aaa6), fin: col(0x3a3e40), iris: col(0x111111) },
 };
 
 /** Advisor: tail shape and eye size change across the life cycle. */
-const FORK: Partial<Record<FishLook, number>> = { alevin: 0.0, fry: 0.07, smolt: 0.07, herring: 0.08, ocean: 0.05, returnSilver: 0.05, returnBlush: 0.04, spawnFemale: 0.025, spawnMale: 0.015, spawnJack: 0.035, trout: 0.012, char: 0.022 };
+const FORK: Partial<Record<FishLook, number>> = { alevin: 0.0, fry: 0.07, smolt: 0.07, herring: 0.13, pink: 0.05, ocean: 0.05, returnSilver: 0.05, returnBlush: 0.04, spawnFemale: 0.025, spawnMale: 0.015, spawnJack: 0.035, trout: 0.012, char: 0.022 };
 const EYE: Partial<Record<FishLook, number>> = { alevin: 1.9, fry: 1.6, smolt: 1.3, herring: 1.3, spawnMale: 0.85, spawnFemale: 0.95, char: 1.05 };
 /** Teeth: big on spawning males (advisor), smaller on jacks and females. */
 const TEETH: Partial<Record<FishLook, number>> = { spawnMale: 1, spawnJack: 0.55, spawnFemale: 0.3, char: 0.2 };
@@ -162,6 +189,12 @@ function bodyRing(p: Plan, xo: number, forJaw = false): Ring {
     top *= 0.92;
     bottom *= 0.95;
     width *= 1.05;
+  }
+  // Herring: slimmer and narrower than a salmon.
+  if (p.look === 'herring') {
+    top *= 0.8;
+    bottom *= 0.84;
+    width *= 0.7;
   }
   // Upper jaw: behind the mouth corner the body is whole; forward of it the
   // underside rises to the mouth line and the lower jaw fills in beneath.
@@ -232,6 +265,14 @@ function finColor(p: Plan, which: 'dorsal' | 'adipose' | 'caudal' | 'anal' | 'pe
   }
   // Fins are thinner and darker towards the root on the spawning fish.
   if (pal.head) out.multiplyScalar(0.85 + 0.15 * r);
+}
+
+/** The eye's centre (x, y, |z|) and radius, for the carcass's sunken eye (goreShader.ts). */
+function eyeCentre(p: Plan): number[] {
+  const eye = EYE[p.look] ?? 1;
+  const r = bodyRing(p, 0.425 - 0.012 * (eye - 1));
+  const s = 0.3;
+  return [r.x, r.y + r.top * s, r.width * Math.sqrt(1 - s * s), 0.0105 * eye * (p.look === 'alevin' ? 1.1 : 1)];
 }
 
 function addEye(b: GeoBuilder, p: Plan, side: number): void {
@@ -376,7 +417,7 @@ function addFins(b: GeoBuilder, p: Plan): void {
   };
   const juvenile = look === 'alevin';
   // Dorsal fin: tall leading edge, short trailing edge.
-  const dH = (juvenile ? 0.035 : 0.078) * Math.sqrt(depth);
+  const dH = (juvenile ? 0.035 : look === 'herring' ? 0.055 : 0.078) * Math.sqrt(depth);
   finPatch(
     b,
     (s, o) => top(0.12 - 0.14 * s, o),
@@ -469,20 +510,44 @@ function addFins(b: GeoBuilder, p: Plan): void {
     (s, o) => {
       const e = Math.abs(s * 2 - 1);
       // Lobes reach back further than the middle; the lobe tips are slightly rounded.
-      const len = lobe - fork * 1.25 * (1 - Math.pow(e, 1.4)) - 0.012 * Math.pow(e, 8);
+      // A herring's fork is a deep V with pointed lobes.
+      const len = look === 'herring' ? lobe + 0.01 - fork * (1 - e) : lobe - fork * 1.25 * (1 - Math.pow(e, 1.4)) - 0.012 * Math.pow(e, 8);
       o.set(root.x - len, root.y + (s * 2 - 1) * span * (1 - 0.06 * Math.pow(e, 6)), 0);
     },
     (s, r, c) => finColor(p, 'caudal', s, r, c),
     { rows: lo ? 2 : 5, cols: lo ? 6 : 12, rays: lo ? 0 : 14 },
   );
+  // Spots on both lobes of the tail (pink salmon), on both faces, flexing with the fin.
+  const sp = p.pal.spots;
+  if (sp?.tail && (!lo || sp.keepLow)) {
+    const n = lo ? Math.ceil(sp.tail * 0.6) : sp.tail;
+    const at = new THREE.Vector3();
+    const a = new THREE.Vector3();
+    const t = new THREE.Vector3();
+    for (let i = 0; i < n * 2; i++) {
+      const upper = i % 2 === 0;
+      const k = Math.floor(i / 2);
+      const s = upper ? 0.62 + 0.3 * hash3(k, 4.1, 1) : 0.08 + 0.3 * hash3(k, 6.3, 2);
+      const rr = 0.22 + 0.62 * hash3(k, upper ? 2.7 : 3.9, 5);
+      const e = Math.abs(s * 2 - 1);
+      a.set(root.x, root.y + (s * 2 - 1) * root.top * 0.92, 0);
+      const len = lobe - fork * 1.25 * (1 - Math.pow(e, 1.4));
+      t.set(root.x - len, root.y + (s * 2 - 1) * span, 0);
+      at.lerpVectors(a, t, rr);
+      const size = sp.size * 0.62 * (0.75 + 0.5 * hash3(k, 8, upper ? 1 : 2));
+      for (const face of [-1, 1]) decal(b, at, new THREE.Vector3(0, 0, face), size * 1.3, size, sp.color, 7, 0.0012, 0.4 * (hash3(k, 1, 1) - 0.5), undefined, [rr, 0]);
+    }
+  }
 }
 
 function addSpots(b: GeoBuilder, p: Plan): void {
   const sp = p.pal.spots;
-  if (!sp || p.lod === 'low') return;
+  if (!sp || (p.lod === 'low' && !sp.keepLow)) return;
   const at = new THREE.Vector3();
   const n = new THREE.Vector3();
-  for (let i = 0; i < sp.count; i++) {
+  const count = p.lod === 'low' ? Math.ceil(sp.count * 0.6) : sp.count;
+  const oval = sp.oval ?? 1;
+  for (let i = 0; i < count; i++) {
     const xo = -0.36 + 0.66 * hash3(i, 1.3, 7.1);
     const s = sp.minS + (sp.maxS - sp.minS) * hash3(i, 5.7, 2.2);
     const side = i % 2 === 0 ? 1 : -1;
@@ -493,7 +558,7 @@ function addSpots(b: GeoBuilder, p: Plan): void {
     n.set(0, s / h, (side * c) / r.width).normalize();
     const size = sp.size * (0.7 + 0.6 * hash3(i, 9.1, 3.3)) * (0.6 + 0.4 * Math.min(1, (h * 2) / 0.17));
     const colr = sp.alt && hash3(i, 2.2, 8.8) < 0.3 ? sp.alt : sp.color;
-    decal(b, at, n, size, size * 0.85, colr, 7, 0.0012);
+    decal(b, at, n, size * Math.sqrt(oval), (size * 0.85) / Math.sqrt(oval), colr, 7, 0.0012);
   }
 }
 
@@ -523,7 +588,9 @@ export function buildFishGeometry(shape: FishShape, look: FishLook, opts: { lod?
   addFins(b, plan);
   addSpots(b, plan);
   for (const side of [-1, 1]) addEye(b, plan, side);
-  return b.build();
+  const g = b.build();
+  g.userData.eye = eyeCentre(plan);
+  return g;
 }
 
 export interface FishUniforms {
@@ -576,7 +643,7 @@ export function setSwim(obj: THREE.Object3D, phase: number, amp: number): void {
 }
 
 export function createFish(shape: FishShape, look: FishLook, opts: { transparent?: boolean; opacity?: number } = {}): THREE.Mesh {
-  const silver = look === 'smolt' || look === 'ocean' || look === 'returnSilver' || look === 'herring';
+  const silver = look === 'smolt' || look === 'ocean' || look === 'returnSilver' || look === 'herring' || look === 'pink';
   const mesh = new THREE.Mesh(buildFishGeometry(shape, look), fishMaterial({ ...opts, metalness: silver ? 0.3 : 0.12, roughness: silver ? 0.35 : 0.5 }));
   mesh.userData.look = look;
   mesh.userData.shapeKey = shapeKey(shape);

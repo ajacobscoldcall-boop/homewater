@@ -10,9 +10,10 @@
 import * as THREE from 'three';
 import type { SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { animalOf } from './animals';
 import { setSwim } from './fishMesh';
 import { GORE, type DeathBeatPlan, type EndScene, type GoreMode } from './goreConfig';
-import { setGore } from './goreShader';
+import { setGore, setGoreEye } from './goreShader';
 import { otherFishLook, senescence, WoundTracker, type Wound } from './wounds';
 
 const OTHER_KINDS = new Set(['rival', 'female', 'guardMale', 'jackAI']);
@@ -182,8 +183,8 @@ interface Beat {
   killerRotY: number;
   fishStart: THREE.Vector3;
   away: number;
-  /** The fish's hold point in the killer's own space (lift style). */
-  hold: THREE.Vector3 | null;
+  /** A bear has the fish in its jaws (under the water). */
+  held: boolean;
   bled: number;
 }
 
@@ -203,6 +204,10 @@ export class GoreLayer {
   /** Playtest: a side-on close-up of the player fish (for checking wounds). */
   inspect = false;
   private readonly cloud = new Cloud();
+  /** Gravel under the carcass in the post-spawn close-up. */
+  private readonly bed: THREE.InstancedMesh;
+  private bedAt: THREE.Vector3 | null = null;
+  private readonly contact: THREE.Mesh;
   private beat: Beat | null = null;
   private ending: Ending | null = null;
   private lastWorld: World | null = null;
@@ -211,6 +216,62 @@ export class GoreLayer {
 
   constructor(scene: THREE.Scene) {
     scene.add(this.cloud.points);
+    this.bed = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true }), GORE.bed.stones);
+    this.bed.visible = false;
+    this.bed.frustumCulled = false;
+    scene.add(this.bed);
+    // A soft dark patch where the carcass touches the bottom.
+    const shade = new THREE.CircleGeometry(1, 24);
+    const pos = shade.attributes.position as THREE.BufferAttribute;
+    const alpha = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) alpha[i] = 1 - Math.min(1, Math.hypot(pos.getX(i), pos.getY(i)));
+    shade.setAttribute('aAlpha', new THREE.BufferAttribute(alpha, 1));
+    this.contact = new THREE.Mesh(
+      shade,
+      new THREE.ShaderMaterial({
+        vertexShader: 'attribute float aAlpha; varying float vA; void main() { vA = aAlpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(0.03, 0.025, 0.02, 0.6 * vA * vA); }',
+        transparent: true,
+        depthWrite: false,
+      }),
+    );
+    this.contact.visible = false;
+    scene.add(this.contact);
+  }
+
+  /** Scatter gravel round the carcass, sitting on the bottom (render only). */
+  private placeBed(w: World, at: THREE.Vector3, size: number): void {
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    const p = new THREE.Vector3();
+    const sc = new THREE.Vector3();
+    const c = new THREE.Color();
+    const n = GORE.bed.stones;
+    const h = (i: number, k: number) => {
+      const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    for (let i = 0; i < n; i++) {
+      const a = i * 2.399 + 1.4 * h(i, 10);
+      const r = Math.sqrt((i + 0.5) / n) * GORE.bed.radius * size * (0.8 + 0.4 * h(i, 11));
+      p.set(at.x + Math.cos(a) * r, 0, at.z + Math.sin(a) * r);
+      const s = size * (GORE.bed.minStone + (GORE.bed.maxStone - GORE.bed.minStone) * h(i, 1));
+      p.y = w.arena.floor(p.x, p.z) - s * 0.35;
+      sc.set(s * (0.8 + 0.5 * h(i, 2)), s * (0.5 + 0.3 * h(i, 3)), s * (0.8 + 0.5 * h(i, 4)));
+      q.setFromEuler(e.set(h(i, 5) * 3, h(i, 6) * 6, h(i, 7) * 3));
+      this.bed.setMatrixAt(i, m.compose(p, q, sc));
+      // Mixed cobble: olive-grey, brown and the odd pale stone (linear colour).
+      const tone = 0.45 + 0.55 * h(i, 8);
+      const kind = h(i, 9);
+      if (kind < 0.45) c.setRGB(0.2 * tone, 0.19 * tone, 0.15 * tone);
+      else if (kind < 0.85) c.setRGB(0.24 * tone, 0.18 * tone, 0.12 * tone);
+      else c.setRGB(0.42 * tone, 0.4 * tone, 0.34 * tone);
+      this.bed.setColorAt(i, c);
+    }
+    this.bed.instanceMatrix.needsUpdate = true;
+    if (this.bed.instanceColor) this.bed.instanceColor.needsUpdate = true;
+    this.bedAt = at.clone();
   }
 
   private get goreValue(): number {
@@ -236,7 +297,7 @@ export class GoreLayer {
         killerId = e.id;
       }
     }
-    this.beat = { plan, world: w, t: 0, killerId, killerStart: null, killerYaw: 0, killerRotY: 0, fishStart: new THREE.Vector3(fish.x, fish.y, fish.z), away: 0, hold: null, bled: 0 };
+    this.beat = { plan, world: w, t: 0, killerId, killerStart: null, killerYaw: 0, killerRotY: 0, fishStart: new THREE.Vector3(fish.x, fish.y, fish.z), away: 0, held: false, bled: 0 };
   }
 
   /** The post-spawn sequence: which card is showing (null to stop). */
@@ -262,6 +323,11 @@ export class GoreLayer {
     }
     if (this.beat && (this.beat.world !== w || w.status !== 'dead')) this.beat = null;
     if (this.ending && (this.ending.world !== w || w.status !== 'lifeComplete')) this.ending = null;
+    if (!this.ending && this.bedAt) {
+      this.bedAt = null;
+      this.bed.visible = false;
+      this.contact.visible = false;
+    }
     this.tracker.update(w);
     const gore = this.goreValue;
     const wear = senescence(w);
@@ -283,6 +349,7 @@ export class GoreLayer {
       if (this.beat) this.updateBeat(this.beat, w, dt, player, objects, camera);
       if (this.ending) playerWear = this.updateEnding(this.ending, w, dt, player, camera);
       setGore(player.material as THREE.Material, playerWear, this.tracker.wounds, gore);
+      setGoreEye(player.material as THREE.Material, this.ending ? (player.geometry.userData.eye as number[] | undefined) : null);
       if (this.inspect && !this.ending) this.inspectCamera(w, player, camera);
     }
     const viewHeight = (globalThis.innerHeight ?? 720) * Math.min(globalThis.devicePixelRatio ?? 1, 1.5);
@@ -330,21 +397,42 @@ export class GoreLayer {
         bird.getWorldPosition(mouth);
         mouth.y -= 0.25 * size;
       } else {
-        // A bear: the fish is hauled out of the water to the bank, and the bear turns away with it.
-        if (!b.hold) {
-          const toRiver = Math.sign(b.fishStart.z - killer.position.z) || 1;
-          tmpW.set(killer.position.x, w.arena.surfaceY + 1.3, killer.position.z + toRiver * 1.4);
+        // A bear: its head and forepaws plunge into the water and its jaws close on the fish,
+        // held crosswise under the surface where the camera can see it; then it starts to haul it back.
+        const bear = killer.getObjectByName('bear');
+        const anim = bear ? animalOf(bear) : undefined;
+        const jaws = killer.getObjectByName('mouth');
+        if (anim && jaws) {
           killer.updateMatrixWorld();
-          b.hold = killer.worldToLocal(tmpW.clone());
+          const deep = w.arena.surfaceY - GORE.beat.bearHoldDepth * Math.max(0.6, size);
+          tmpW.copy(b.fishStart);
+          tmpW.y = Math.min(tmpW.y, deep);
+          const local = killer.worldToLocal(tmpW.clone());
+          // Pull back towards the bank a little once it has the fish.
+          local.multiplyScalar(1 - 0.12 * ease((t - 0.8) / 0.9));
+          anim.update({ mode: 'strike', t: w.time, k: 1, target: local, surface: w.arena.surfaceY - killer.position.y, jaw: 0.3 - 0.12 * ease(t / 0.35) });
+          killer.updateMatrixWorld(true);
+          jaws.getWorldPosition(mouth);
+          // Gripped on the side of the jaws nearest the camera, so the near foreleg doesn't hide it.
+          tmpV.subVectors(camera.position, mouth).setY(0).normalize();
+          mouth.addScaledVector(tmpV, GORE.beat.bearHoldNear * size);
+          b.held = true;
+        } else {
+          mouth.copy(b.fishStart);
         }
-        killer.rotation.y = b.killerRotY + Math.PI * ease((t - 0.55) / (GORE.beat.turnSeconds * 1.6));
-        killer.updateMatrixWorld();
-        mouth.copy(b.hold).applyMatrix4(killer.matrixWorld);
       }
-      fish.position.lerpVectors(b.fishStart, mouth, ease(t / 0.5));
+      fish.position.lerpVectors(b.fishStart, mouth, ease(t / (b.held ? 0.22 : 0.5)));
       fish.rotation.set(0, 0, 0);
-      fish.rotateY(-(w.body.yaw + 0.6 * Math.sin(t * 13) * thrash));
-      fish.rotateX(Math.PI / 2 * ease(t / 0.5));
+      if (b.held) {
+        // Gripped across the back, broadside to the camera, thrashing.
+        const view = Math.atan2(mouth.z - camera.position.z, mouth.x - camera.position.x);
+        fish.rotateY(-(view + Math.PI / 2) + 0.35 * Math.sin(t * 13) * thrash);
+        fish.rotateZ(-0.35 + 0.3 * Math.sin(t * 9) * thrash);
+        fish.rotateX(0.5);
+      } else {
+        fish.rotateY(-(w.body.yaw + 0.6 * Math.sin(t * 13) * thrash));
+        fish.rotateX(Math.PI / 2 * ease(t / 0.5));
+      }
     } else if (plan.style === 'line') {
       // Hauled up towards the surface on the line.
       mouth.copy(b.fishStart);
@@ -359,8 +447,8 @@ export class GoreLayer {
       fish.rotateZ(-0.25 * ease(t / 0.4));
     }
     // The camera turns to follow the fish (it stays where it was, under the water).
-    const look = tmpW.copy(b.fishStart).lerp(fish.position, ease(t / 0.6) * (plan.style === 'lift' ? 0.75 : 0.6));
-    if (plan.style === 'lift') camera.position.y = Math.min(w.arena.surfaceY - 0.15, camera.position.y + 0.6 * ease(t / 0.8));
+    const look = tmpW.copy(b.fishStart).lerp(fish.position, ease(t / 0.6) * (b.held ? 0.9 : plan.style === 'lift' ? 0.75 : 0.6));
+    if (plan.style === 'lift' && !b.held) camera.position.y = Math.min(w.arena.surfaceY - 0.15, camera.position.y + 0.6 * ease(t / 0.8));
     camera.lookAt(look);
     // Blood and scales: a burst at the strike, then a trail (Unflinching only).
     if (unflinching && t > 0.06) {
@@ -395,10 +483,25 @@ export class GoreLayer {
     fish.position.y = b.pos.y + (bed - b.pos.y) * e.sink;
     fish.rotation.set(0, -b.yaw, 0);
     fish.rotateX((Math.PI / 2) * e.roll);
-    setSwim(fish, w.time * 2, 0.02 * (1 - e.roll));
+    // Lying on its side, the body set in a slight curve.
+    setSwim(fish, w.time * 2 * (1 - e.roll) + 1.3 * e.roll, 0.02 * (1 - e.roll) + 0.03 * e.roll);
+    // Gravel round the carcass once it lies on the bottom.
+    if (idx >= 1 && !this.bedAt) this.placeBed(w, tmpW.set(fish.position.x, 0, fish.position.z), b.scale);
+    this.bed.visible = idx >= 1;
+    this.contact.visible = idx >= 1;
+    if (idx >= 1) {
+      this.contact.position.set(fish.position.x, w.arena.floor(fish.position.x, fish.position.z) + 0.01, fish.position.z);
+      this.contact.rotation.set(-Math.PI / 2, 0, -b.yaw);
+      this.contact.scale.set(0.62 * b.scale, 0.2 * b.scale, 1);
+    }
     if (e.close > 0.001) {
-      // Looking down on the carcass's upturned flank.
-      tmpV.set(fish.position.x - Math.cos(b.yaw) * 0.15 * b.scale, fish.position.y + 0.85 * b.scale, fish.position.z - Math.sin(b.yaw) * 0.15 * b.scale);
+      // Looking down at an angle on the carcass's upturned flank, lying among the stones.
+      const s = b.scale;
+      tmpV.set(
+        fish.position.x - Math.cos(b.yaw) * 0.2 * s - Math.sin(b.yaw) * 0.55 * s,
+        fish.position.y + 0.62 * s,
+        fish.position.z - Math.sin(b.yaw) * 0.2 * s + Math.cos(b.yaw) * 0.55 * s,
+      );
       tmpV.y = Math.min(w.arena.surfaceY - 0.15, tmpV.y);
       camera.position.lerp(tmpV, e.close);
       camera.lookAt(fish.position);

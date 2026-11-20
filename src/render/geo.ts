@@ -217,7 +217,7 @@ export function finPatch(
 }
 
 /** Small round decals (spots, eye patches) laid on a surface point along its normal. */
-export function decal(b: GeoBuilder, at: THREE.Vector3, normal: THREE.Vector3, rx: number, ry: number, c: THREE.Color, segs = 8, lift = 0.0015, rot = 0, rim?: THREE.Color): void {
+export function decal(b: GeoBuilder, at: THREE.Vector3, normal: THREE.Vector3, rx: number, ry: number, c: THREE.Color, segs = 8, lift = 0.0015, rot = 0, rim?: THREE.Color, flex: [number, number] = [0, 0]): void {
   const n = normal.clone().normalize();
   const up = Math.abs(n.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
   const u = new THREE.Vector3().crossVectors(up, n).normalize();
@@ -225,7 +225,7 @@ export function decal(b: GeoBuilder, at: THREE.Vector3, normal: THREE.Vector3, r
   const cu = Math.cos(rot);
   const su = Math.sin(rot);
   const centre = at.clone().addScaledVector(n, lift);
-  const ci = b.v(centre.x, centre.y, centre.z, c);
+  const ci = b.v(centre.x, centre.y, centre.z, c, flex[0], flex[1]);
   const first = b.count;
   for (let k = 0; k < segs; k++) {
     const a = (k / segs) * Math.PI * 2;
@@ -236,7 +236,7 @@ export function decal(b: GeoBuilder, at: THREE.Vector3, normal: THREE.Vector3, r
       .addScaledVector(u, x * cu - y * su)
       .addScaledVector(v, x * su + y * cu)
       .addScaledVector(n, -lift * 0.6);
-    b.v(p.x, p.y, p.z, rim ?? c);
+    b.v(p.x, p.y, p.z, rim ?? c, flex[0], flex[1]);
   }
   for (let k = 0; k < segs; k++) b.tri(ci, first + k, first + ((k + 1) % segs));
 }
@@ -356,4 +356,85 @@ export function surfacePatch(
   });
   // Wound the same way as the grid, so shared normals don't cancel.
   for (let j = 0; j < segs; j++) b.tri(ci, first + j + 1, first + j);
+}
+
+/** One sample of a tube's centre line: a point in the x-y plane and two half-thicknesses. */
+export interface TubeSample {
+  /** Centre (z is optional; the tube's frame always keeps z as its side axis). */
+  x: number;
+  y: number;
+  z?: number;
+  /** Half-thickness in the x-y plane (front to back of a leg, up and down a neck). */
+  depth: number;
+  /** Half-width along z. */
+  width: number;
+}
+
+/**
+ * A smooth tube along a curve in the x-y plane (legs, necks). Unlike a loft,
+ * the rings stay square to the curve wherever it bends, so elbows and necks
+ * don't crease. s runs -1..1 across the curve's in-plane normal (+1 on its
+ * left, looking along the curve); side is the z side.
+ */
+export function tube(
+  b: GeoBuilder,
+  along: number,
+  around: number,
+  at: (t: number) => TubeSample,
+  paint: (t: number, s: number, side: number, p: THREE.Vector3, out: THREE.Color) => void,
+  opts: { caps?: boolean; fullness?: number } = {},
+): void {
+  const full = opts.fullness ?? 1;
+  const samples: TubeSample[] = [];
+  for (let i = 0; i <= along; i++) samples.push(at(i / along));
+  const nx: number[] = [];
+  const ny: number[] = [];
+  for (let i = 0; i <= along; i++) {
+    const a = samples[Math.max(0, i - 1)]!;
+    const c = samples[Math.min(along, i + 1)]!;
+    const dx = c.x - a.x;
+    const dy = c.y - a.y;
+    const l = Math.hypot(dx, dy) || 1;
+    nx.push(-dy / l);
+    ny.push(dx / l);
+  }
+  const start = b.grid(along, around, (i, j, o) => {
+    const r = samples[i]!;
+    const th = -Math.PI / 2 + (j / around) * Math.PI * 2;
+    const s = Math.sin(th);
+    const c = Math.cos(th);
+    const d = r.depth * Math.sign(s) * Math.pow(Math.abs(s), full);
+    o.p.set(r.x + nx[i]! * d, r.y + ny[i]! * d, (r.z ?? 0) + r.width * Math.sign(c) * Math.pow(Math.abs(c), full));
+    paint(i / along, s, Math.sign(c), o.p, o.c);
+  });
+  if (opts.caps) {
+    const stride = around + 1;
+    for (const end of [0, along]) {
+      const r = samples[end]!;
+      const cc = new THREE.Color();
+      paint(end / along, 0, 0, tmpV.set(r.x, r.y, r.z ?? 0), cc);
+      const centre = b.v(r.x, r.y, r.z ?? 0, cc);
+      for (let j = 0; j < around; j++) {
+        const a = start + end * stride + j;
+        if (end === 0) b.tri(centre, a + 1, a);
+        else b.tri(centre, a, a + 1);
+      }
+    }
+  }
+}
+
+/** Catmull-Rom point on a polyline of [x, y] control points, t in 0..1. */
+export function spline(pts: number[][], t: number, out: { x: number; y: number }): { x: number; y: number } {
+  const n = pts.length - 1;
+  const f = Math.max(0, Math.min(1, t)) * n;
+  const i = Math.min(n - 1, Math.floor(f));
+  const u = f - i;
+  const p0 = pts[Math.max(0, i - 1)]!;
+  const p1 = pts[i]!;
+  const p2 = pts[i + 1]!;
+  const p3 = pts[Math.min(n, i + 2)]!;
+  const cr = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u * u + (-a + 3 * b - 3 * c + d) * u * u * u);
+  out.x = cr(p0[0]!, p1[0]!, p2[0]!, p3[0]!);
+  out.y = cr(p0[1]!, p1[1]!, p2[1]!, p3[1]!);
+  return out;
 }

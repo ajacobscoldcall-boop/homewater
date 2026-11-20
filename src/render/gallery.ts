@@ -41,6 +41,20 @@ function preyModel(kind: string, geo: THREE.BufferGeometry, opacity: number): An
   return { kind, root, update: () => {} };
 }
 
+/** Where the bear's strike reaches in the gallery: ahead and below its feet, as if into a river. */
+const BEAR_TARGET = new THREE.Vector3(1.9, -0.45, 0);
+
+/** The bear with a spawning sockeye in its jaws, as in the death beat (gore.ts places it the same way). */
+function bearWithFish(): Animal {
+  const bear = ANIMALS.bear!();
+  const fishA = fishAnimal('fish', 'spawnMale', { depth: 1.15, hump: 1, kype: 1, yolk: 0 });
+  const mouth = bear.root.getObjectByName('mouth')!;
+  fishA.root.rotation.set(0, Math.PI / 2, 0.25);
+  fishA.root.position.set(0, 0, -0.05);
+  mouth.add(fishA.root);
+  return { kind: 'bearCatch', root: bear.root, update: (p) => { bear.update(p); fishA.update({ mode: 'swim', t: p.t, phase: p.t * 20, amp: 0.06 }); } };
+}
+
 const ITEMS: Item[] = [
   fish('alevin', 'alevin', { depth: 0.8, yolk: 1 }, 'Alevin', 'yolk sac, large eye, fin fold'),
   fish('fry', 'fry', { depth: 0.95 }, 'Fry', 'faint parr marks, deep fork'),
@@ -51,21 +65,30 @@ const ITEMS: Item[] = [
   fish('spawnMale', 'spawnMale', { depth: 1.15, hump: 1, kype: 1 }, 'Spawning male', 'hump, hooked kype, teeth'),
   fish('spawnFemale', 'spawnFemale', { depth: 1.05, hump: 0.15 }, 'Spawning female', 'red body, green head, no hump'),
   fish('spawnJack', 'spawnJack', { depth: 1, hump: 0.3, kype: 0.4 }, 'Jack', '~300 mm in life; drawn enlarged here'),
-  fish('herring', 'herring', { depth: 0.9 }, 'Small forage fish', 'prey at sea; no adipose fin'),
+  fish('pink', 'pink', { depth: 0.95 }, 'Pink salmon (at sea)', 'large oval spots on back and both tail lobes'),
+  fish('herring', 'herring', { depth: 0.9 }, 'Small forage fish', 'slim, forked tail, blue-green back, no adipose fin'),
   { id: 'krill', label: 'Krill', note: 'main food at sea; drawn larger than life in play', group: 'animals', make: () => preyModel('krill', krillGeometry(), 0.78) },
   { id: 'squid', label: 'Small squid', note: 'occasional food at sea', group: 'animals', make: () => preyModel('squid', squidGeometry(), 0.85) },
   { id: 'char', label: 'Dolly Varden (char)', note: 'pale spots on dark, white fin edges', group: 'animals', make: ANIMALS.char! },
   { id: 'orca', label: 'Orca', note: 'tall dorsal fin, eye and flank patches', group: 'animals', make: ANIMALS.orca! },
   { id: 'shark', label: 'Salmon shark', note: 'stocky, crescent tail, white belly', group: 'animals', make: ANIMALS.shark! },
-  { id: 'seal', label: 'Harbor seal', note: 'spotted grey, hind flippers', group: 'animals', make: ANIMALS.seal! },
-  { id: 'bear', label: 'Brown bear', note: 'standing at the bank', group: 'animals', make: ANIMALS.bear!, pose: (t) => ({ mode: 'idle', t }) },
+  { id: 'seal', label: 'Harbor seal', note: 'round head, short muzzle, whiskers, spotted grey', group: 'animals', make: ANIMALS.seal! },
+  { id: 'bear', label: 'Brown bear', note: 'shaggy coat, shaped legs, long front claws', group: 'animals', make: ANIMALS.bear!, pose: (t) => ({ mode: 'idle', t }) },
   {
     id: 'bearStrike',
-    label: 'Brown bear: swipe',
-    note: "the 'strike' pose",
+    label: 'Brown bear: strike',
+    note: 'head and forepaws plunge into the water',
     group: 'animals',
     make: ANIMALS.bear!,
-    pose: (t) => ({ mode: 'strike', t, k: 0.25 + 0.2 * Math.sin(t * 1.5) }),
+    pose: (t) => ({ mode: 'strike', t, k: 0.75 + 0.25 * Math.sin(t * 1.2), target: BEAR_TARGET }),
+  },
+  {
+    id: 'bearCatch',
+    label: 'Brown bear: catch',
+    note: 'a sockeye held in its jaws (death beat)',
+    group: 'animals',
+    make: () => bearWithFish(),
+    pose: (t) => ({ mode: 'strike', t, k: 1, target: BEAR_TARGET, jaw: 0.32 }),
   },
   { id: 'gull', label: 'Gull', note: 'flying', group: 'animals', make: ANIMALS.gull!, pose: (t) => ({ mode: 'fly', t }) },
   { id: 'gullDive', label: 'Gull: diving', note: "the 'strike' pose", group: 'animals', make: ANIMALS.gull!, pose: (t) => ({ mode: 'strike', t }) },

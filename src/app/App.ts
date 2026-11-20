@@ -32,6 +32,7 @@ import { TRAIT_IDS, type FishIdentity, type Habitat, type SimEvent, type Sex, ty
 import { World } from '../sim/world';
 import { addToArchive, clearSave, exportSave, importSave, readSave, requestPersistence, writeSave, SCHEMA_VERSION, type LifeSave, type SaveFile } from '../save/save';
 import { $, h, show } from '../ui/dom';
+import { HudView, type ThreatMarker } from '../ui/hudView';
 import { titleLinks } from '../ui/about';
 import { hasRecording, loadNarration, narrate, onSpeaking, recordingUrl, setNarrationVolume } from '../ui/narration';
 import { caption, DEATH_TITLES, OBJECTIVES, sexSymbol, STAGE_TITLES, stageCardLine, traitLines, yearLine } from '../ui/text';
@@ -60,6 +61,10 @@ interface Settings {
   /** Graphics preset (src/render/quality.ts). */
   quality: QualitySetting;
 }
+
+/** Threat states that get a marker: hot ones (attacking) and warnings. */
+const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooked']);
+const WARN = new Set(['warn', ...HOT]);
 
 const DEFAULT_VOLUME: number = AUDIO.master.defaultVolume;
 /** ?quality=low|medium|high|auto overrides the saved graphics setting for one load. */
@@ -104,6 +109,8 @@ export class App {
   private last = performance.now();
   private fps = 0;
   private captionEls: HTMLElement[] = [];
+  /** HUD elements and the values last written to them (src/ui/hudView.ts). */
+  private hud = new HudView();
   private flashTimer = 0;
   /** On the title screen (or setting up a new lineage from it). */
   private atTitle = true;
@@ -182,6 +189,7 @@ export class App {
       this.acc = 0;
     }
     if (w) {
+      this.renderer.cinematics.running = this.mode === 'playing'; // cinematic shots hold while paused
       this.renderer.render(w, frameDt);
       this.updateHud(w, frameDt);
     }
@@ -202,6 +210,7 @@ export class App {
   private handleEvents(events: SimEvent[]): void {
     this.audio.onEvents(events);
     this.renderer.gore.onEvents(events, this.world);
+    this.renderer.cinematics.onEvents(events, this.world);
     this.journalAndGuideEvents(events);
     for (const ev of events) {
       if (ev.type === 'caption' || ev.type === 'reveal' || ev.type === 'spawned') {
@@ -264,31 +273,28 @@ export class App {
   }
 
   private updateHud(w: World, _frameDt: number): void {
+    // Performance: HudView writes to the DOM only when something shown has changed.
+    const hud = this.hud;
     const f = w.fish;
     const sibs = '◆'.repeat(Math.max(0, w.siblingsLeft));
-    $('hud-who').innerHTML = '';
-    $('hud-who').append(
-      h('b', {}, f.name),
-      ` · ${sexSymbol(f.sex)} · generation ${f.generation} · ${STAGE_TITLES[w.stageId]}`,
-      h('br'),
-      `siblings ${sibs || 'none'}`,
-    );
+    const who = ` · ${sexSymbol(f.sex)} · generation ${f.generation} · ${STAGE_TITLES[w.stageId]}`;
+    const sibText = `siblings ${sibs || 'none'}`;
+    hud.children('hud-who', `${f.name}|${who}|${sibText}`, () => [h('b', {}, f.name), who, h('br'), sibText]);
     const guided = w.firstLife && this.lineage?.difficulty === 'fieldGuide';
     this.guideFrame(w, _frameDt);
-    $('hud-objective').textContent = (guided && !this.guided(w)) || this.hudDetailed ? OBJECTIVES[w.stageId] : '';
-    $('hud-hint').textContent = this.mode === 'playing' ? hudHint(this.input.locked) : '';
+    hud.text('hud-objective', (guided && !this.guided(w)) || this.hudDetailed ? OBJECTIVES[w.stageId] : '');
+    hud.text('hud-hint', this.mode === 'playing' ? hudHint(this.input.locked) : '');
 
     // Immersive state: the edges darken as the fish weakens.
     const alevin = alevinView(w);
     const fat = w.stageId === 'return' ? w.progress.fat : 1;
     const danger = alevin ? Math.max(alevin.exposure, alevin.drift) : 0;
     const weakness = Math.max(1 - w.body.energy, danger, 1 - fat * 2.2);
-    $('vignette').style.opacity = String(Math.max(0, Math.min(0.95, (weakness - 0.35) * 1.4)));
+    hud.style('vignette', 'opacity', String(Math.max(0, Math.min(0.95, (weakness - 0.35) * 1.4))));
 
     this.updateThreats(w);
 
-    const bars = $('hud-bars');
-    bars.hidden = !this.hudDetailed;
+    hud.hidden('hud-bars', !this.hudDetailed);
     if (this.hudDetailed) {
       const rows: [string, number][] = [];
       if (alevin) rows.push(['yolk', w.progress.yolk], ['hold', 1 - alevin.drift], ['daylight', alevin.light]);
@@ -296,23 +302,18 @@ export class App {
       if (w.stageId === 'fry') rows.push(['growth', fryGrowth(w)]);
       if (w.stageId === 'return') rows.push(['fat', w.progress.fat]);
       if (!alevin) rows.push(['depth', Math.min(1, (w.arena.surfaceY - w.body.pos.y) / 8)]);
-      bars.replaceChildren(
-        ...rows.map(([name, v]) => h('div', { class: `bar${v < 0.25 && name !== 'depth' && name !== 'daylight' ? ' low' : ''}` }, name, h('i', {}, h('b', { style: `width:${Math.round(Math.max(0, Math.min(1, v)) * 100)}%` })))),
-      );
+      hud.bars('hud-bars', rows.map(([name, value]) => ({ name, value, low: value < 0.25 && name !== 'depth' && name !== 'daylight' })));
     }
   }
 
   /** Markers on threats that are warning or attacking; arrows at the edge for ones off screen. */
   private updateThreats(w: World): void {
-    const layer = $('threats');
     if (this.mode !== 'playing' || w.status !== 'playing') {
-      layer.replaceChildren();
+      this.hud.threats('threats', []);
       return;
     }
     const LABEL: Partial<Record<string, string>> = { lure: 'hooked', shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival' };
-    const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooked']);
-    const WARN = new Set(['warn', ...HOT]);
-    const items: { x: number; y: number; label: string; hot: boolean; opening?: boolean; off: boolean; angle: number }[] = [];
+    const items: ThreatMarker[] = [];
     const add = (px: number, py: number, pz: number, label: string, hot: boolean, opening = false) => {
       const s = this.renderer.project(px, py, pz);
       let x = s.x;
@@ -343,14 +344,7 @@ export class App {
     }
     const female = w.live('female')[0];
     if (female && w.stageId === 'spawn' && w.live('rival').some((r) => r.state === 'fight')) add(female.pos.x, female.pos.y, female.pos.z, 'now', true, true);
-    const els = items.slice(0, 8).map((t) => {
-      const el = h('div', { class: `threat${t.hot ? ' hot' : ''}${t.opening ? ' opening' : ''}`, style: `left:${(t.x * 100).toFixed(1)}%;top:${(t.y * 100).toFixed(1)}%` });
-      if (t.off) el.append(h('div', { class: 'arrow', style: `transform:rotate(${(t.angle + Math.PI / 2).toFixed(2)}rad)` }));
-      else el.append(h('div', { class: 'ring' }));
-      el.append(h('span', {}, t.label));
-      return el;
-    });
-    layer.replaceChildren(...els);
+    this.hud.threats('threats', items.slice(0, 8));
   }
 
   private onKey(code: string): void {

@@ -177,7 +177,7 @@ The lineage score rewards a line for lasting and for doing well, and is shown on
   - **Other animals:** shown mostly in part, through murk, shadow and silhouette, with simple motion made in code. The game doesn't depend on fully animated models. Any asset used is logged with its source and license, preferring CC0.
   - **Graphics settings:** Stored as a data table. v1 ships one level, tuned for ordinary laptops. More levels can come later.
   - Art is kept separate from game systems, so it can be upgraded later.
-- **Camera:** Third-person is the designed default. First-person is a toggle, available at any time. Cinematic angles at key moments are deferred.
+- **Camera:** Third-person is the designed default. First-person is a toggle, available at any time. Short cinematic shots frame key moments (hatching, the lake, the night run, the sea, maturation, home, spawning); they can be skipped with any key and turned off.
 - **Controls:** Assisted swimming: WASD and the mouse steer, Shift bursts. The physics model (current, fatigue, energy) runs underneath. A fully physical tail-stroke mode is a possible later option.
 - **HUD:** Immersive by default, with state shown through the world itself (blurred vision when exhausted, sluggish swimming, sense overlays). An optional detailed HUD can be toggled on.
 
@@ -257,10 +257,9 @@ Playable end to end:
 Rough edges are acceptable.
 
 **Deferred to a later version:**
-- Cinematic camera moments
 - More graphics levels
 
-Since added: anglers, salmon sharks, lake-beach and river spawning, the recording script, the adaptive score, the field journal and guided first life, the fry and ocean stages as short scenes with time skips, and animals built in code. The trawl was dropped on the advisor's advice.
+Since added: cinematic camera moments, anglers, salmon sharks, lake-beach and river spawning, the recording script, the adaptive score, the field journal and guided first life, the fry and ocean stages as short scenes with time skips, and animals built in code. The trawl was dropped on the advisor's advice.
 
 ## Milestones
 

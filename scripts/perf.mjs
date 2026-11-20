@@ -2,7 +2,9 @@
  * Measures frames per second and draw calls per stage at each graphics preset,
  * in Chromium with software GL (SwiftShader), a stand-in for a weak laptop GPU.
  *
- *   npm run build && PW_PORT=4182 npm run perf -- [presets...] [--seconds=3] [--stages=fry,ocean] [--aa=on|off] [--shots=dir]
+ *   npm run build && PW_PORT=4182 npm run perf -- [presets...] [--seconds=3] [--stages=fry,ocean] [--aa=on|off] [--shots=dir] [--dir=dist]
+ *
+ * --dir serves another build folder (e.g. a build of an older commit, to compare).
  *
  * Presets default to: low medium high auto. Prints a Markdown table.
  */
@@ -17,11 +19,12 @@ const shots = args.find((a) => a.startsWith('--shots='))?.split('=')[1];
 // --aa=on|off forces the WebGL context's antialiasing, to measure its cost apart from the preset.
 const forceAA = args.find((a) => a.startsWith('--aa='))?.split('=')[1];
 const only = args.find((a) => a.startsWith('--stages='))?.split('=')[1]?.split(',');
+const dir = args.find((a) => a.startsWith('--dir='))?.split('=')[1] ?? 'dist';
 const presets = args.filter((a) => !a.startsWith('--'));
 if (presets.length === 0) presets.push('low', 'medium', 'high', 'auto');
 const STAGES = ['egg', 'fry', 'smolt', 'ocean', 'return', 'spawn'];
 
-const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(port), '--strictPort'], { stdio: 'pipe' });
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(port), '--strictPort', '--outDir', dir], { stdio: 'pipe' });
 const base = `http://localhost:${port}/`;
 for (let i = 0; i < 100; i++) {
   try {
@@ -106,15 +109,20 @@ try {
           if (i > 0) gpu = Math.min(gpu, performance.now() - s);
         }
         app.mode = mode;
-        return { fps, ms: gpu, calls, tris, level: app.graphics?.describe() ?? '-', stage: window.__hw.state()?.stage };
+        return { fps, ms: gpu, calls, tris, level: app.graphics?.describe() ?? '-', stage: window.__hw.state()?.stage, status: window.__hw.state()?.status };
       }, seconds * 1000);
       if (shots) {
         mkdirSync(shots, { recursive: true });
         await page.screenshot({ path: `${shots}/quality-${preset}-${stage}.png`, timeout: 90_000 });
       }
       row.cells[stage] = m;
-      process.stderr.write(`${preset} ${stage} (${m.stage}): ${m.fps.toFixed(1)} fps, ${m.ms.toFixed(0)} ms/frame GPU, ${m.calls} calls, ${m.tris} tris, ${m.level}\n`);
-      await page.evaluate(() => window.__hw?.completeStage());
+      process.stderr.write(`${preset} ${stage} (${m.stage}, ${m.status}): ${m.fps.toFixed(1)} fps, ${m.ms.toFixed(0)} ms/frame GPU, ${m.calls} calls, ${m.tris} tris, ${m.level}\n`);
+      // A fish killed while measuring cannot complete the stage: carry on with a sibling.
+      await page.evaluate(() => {
+        const w = window.__hw?.app.world;
+        if (w && w.status === 'dead' && w.canContinueWithSibling()) w.continueWithSibling('Sib');
+        window.__hw?.completeStage();
+      });
     }
     rows.push(row);
     await page.close();
@@ -133,7 +141,7 @@ for (const r of rows) {
   const cells = STAGES.map((s) => {
     const c = r.cells[s];
     if (!c) return '-';
-    return `${c.fps.toFixed(1)} fps · ${c.ms.toFixed(0)} ms · ${c.calls} dc · ${(c.tris / 1000).toFixed(0)}k tri${r.preset === 'auto' ? ` (${c.level})` : ''}`;
+    return `${c.status === 'playing' ? '' : `(${c.status}) `}${c.fps.toFixed(1)} fps · ${c.ms.toFixed(0)} ms · ${c.calls} dc · ${(c.tris / 1000).toFixed(0)}k tri${r.preset === 'auto' ? ` (${c.level})` : ''}`;
   });
   console.log(`| ${r.preset} | ${cells.join(' | ')} |`);
 }

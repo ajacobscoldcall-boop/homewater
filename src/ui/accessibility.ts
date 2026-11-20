@@ -1,7 +1,7 @@
 /**
  * Readability and comfort options: caption size and background, threat
- * marker style and colours, reduced motion, game speed, and hold or toggle
- * for swimming and bursting. Kept per browser in localStorage under
+ * marker style and colours, reduced motion, game speed, hold or toggle
+ * for swimming and bursting, and cinematic camera moments. Kept per browser in localStorage under
  * `homewater.access` (not in the save), and applied to the page as data
  * attributes and CSS variables on <html> (see styles.css).
  */
@@ -23,6 +23,8 @@ export interface AccessOptions {
   gameSpeed: number;
   forwardMode: PressMode;
   burstMode: PressMode;
+  /** Short framed camera shots at key moments (src/render/cinematics.ts). */
+  cinematics: boolean;
 }
 
 export const CAPTION_SIZES: Record<CaptionSize, { px: number; label: string }> = {
@@ -44,7 +46,7 @@ function systemReducedMotion(): boolean {
 }
 
 export function defaultAccess(): AccessOptions {
-  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold' };
+  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true };
 }
 
 /** Rebuild options from stored data; anything malformed falls back to the default. */
@@ -62,6 +64,7 @@ export function parseAccess(raw: unknown): AccessOptions {
     gameSpeed: (GAME_SPEEDS as readonly number[]).includes(s.gameSpeed as number) ? (s.gameSpeed as number) : 1,
     forwardMode: mode(s.forwardMode),
     burstMode: mode(s.burstMode),
+    cinematics: s.cinematics !== false,
   };
 }
 
@@ -171,6 +174,13 @@ export function accessPanel(back: () => void): HTMLElement {
       h('p', { class: 'muted small' }, 'Softer screen flashes and no pulsing or sliding on-screen markers.'),
       choiceRow('Game speed', GAME_SPEEDS.map((s) => ({ value: s, label: s === 1 ? 'Normal' : `${s}×` })), o.gameSpeed, (v) => set({ gameSpeed: v }), 'gameSpeed'),
       h('p', { class: 'muted small' }, 'Slows the whole game, so there is more time to react. Everything else stays the same.'),
+      h('p', { class: 'label' }, 'Camera'),
+      choiceRow('Cinematic moments', onOff, o.cinematics ? 'on' : 'off', (v) => set({ cinematics: v === 'on' }), 'cinematics'),
+      h(
+        'p',
+        { class: 'muted small' },
+        'A few seconds of film-style framing at key moments: hatching, the lake, the night run, the sea, home, spawning. Any key or click returns the camera. Never shown while something is attacking. With reduced motion the camera cuts instead of moving.',
+      ),
       h('div', { class: 'row' }, h('button', { class: 'primary', id: 'btn-access-back', onclick: back }, 'Back')),
     );
   };
