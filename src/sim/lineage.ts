@@ -39,6 +39,8 @@ export interface LifeRecord {
   offspring: OffspringNote[];
   /** Which offspring carried the line on, once chosen. */
   chosenId: string | null;
+  /** Years the fish spent in the nursery lake (1 or 2), for the life route map; null when not known (schema 6). */
+  lakeYears?: number | null;
 }
 
 /** What is kept of an offspring on offer, chosen or not, for the family tree and trait history. */
@@ -140,6 +142,16 @@ export function offerOffspring(p: Params, l: Lineage, parent: FishIdentity): Fis
   const last = l.records.at(-1);
   if (last && last.generation === parent.generation) last.offspring = kids.map((k) => ({ id: k.id, name: k.name, sex: k.sex, bv: { ...k.bv } }));
   return kids;
+}
+
+/**
+ * The year the next generation will live through, without changing the line:
+ * advanceGeneration rolls exactly this year (the same rng state and run history),
+ * whichever offspring is chosen. For the offspring cards.
+ */
+export function peekNextYear(p: Params, l: Lineage, generation = l.generation + 1): YearConditions {
+  const population: Population = { history: l.population.history.map((y) => ({ ...y })) };
+  return nextYear(p, lineageRng(l), population, generation);
 }
 
 export function recordLife(l: Lineage, rec: LifeRecord): void {

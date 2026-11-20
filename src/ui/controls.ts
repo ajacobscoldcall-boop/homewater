@@ -1,5 +1,5 @@
 /**
- * The Controls page (title screen and pause menu): every action with its
+ * The Controls tab of Settings (title screen and pause menu): every action with its
  * keys, click to rebind, reset to defaults, hold or toggle for swimming and
  * bursting, and the gamepad layout. Also the key hints shown in the HUD and
  * the pause menu, built from the current bindings.

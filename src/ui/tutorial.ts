@@ -17,6 +17,7 @@ import type { SimEvent, StageId } from '../sim/types';
 import { dist, wrapAngle } from '../sim/vec';
 import type { World } from '../sim/world';
 import { k, withKeys } from '../input/bindings';
+import { controlsPicture } from './controlsPicture';
 import { h } from './dom';
 
 /** Step text with key placeholders ({key:burst}) filled with the player's keys. */
@@ -47,7 +48,26 @@ export interface GuideSnapshot {
   /** x of the coastline on the return. */
   coast: number | null;
   spawn: { dig: number; spawned: boolean; hiding: boolean; nearFemale: boolean; burial: number } | null;
+  /** Heading in radians, and whether a burst is on (for the onboarding steps). */
+  yaw: number;
+  burst: boolean;
 }
+
+/** What the player has done so far in this stage, gathered frame by frame (onboarding). */
+export interface GuideObs {
+  /** Radians turned each way. */
+  left: number;
+  right: number;
+  /** Metres dived and risen. */
+  down: number;
+  up: number;
+  /** Bursts started. */
+  bursts: number;
+  last: { yaw: number; depth: number; burst: boolean } | null;
+}
+
+/** Keys and pictures a step can show in the controls picture (src/ui/controlsPicture.ts). */
+export type GuideKey = 'steer' | 'forward' | 'dive' | 'rise' | 'burst' | 'act' | 'mouse';
 
 /** Event counts for the current stage, keyed like journal triggers, plus 'eat'. */
 export type GuideCounts = Readonly<Record<string, number>>;
@@ -55,12 +75,16 @@ export type GuideCounts = Readonly<Record<string, number>>;
 export interface GuideStep {
   text: string;
   /** The step is done when this holds (for `hold` seconds, if given). */
-  done: (s: GuideSnapshot, c: GuideCounts) => boolean;
+  done: (s: GuideSnapshot, c: GuideCounts, o: GuideObs) => boolean;
   hold?: number;
   /** Passed over without being done, because the moment has gone by. */
   skipIf?: (s: GuideSnapshot, c: GuideCounts) => boolean;
   /** A short progress readout, for example "3 / 5". */
   progress?: (s: GuideSnapshot, c: GuideCounts) => string;
+  /** Caption IDs this step says already; they stay off screen while it is up (see guideCovers). */
+  covers?: string[];
+  /** Controls to show in the picture while this step is up. */
+  keys?: GuideKey[];
 }
 
 const n = (c: GuideCounts, ...keys: string[]) => keys.reduce((sum, k) => sum + (c[k] ?? 0), 0);
@@ -71,64 +95,85 @@ const SCHOOL_GOAL = 3;
 const BIRD_DEPTH = 2.5;
 /** Past any wrong river's dead end, so the fish is surely in the home river. */
 const HOME_RIVER_PAST_COAST = 35;
+/** Onboarding: radians to turn each way, and metres to dive and rise. */
+const TURN_GOAL = 0.6;
+const DEPTH_GOAL = 0.6;
 
 export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] {
   switch (stage) {
     case 'egg':
       return [
-        { text: 'Wait. An egg can do little but wait for the alevin to hatch.', done: (s) => !!s.alevin?.hatched },
+        { text: 'Wait for the egg to hatch.', done: (s) => !!s.alevin?.hatched },
         {
-          text: 'The flow will swing round. Turn to face into the current {key:steer}, and hold it there.',
+          text: 'When the flow swings round, turn {key:steer} until you face upstream, and hold there.',
           done: (s, c) => n(c, 'warning.flow') > 0 && !!s.alevin?.aligned && !s.alevin.turning,
           hold: 0.5,
           skipIf: (s) => !!s.alevin?.ready,
+          covers: ['egg.flow'],
+          keys: ['steer'],
         },
         {
-          text: 'When the water rises and clouds, a flood is coming. Get right down in the gravel {key:dive} and keep turning to face upstream until it passes.',
+          text: 'Rising, cloudy water means a flood. Get right down in the gravel {key:dive} and keep turning upstream until it passes.',
           done: (_s, c) => n(c, 'egg.floodOver') > 0,
+          covers: ['egg.floodComing', 'egg.flood'],
+          keys: ['steer', 'dive'],
         },
         {
-          text: 'Keep facing upstream each time the flow swings, and stay low in the gravel {key:dive}. Wait for the yolk to run low.',
+          text: 'Keep facing upstream and stay low {key:dive}. Wait for the yolk to run low.',
           done: (s) => !!s.alevin?.ready,
           progress: (s) => `yolk ${pct(s.yolk)}`,
+          covers: ['egg.loosening'],
+          keys: ['steer', 'dive'],
         },
-        { text: 'The yolk is nearly gone. Swim up toward the light {hold:rise}.', done: never },
+        { text: 'Now swim up toward the light {hold:rise}.', done: never, covers: ['egg.ready'], keys: ['rise'] },
       ];
     case 'fry':
+      // Onboarding: the first free swimming of a guided life teaches steering, depth and burst by doing.
       return [
-        { text: 'Steer {key:steer}; to use the mouse, click the game first. Swim forward {key:forward}.', done: (s) => s.thrust > 0.3, hold: 1 },
-        { text: 'Swim through the glowing plankton to feed.', done: (_s, c) => n(c, 'eat') >= EAT_GOAL, progress: (_s, c) => `${Math.min(EAT_GOAL, n(c, 'eat'))} / ${EAT_GOAL} eaten` },
         {
-          text: 'Dolly Varden hunt in open water. If rings warn of a chase, escape into the weeds at the shallow edge.',
-          done: (_s, c) => n(c, 'fry.safeWeeds') > 0,
-          skipIf: (s) => s.fryPhase === 'winter' || s.fryPhase === 'decide' || s.fryPhase === 'second',
+          text: 'Swim {key:forward} and steer {key:steer}: turn one way, then the other.',
+          done: (s, _c, o) => s.thrust > 0.3 && o.left >= TURN_GOAL && o.right >= TURN_GOAL,
+          covers: ['fry.controls'],
+          keys: ['forward', 'steer', 'mouse'],
+        },
+        { text: 'Change depth: dive {key:dive}, then rise {key:rise}.', done: (_s, _c, o) => o.down >= DEPTH_GOAL && o.up >= DEPTH_GOAL, keys: ['dive', 'rise'] },
+        { text: 'Now a burst {key:burst}: a quick dash that spends energy. Save it for escapes.', done: (_s, _c, o) => o.bursts > 0, keys: ['burst'] },
+        {
+          text: 'Swim through the glowing plankton to feed.',
+          done: (_s, c) => n(c, 'eat') >= EAT_GOAL,
+          progress: (_s, c) => `${Math.min(EAT_GOAL, n(c, 'eat'))} / ${EAT_GOAL} eaten`,
+          covers: ['fry.controls'],
         },
         {
-          text: 'Feed at dusk, when the plankton rises. In winter, stop swimming {key:forward} to rest, and take only the food that drifts close.',
+          text: 'Keep cover close. If rings spread through the water, dart into the weeds.',
+          done: (_s, c) => n(c, 'fry.safeWeeds') > 0,
+          skipIf: (s) => s.fryPhase === 'winter' || s.fryPhase === 'decide' || s.fryPhase === 'second',
+          covers: ['fry.lesson', 'fry.trout'],
+        },
+        {
+          text: 'Grow through the seasons.',
           done: (s) => s.fryPhase === 'decide' || s.fryPhase === 'second',
           progress: (s) => `grown ${pct(s.fryGrowth)}`,
         },
-        {
-          text: 'Spring. Follow the drifting current to the outlet to leave, or wait in the weeds to stay another year.',
-          done: never,
-          progress: (s) => `grown ${pct(s.fryGrowth)}`,
-        },
+        { text: 'Spring: your choice. Leave the lake now, or spend another year growing.', done: never, progress: (s) => `grown ${pct(s.fryGrowth)}` },
       ];
     case 'smolt':
       return [
         {
-          text: 'Stay with the school: keep a few other smolts close as you swim downstream {key:forward}.',
+          text: 'Keep a few other smolts close as you swim downstream {key:forward}.',
           done: (s) => s.schoolNear >= SCHOOL_GOAL && s.thrust > 0.2,
           hold: 1.5,
           skipIf: (s) => s.smoltSection !== 'outlet',
         },
-        { text: 'Char wait at the lake outlet. When rings warn of a lunge, burst away {key:burst}.', done: (s) => s.smoltSection !== 'outlet' },
+        { text: 'Get past the lake outlet. If a char lunges, burst away {key:burst}.', done: (s) => s.smoltSection !== 'outlet', keys: ['burst'] },
         {
-          text: 'A shadow on the surface means a diving bird. Dive deep {key:dive}, or hide under the overhanging banks.',
+          text: 'Birds next. Watch above you, and dive deep {key:dive} when a shadow crosses.',
           done: (s, c) => n(c, 'warning.bird') > 0 && s.depth >= BIRD_DEPTH,
           skipIf: (s) => s.smoltSection === 'mouth',
+          covers: ['smolt.bird'],
+          keys: ['dive'],
         },
-        { text: 'The river mouth. When a seal lunges, swim across its path, not away from it. Then on to the sea.', done: never },
+        { text: 'On to the sea. If a seal comes, swim across its path, not away.', done: never, covers: ['smolt.seal'] },
       ];
     case 'ocean':
       return [
@@ -138,8 +183,8 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           skipIf: (_s, c) => n(c, 'warning.orca') > 0,
           progress: (_s, c) => `${Math.min(EAT_GOAL, n(c, 'eat'))} / ${EAT_GOAL} eaten`,
         },
-        { text: 'Watch for an orca. When it charges, swim across its path, not away from it.', done: (_s, c) => n(c, 'ocean.orcaGone') > 0 },
-        { text: 'A salmon shark next. The same trick: swim across its path.', done: (_s, c) => n(c, 'ocean.sharkGone') > 0 },
+        { text: 'Watch for an orca. When it charges, swim across its path, not away from it.', done: (_s, c) => n(c, 'ocean.orcaGone') > 0, covers: ['ocean.orca', 'ocean.shark'] },
+        { text: 'A salmon shark next. The same trick: cut across its line.', done: (_s, c) => n(c, 'ocean.sharkGone') > 0, covers: ['ocean.shark'] },
         { text: 'Keep feeding until it is time to turn for home.', done: never },
       ];
     case 'return': {
@@ -149,47 +194,73 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           text: 'Follow the faint blue shimmer of the magnetic track toward the coast. If it fades, sweep side to side to find it.',
           done: (s) => s.coast !== null && s.x >= s.coast / 2,
           skipIf: (s) => pastCoast(s),
+          covers: ['return.track', 'return.lostTrack'],
         },
         { text: 'Nets ahead. Find a gap in the net line and slip through.', done: (_s, c) => n(c, 'return.pastNets') > 0, skipIf: (s) => pastCoast(s) },
         {
-          text: 'Find the river mouth that smells like home. If a river smells wrong, turn back.',
+          text: 'At the coast, choose the river mouth with the scent of home. If one seems wrong, turn back.',
           done: (_s, c) => n(c, 'return.rightRiver') > 0,
           skipIf: (s) => pastCoast(s, HOME_RIVER_PAST_COAST),
+          covers: ['return.pastNets', 'return.wrongRiver'],
         },
         {
-          text: 'Rapids, then a falls. Rest behind boulders between dashes. Below the falls, build speed and burst and rise together {key:burst} {key:rise} to leap, from the standing wave under the low step.',
+          text: 'Get up through the rapids and over the falls.',
           done: (_s, c) => n(c, 'return.firstLeap') + n(c, 'return.chuteUp') > 0,
           skipIf: (s) => s.coast !== null && s.x > LIP_END + 1,
+          keys: ['burst', 'rise'],
         },
-        { text: 'Bears fish the shallow riffles and the lip of the falls. Stay among the other fish, wait in a pool, then cross deep and fast. At the fork, follow the scent.', done: never },
+        { text: 'On up to the fork, then follow the scent home.', done: never },
       ];
     }
     case 'spawn':
       if (role === 'female')
         return [
-          { text: 'Look for gravel of medium cobble, then dig the redd over it {hold:act}.', done: (s) => (s.spawn?.dig ?? 0) > 0 },
-          { text: 'Keep digging. Drive off rival females with a burst {key:burst}.', done: (s) => (s.spawn?.dig ?? 0) >= 1 || !!s.spawn?.spawned, progress: (s) => `redd ${pct(s.spawn?.dig ?? 0)}` },
-          { text: 'Stay over the finished redd until a male joins you. If two males come, you spawn with the winner.', done: (s) => !!s.spawn?.spawned },
-          { text: 'Cover the eggs: sweep gravel over them {hold:act} over the redd.', done: (s) => (s.spawn?.burial ?? 0) >= 1, progress: (s) => `covered ${pct(s.spawn?.burial ?? 0)}` },
-          { text: 'Guard the redd against other females (burst {key:burst}) for as long as your strength lasts.', done: never },
+          { text: 'Find gravel of medium cobble, then dig {hold:act} over it.', done: (s) => (s.spawn?.dig ?? 0) > 0, covers: ['spawn.female', 'spawn.needGravel'], keys: ['act'] },
+          { text: 'Keep digging until the redd is finished.', done: (s) => (s.spawn?.dig ?? 0) >= 1 || !!s.spawn?.spawned, progress: (s) => `redd ${pct(s.spawn?.dig ?? 0)}`, keys: ['act'] },
+          { text: 'Wait over the finished redd for a male.', done: (s) => !!s.spawn?.spawned, covers: ['spawn.reddReady', 'spawn.waitMale'] },
+          { text: 'Cover the eggs: sweep gravel over them {hold:act} over the redd.', done: (s) => (s.spawn?.burial ?? 0) >= 1, progress: (s) => `covered ${pct(s.spawn?.burial ?? 0)}`, covers: ['spawn.bury'], keys: ['act'] },
+          { text: 'Now guard the eggs: drive other females away {key:burst}.', done: never, covers: ['spawn.buried'], keys: ['burst'] },
         ];
       if (role === 'jack')
         return [
-          { text: 'Settle into a hiding spot under the bank. The green ring is yours.', done: (s) => !!s.spawn?.hiding },
-          { text: 'Wait for the big males to fight. When the screen flashes green, dart in beside the female {key:act}.', done: (_s, c) => n(c, 'spawn.jackSuccess') > 0 },
+          { text: 'Settle into the green ring by the bank. It is your hiding place.', done: (s) => !!s.spawn?.hiding, covers: ['spawn.jack', 'spawn.jackBeach'] },
+          {
+            text: 'Wait for the big males to fight. When the screen flashes green, dart in beside the female {key:act}.',
+            done: (_s, c) => n(c, 'spawn.jackSuccess') > 0,
+            covers: ['spawn.jackWindow'],
+            keys: ['act'],
+          },
           { text: 'Back into cover. Another opening may come before the season ends.', done: never },
         ];
       return [
-        { text: 'Swim to the female and stay beside her.', done: (s) => !!s.spawn?.nearFemale, hold: 1.5 },
+        { text: 'Swim to the female and stay beside her.', done: (s) => !!s.spawn?.nearFemale, hold: 1.5, covers: ['spawn.largeMale'] },
         {
-          text: 'When a rival comes, ram him side-on with a burst {key:burst} before he reaches her.',
+          text: 'When a rival comes, meet him side-on with a burst {key:burst}.',
           done: (_s, c) => n(c, 'spawn.fightWon', 'spawn.fightWonSide', 'spawn.chargeWorked') > 0,
           skipIf: (s) => !!s.spawn?.spawned,
+          covers: ['spawn.rivalMale', 'spawn.largeMale'],
+          keys: ['burst'],
         },
-        { text: 'Stay with her until she spawns. Watch for bears: they go for big males first.', done: (s) => !!s.spawn?.spawned },
-        { text: 'Another female may come. Go to her for a second chance, at a cost in strength and bear risk, or stay with this one.', done: never },
+        { text: 'Stay with her until she spawns.', done: (s) => !!s.spawn?.spawned },
+        {
+          text: 'Another female may come. Go to her for a second chance, at a cost in strength and bear risk, or stay with this one.',
+          done: never,
+          covers: ['spawn.secondFemale'],
+        },
       ];
   }
+}
+
+/**
+ * Whether the guide already says what this caption says, so the caption stays
+ * off screen (it still goes to the journal's "This life" page). A warning is
+ * covered only by the step on screen; any other line also by a step still to
+ * come in this stage, so the guide says it at the right moment instead.
+ */
+export function guideCovers(stage: StageId, role: SpawnRole | null, index: number, id: string, warning: boolean): boolean {
+  const steps = guideSteps(stage, role);
+  const upto = warning ? index + 1 : steps.length;
+  return steps.slice(Math.max(0, index), upto).some((s) => s.covers?.includes(id));
 }
 
 export interface GuideState {
@@ -198,12 +269,13 @@ export interface GuideState {
   index: number;
   held: number;
   counts: Record<string, number>;
+  obs: GuideObs;
 }
 
 export const guideKey = (s: Pick<GuideSnapshot, 'fishId' | 'stage' | 'role'>): string => `${s.fishId}:${s.stage}:${s.role ?? ''}`;
 
 export function freshGuideState(key: string): GuideState {
-  return { key, index: 0, held: 0, counts: {} };
+  return { key, index: 0, held: 0, counts: {}, obs: { left: 0, right: 0, down: 0, up: 0, bursts: 0, last: null } };
 }
 
 /** Count events toward the steps. Returns a new state. */
@@ -217,6 +289,7 @@ export function countGuideEvents(state: GuideState, events: readonly SimEvent[])
 export function advanceGuide(state: GuideState, snap: GuideSnapshot, dt: number): GuideState {
   const key = guideKey(snap);
   let st: GuideState = state.key === key ? { ...state } : freshGuideState(key);
+  st.obs = observe(st.obs, snap);
   const steps = guideSteps(snap.stage, snap.role);
   while (st.index < steps.length - 1) {
     const step = steps[st.index] as GuideStep;
@@ -224,7 +297,7 @@ export function advanceGuide(state: GuideState, snap: GuideSnapshot, dt: number)
       st = { ...st, index: st.index + 1, held: 0 };
       continue;
     }
-    if (!step.done(snap, st.counts)) {
+    if (!step.done(snap, st.counts, st.obs)) {
       st.held = 0;
       break;
     }
@@ -238,8 +311,24 @@ export function advanceGuide(state: GuideState, snap: GuideSnapshot, dt: number)
   return st;
 }
 
+/** Add this frame's turning, depth change and bursts to what the player has done. */
+export function observe(o: GuideObs, snap: GuideSnapshot): GuideObs {
+  const next = { ...o, last: { yaw: snap.yaw, depth: snap.depth, burst: snap.burst } };
+  const l = o.last;
+  if (!l) return next;
+  const turn = wrapAngle(snap.yaw - l.yaw);
+  if (turn > 0) next.left += turn;
+  else next.right -= turn;
+  const dz = snap.depth - l.depth;
+  if (dz > 0) next.down += dz;
+  else next.up -= dz;
+  if (snap.burst && !l.burst) next.bursts += 1;
+  return next;
+}
+
 export interface GuidePrompt {
   text: string;
+  keys: GuideKey[];
   progress: string | null;
   step: number;
   total: number;
@@ -249,7 +338,7 @@ export function guidePrompt(state: GuideState, snap: GuideSnapshot): GuidePrompt
   const steps = guideSteps(snap.stage, snap.role);
   const step = steps[state.index];
   if (!step) return null;
-  return { text: guideText(step.text), progress: step.progress?.(snap, state.counts) ?? null, step: state.index + 1, total: steps.length };
+  return { text: guideText(step.text), keys: step.keys ?? [], progress: step.progress?.(snap, state.counts) ?? null, step: state.index + 1, total: steps.length };
 }
 
 /** Read what the guide needs from the world, through public helpers only. */
@@ -279,6 +368,8 @@ export function guideSnapshot(w: World): GuideSnapshot {
     smoltSection: w.stageId === 'smolt' ? smoltSection(w) : null,
     schoolNear: w.stageId === 'smolt' ? w.live('smolt').filter((s) => dist(s.pos, body.pos) < 6).length : 0,
     coast: returnLayout(w)?.coast ?? null,
+    yaw: body.yaw,
+    burst: body.burst,
     spawn: sp ? { dig: sp.dig, spawned: sp.spawned, hiding: sp.owners.includes(0), nearFemale: !!female && dist(female.pos, body.pos) < near, burial: sp.burial } : null,
   };
 }
@@ -317,10 +408,20 @@ export class Guide {
     this.hide();
   }
 
+  private stage: StageId | null = null;
+  private role: SpawnRole | null = null;
+
   events(w: World, events: readonly SimEvent[]): void {
-    const key = guideKey({ fishId: w.fish.id, stage: w.stageId, role: spawnState(w)?.role ?? null });
+    this.stage = w.stageId;
+    this.role = spawnState(w)?.role ?? null;
+    const key = guideKey({ fishId: w.fish.id, stage: w.stageId, role: this.role });
     if (this.state.key !== key) this.state = freshGuideState(key);
     this.state = countGuideEvents(this.state, events);
+  }
+
+  /** True if the step on screen (or, for a non-warning, one still to come) already says what this caption says. */
+  covers(id: string, warning: boolean): boolean {
+    return !!this.stage && guideCovers(this.stage, this.role, this.state.index, id, warning);
   }
 
   /** Call every frame. `active` is false outside a guided life, or when not playing. */
@@ -348,7 +449,7 @@ export class Guide {
     }
     const el = this.el;
     el.hidden = false;
-    const sig = `${this.state.key}:${p.step}:${p.text}:${p.progress ?? ''}`;
+    const sig = `${this.state.key}:${p.step}:${p.text}:${p.progress ?? ''}:${p.keys.join(',')}`;
     if (el.dataset.sig === sig) return;
     const advanced = this.shownIndex !== p.step;
     this.shownIndex = p.step;
@@ -359,6 +460,7 @@ export class Guide {
       h('p', {}, p.text),
     ];
     if (p.progress) parts.push(h('p', { class: 'guide-progress' }, p.progress));
+    if (p.keys.length) parts.push(controlsPicture(p.keys));
     el.replaceChildren(...parts);
     if (advanced) {
       el.classList.remove('advance');

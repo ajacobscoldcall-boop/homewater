@@ -1,5 +1,5 @@
 /**
- * The Play log page (title screen and pause menu): switch the opt-in local
+ * The Play log tab of Settings (title screen and pause menu): switch the opt-in local
  * log on or off, see how many lives it holds, export it as a file, clear it.
  * Self-contained so a later settings redesign can move it as one piece.
  */

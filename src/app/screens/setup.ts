@@ -1,4 +1,8 @@
-/** Starting a lineage: preset, sex, custom traits, home spawning ground and difficulty. */
+/**
+ * Starting a lineage: preset, sex, custom traits, home spawning ground and difficulty. Before the very
+ * first life (first-run setup) it also shows the content warning and the gore choice, once; after that
+ * they live in Settings, Content.
+ */
 import type { Difficulty } from '../../sim/params';
 import type { StartPreset } from '../../sim/lineage';
 import { TRAIT_IDS, type Habitat, type Sex, type TraitValues } from '../../sim/types';
@@ -9,6 +13,8 @@ import type { App } from '../App';
 import { showNaming } from './naming';
 import { showScreen } from './screen';
 import { showTitle } from './title';
+import { saveSettings } from '../settings';
+import { CONTENT_WARNING, goreChoice } from './settings';
 
 const TRAIT_LABELS: Record<string, [string, string, string]> = {
   size: ['Size', 'small', 'large'],
@@ -26,6 +32,8 @@ export function showSetup(app: App): void {
   let difficulty: Difficulty = 'fieldGuide';
   let habitat: Habitat = 'creek';
   const custom: TraitValues = Object.fromEntries(TRAIT_IDS.map((t) => [t, 0])) as TraitValues;
+  // First run: the content warning and gore choice come first, once (kept with the settings, not the save).
+  const firstRun = !app.settings.contentSeen;
   const render = () => {
     const choice = (value: StartPreset, title: string, desc: string) =>
       h('button', { class: 'choice', 'aria-pressed': String(preset === value), 'data-preset': value, onclick: () => ((preset = value), render()) }, title, h('span', {}, desc));
@@ -56,6 +64,16 @@ export function showSetup(app: App): void {
         'div',
         { class: 'panel' },
         h('h2', {}, 'Start a lineage'),
+        firstRun
+          ? h(
+              'section',
+              { class: 'first-run', id: 'first-run-content' },
+              h('p', { class: 'label' }, 'Before you start'),
+              h('p', { class: 'warning-box' }, `Content warning: ${CONTENT_WARNING}`),
+              goreChoice(app, render),
+              h('p', { class: 'muted small' }, 'You can change this at any time in Settings, under Content.'),
+            )
+          : null,
         h('div', { class: 'grid3' }, choice('quick', 'Quick start', 'A typical young sockeye.'), choice('custom', 'Custom', 'Set the starting traits yourself.'), choice('jack', 'Start as a jack', 'A male locked into early maturation: small, quick, a sneaker.')),
         h('p', { class: 'label' }, 'Sex'),
         h('div', { class: 'grid3' }, sexBtn('F'), sexBtn('M')),
@@ -73,13 +91,17 @@ export function showSetup(app: App): void {
         h(
           'div',
           { class: 'row' },
-          h('button', { onclick: () => void readSave().then((s) => showTitle(app, s)) }, 'Back'),
+          h('button', { id: 'btn-setup-back', 'data-back': true, onclick: () => void readSave().then((s) => showTitle(app, s)) }, 'Back'),
           h(
             'button',
             {
               class: 'primary',
               id: 'btn-setup-next',
               onclick: () => {
+                if (firstRun) {
+                  app.settings.contentSeen = true;
+                  saveSettings(app.settings);
+                }
                 const seed = Math.floor(Math.random() * 2 ** 31);
                 showNaming(seed, [], (name) => {
                   app.foundLineage({ preset, sex: preset === 'jack' ? ('M' as Sex) : sex, name, difficulty, seed, habitat, ...(preset === 'custom' ? { custom } : {}) });

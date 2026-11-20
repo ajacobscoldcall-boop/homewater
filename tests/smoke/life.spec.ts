@@ -44,8 +44,19 @@ test('a whole life, then the next generation', async ({ page }) => {
   }
 
   // End-of-life sequence, recap and offspring choice.
-  await expect(page.locator('[data-offspring="0"]')).toBeVisible({ timeout: 15_000 });
+  // The recap opens on Your life (the route map), in pages; the choice is the last page.
+  await expect(page.locator('#recap-map')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#recap-map')).toHaveAttribute('data-state', 'spawned');
   await expect(page.locator('#family-tree')).toContainText('spawned');
+  await page.screenshot({ path: `${SHOTS}/07-recap-life.png` });
+  // Keyboard: the arrow keys move between the pages.
+  await page.focus('#recap-tab-life');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#recap-tab-river')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#recap-bet-hedging')).toBeVisible();
+  await page.keyboard.press('End');
+  await expect(page.locator('[data-offspring="0"]')).toBeVisible();
+  await expect(page.locator('.kid-card .trait-bars').first()).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/07-offspring.png` });
   await page.click('[data-offspring="0"]');
   await page.click('#btn-accept-name');
@@ -95,7 +106,10 @@ test('sound settings: mute with M and the pause menu, and they persist', async (
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('./');
   const mute = page.locator('[data-sound-mute]');
+  await page.click('#btn-settings');
+  await page.click('#tab-audio');
   await expect(mute).toHaveAttribute('aria-pressed', 'false');
+  await page.click('#btn-settings-back');
   await page.click('#btn-new');
   await page.click('#btn-setup-next');
   await page.click('#btn-accept-name');
@@ -105,9 +119,13 @@ test('sound settings: mute with M and the pause menu, and they persist', async (
   await page.waitForTimeout(300);
   await page.keyboard.press('Escape');
   await expect(page.locator('#screen')).toContainText('Paused');
+  await page.click('#btn-pause-settings');
+  await page.click('#tab-audio');
   await page.keyboard.press('KeyM');
   await expect(mute).toHaveAttribute('aria-pressed', 'true');
   await page.reload();
+  await page.click('#btn-settings');
+  await page.click('#tab-audio');
   await expect(page.locator('[data-sound-mute]')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
@@ -123,7 +141,7 @@ test('a reload at the offspring choice reopens the choice, not the parent', asyn
     await page.click('#btn-play');
     await page.evaluate(() => window.__hw?.completeStage());
   }
-  await expect(page.locator('[data-offspring="0"]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#recap')).toBeVisible({ timeout: 15_000 });
   await page.evaluate(async () => {
     await window.__hw?.app.save();
   });

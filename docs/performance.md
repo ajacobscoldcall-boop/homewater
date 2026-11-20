@@ -5,7 +5,7 @@ explains how the graphics settings work, how we measure them, and what we found.
 
 ## Settings
 
-The **Graphics** row on the title screen and in the pause menu (Esc) offers
+The **Graphics** tab of **Settings** (from the title screen and the pause menu, Esc) offers
 **Auto** (the default), **Low**, **Medium** and **High**. The choice is saved
 with the other settings in this browser's localStorage, not in the lineage save.
 The `?debug=1` panel shows the level in use, e.g. `graphics Auto: Medium`.

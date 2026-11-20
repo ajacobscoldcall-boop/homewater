@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-/** Graphics presets: chosen on the title screen and in the pause menu, applied, and kept across a reload. */
+/** Graphics presets: chosen in Settings from the title screen and the pause menu, applied, and kept across a reload. */
 
 const graphics = (page: Page) => page.evaluate(() => window.__hw?.app.graphics.describe() ?? '');
 
@@ -12,6 +12,8 @@ test('graphics preset: switch it, see it applied, and it persists across a reloa
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto('./?debug=1');
+  await page.click('#btn-settings');
+  await page.click('#tab-graphics');
   // Auto is the default.
   await expect(page.locator('[data-quality="auto"]')).toHaveAttribute('aria-pressed', 'true');
   expect(await graphics(page)).toMatch(/^Auto: /);
@@ -23,6 +25,7 @@ test('graphics preset: switch it, see it applied, and it persists across a reloa
   expect(await graphics(page)).toBe('Low (80% resolution)');
 
   // Play a moment at Low; the debug panel names the level.
+  await page.click('#btn-settings-back');
   await page.click('#btn-new');
   await page.click('#btn-setup-next');
   await page.click('#btn-accept-name');
@@ -35,6 +38,8 @@ test('graphics preset: switch it, see it applied, and it persists across a reloa
   // Pause menu: switch to High.
   await page.keyboard.press('Escape');
   await expect(page.locator('#screen')).toContainText('Paused');
+  await page.click('#btn-pause-settings');
+  await page.click('#tab-graphics');
   await page.click('[data-quality="high"]');
   await expect(page.locator('[data-quality="high"]')).toHaveAttribute('aria-pressed', 'true');
   expect(await graphics(page)).toBe('High');
@@ -43,6 +48,8 @@ test('graphics preset: switch it, see it applied, and it persists across a reloa
 
   // Reload: High is still chosen, and antialiasing is now on.
   await page.reload();
+  await page.click('#btn-settings');
+  await page.click('#tab-graphics');
   await expect(page.locator('[data-quality="high"]')).toHaveAttribute('aria-pressed', 'true');
   expect(await graphics(page)).toBe('High');
   expect(await page.evaluate(() => window.__hw?.app.renderer.renderer.getContext().getContextAttributes()?.antialias)).toBe(true);

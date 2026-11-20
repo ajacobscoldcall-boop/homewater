@@ -16,6 +16,7 @@ test('rebinding forward survives a reload and shows in the HUD hint', async ({ p
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto('./');
+  await page.click('#btn-settings');
   await page.click('#btn-controls');
   await expect(page.locator('#controls-panel')).toBeVisible();
   const forward = page.locator('[data-bind="forward:0"]');
@@ -37,6 +38,7 @@ test('rebinding forward survives a reload and shows in the HUD hint', async ({ p
   await expect(page.locator('#bind-missing')).toHaveCount(0);
 
   await page.reload();
+  await page.click('#btn-settings');
   await page.click('#btn-controls');
   await expect(page.locator('[data-bind="forward:0"]')).toHaveText('I');
   await expect(page.locator('[data-bind="view:0"]')).toHaveText('V');
@@ -45,6 +47,7 @@ test('rebinding forward survives a reload and shows in the HUD hint', async ({ p
   await expect(page.locator('#btn-new')).toBeVisible();
 
   // Large captions, high contrast and colour-blind-safe markers.
+  await page.click('#btn-settings');
   await page.click('#btn-access');
   await page.click('[data-opt="captionSize:largest"]');
   await page.click('[data-opt="highContrast:on"]');
@@ -77,6 +80,7 @@ test('rebinding forward survives a reload and shows in the HUD hint', async ({ p
   // The pause menu lists the player's keys.
   await page.keyboard.press('Escape');
   await expect(page.locator('#screen')).toContainText('I swim');
+  await page.click('#btn-pause-settings');
   await page.click('#btn-controls');
   await page.click('#btn-bind-reset');
   await expect(page.locator('[data-bind="forward:0"]')).toHaveText('W');

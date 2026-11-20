@@ -22,7 +22,9 @@ async function playLife(page: Page): Promise<void> {
     await page.click('#btn-play');
     await page.evaluate(() => window.__hw?.completeStage());
   }
-  await expect(page.locator('[data-offspring="0"]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#recap')).toBeVisible({ timeout: 15_000 });
+  await page.click('#recap-tab-next');
+  await expect(page.locator('[data-offspring="0"]')).toBeVisible();
 }
 
 test('two generations: the family tree, records and score render', async ({ page }) => {
@@ -46,6 +48,7 @@ test('two generations: the family tree, records and score render', async ({ page
   // The river's run: warm-up runs before the line, then one bar per generation.
   await expect(page.locator('#run-chart .run-bar')).toHaveCount(5);
   await expect(page.locator('#run-chart .run-bar.now')).toHaveCount(1);
+  await page.click('#recap-tab-line');
   await page.setViewportSize({ width: 1280, height: 1600 });
   await page.screenshot({ path: `${SHOTS}/20-recap-lineage.png` });
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -67,8 +70,10 @@ test('two generations: the family tree, records and score render', async ({ page
   await page.setViewportSize({ width: 1280, height: 1800 });
   await page.screenshot({ path: `${SHOTS}/23-lineage-detail.png` });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.click('text=All lineages');
-  await page.click('#btn-lineages-back');
+  // Esc goes back one level: detail -> list -> title.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#lineages [data-lineage]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
   await expect(page.locator('#btn-continue')).toBeVisible();
   expect(errors).toEqual([]);
 });

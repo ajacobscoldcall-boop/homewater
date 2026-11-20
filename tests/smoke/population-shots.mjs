@@ -40,7 +40,8 @@ for (let g = 1; g <= GENS; g++) {
     await page.click('#btn-play');
     await page.evaluate(() => window.__hw.completeStage());
   }
-  await page.locator('[data-offspring="0"]').waitFor({ timeout: 15000 });
+  await page.locator('#recap').waitFor({ timeout: 15000 });
+  await page.click('#recap-tab-river');
   if (g === GENS) {
     await page.locator('#run-chart').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${OUT}/recap.png` });
@@ -48,6 +49,7 @@ for (let g = 1; g <= GENS; g++) {
     if (await page.locator('#pop-recap').count()) await page.locator('#pop-recap').screenshot({ path: `${OUT}/recap-line.png` });
     break;
   }
+  await page.click('#recap-tab-next');
   await page.click('[data-offspring="0"]');
   await page.click('#btn-accept-name');
 }

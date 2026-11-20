@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { quality } from './quality';
 import { shoreSteps, type AboveUniforms } from './above';
+import { SHAFTS } from './shaftConfig';
 
 export interface WaterUniforms {
   uTime: { value: number };
@@ -245,7 +246,12 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
   });
 }
 
-/** Light shafts: soft additive planes hanging from the surface around the camera. */
+/**
+ * Light shafts: soft additive beams hanging from the surface around the camera.
+ * Each is a camera-facing plane, shaded so no edge of the plane shows (shaftConfig.ts):
+ * clipped at the surface and faded in below it, faded near the camera and into the
+ * fog, ragged at the sides and brighter looking up into the light.
+ */
 export class LightShafts {
   readonly group = new THREE.Group();
   private shafts: { mesh: THREE.Mesh; angle: number; radius: number; phase: number }[] = [];
@@ -257,23 +263,71 @@ export class LightShafts {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
-      uniforms: { uTime: sharedWater.uTime, uLight: sharedWater.uLight, uStrength: { value: 0.12 }, uColor: { value: new THREE.Color(0xd8f0e6) } },
+      defines: { HW_STREAK_FREQ: SHAFTS.streakFreq.toFixed(1) },
+      uniforms: {
+        uTime: sharedWater.uTime,
+        uLight: sharedWater.uLight,
+        uStrength: { value: 0.12 },
+        uColor: { value: new THREE.Color(0xd8f0e6) },
+        uSurfaceY: { value: 0 },
+        uFogDensity: { value: 0 },
+        uTopFade: { value: SHAFTS.topFade },
+        uBottomFade: { value: SHAFTS.bottomFade },
+        uFalloff: { value: SHAFTS.falloff },
+        uNear: { value: new THREE.Vector2(SHAFTS.near[0], SHAFTS.near[1]) },
+        uLevel: { value: SHAFTS.level },
+        uSpread: { value: SHAFTS.spread },
+        uStreaks: { value: SHAFTS.streaks },
+      },
       vertexShader: /* glsl */ `
+        uniform float uSpread;
         varying vec2 vUv;
-        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        varying vec3 vWorld;
+        void main() {
+          vUv = uv;
+          // Wider at the bottom (uv.y 0) than at the top: the beam spreads as it goes down.
+          vec3 p = position;
+          p.x *= mix(uSpread, 1.0, uv.y);
+          vec4 wp = modelMatrix * vec4(p, 1.0);
+          vWorld = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }`,
       fragmentShader: /* glsl */ `
         uniform float uTime; uniform float uLight; uniform float uStrength; uniform vec3 uColor;
+        uniform float uSurfaceY; uniform float uFogDensity; uniform float uTopFade; uniform float uBottomFade;
+        uniform float uFalloff; uniform vec2 uNear; uniform float uLevel; uniform float uStreaks;
         varying vec2 vUv;
+        varying vec3 vWorld;
         void main() {
+          float below = uSurfaceY - vWorld.y;
+          // Nothing above the surface (the slanted plane's top corner pokes through it).
+          if (below <= 0.0) discard;
+          // Soft sides, broken into streaks that drift slowly.
           float across = sin(vUv.x * 3.14159);
-          float down = pow(vUv.y, 1.6);
-          float flicker = 0.75 + 0.25 * sin(uTime * 0.8 + vUv.x * 6.0);
-          gl_FragColor = vec4(uColor * across * down * flicker * uStrength * uLight, 1.0);
+          across *= across;
+          float streak = 1.0 - uStreaks * (0.5 + 0.5 * sin(vUv.x * HW_STREAK_FREQ + uTime * 0.21 + vWorld.y * 0.09));
+          // Fades in just under the surface, fades out with depth and toward the bottom of the plane.
+          float top = smoothstep(0.0, uTopFade, below);
+          float bottom = smoothstep(0.0, uBottomFade, vUv.y);
+          float deep = exp(-uFalloff * below);
+          vec3 d = vWorld - cameraPosition;
+          float dist = length(d);
+          // Faded close to the camera, so a plane never fills the screen, and into the fog like the scenery.
+          float near = smoothstep(uNear.x, uNear.y, dist);
+          float fog = exp(-uFogDensity * uFogDensity * dist * dist);
+          // Looking up into the light the beam is bright; seen level, along its side, much less.
+          float look = mix(uLevel, 1.0, smoothstep(-0.1, 0.7, d.y / max(dist, 1e-4)));
+          float flicker = 0.8 + 0.2 * sin(uTime * 0.8 + vUv.x * 6.0);
+          float k = across * streak * top * bottom * deep * near * fog * look * flicker;
+          gl_FragColor = vec4(uColor * k * uStrength * uLight, 1.0);
         }`,
     });
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
       mesh.frustumCulled = false;
+      // After the surface (renderOrder 1): the surface writes no depth, so drawn first a shaft would be painted
+      // over wherever its pixel's ray goes on to meet the surface, cut off in a hard line at the surface's far edge.
+      mesh.renderOrder = 2;
       this.group.add(mesh);
       this.shafts.push({ mesh, angle: (i / count) * Math.PI * 2 + i, radius: 5 + ((i * 7) % 14), phase: i * 1.7 });
     }
@@ -284,7 +338,7 @@ export class LightShafts {
 
   setStrength(s: number, color?: number): void {
     this.strength = s;
-    this.material.uniforms.uStrength!.value = s;
+    this.material.uniforms.uStrength!.value = s * SHAFTS.gain;
     if (color !== undefined) (this.material.uniforms.uColor!.value as THREE.Color).setHex(color);
     this.group.visible = s > 0 && this.count > 0;
   }
@@ -296,8 +350,11 @@ export class LightShafts {
     this.group.visible = this.strength > 0 && n > 0;
   }
 
-  update(camera: THREE.Camera, floorAt: (x: number, z: number) => number, surfaceY: number, t: number): void {
+  /** fogDensity: the scene's FogExp2 density, so far shafts fade into the water like the scenery. */
+  update(camera: THREE.Camera, floorAt: (x: number, z: number) => number, surfaceY: number, t: number, fogDensity = 0): void {
     if (!this.group.visible) return;
+    this.material.uniforms.uSurfaceY!.value = surfaceY;
+    this.material.uniforms.uFogDensity!.value = fogDensity * SHAFTS.fog;
     const cx = camera.position.x;
     const cz = camera.position.z;
     for (const s of this.shafts) {

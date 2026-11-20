@@ -13,24 +13,29 @@ const lineage = () => foundLineage(params(), { preset: 'quick', sex: 'F', name: 
 
 describe('settings', () => {
   it('fills defaults for nothing stored, bad JSON and bad values', () => {
-    const def = { gore: 'unflinching', volume: DEFAULT_VOLUME, muted: false, quality: 'auto' };
+    const def = { gore: 'unflinching', volume: DEFAULT_VOLUME, muted: false, narrationVolume: 1, quality: 'auto', contentSeen: false };
     expect(parseSettings(null)).toEqual(def);
     expect(parseSettings('{oops')).toEqual(def);
     expect(parseSettings('null')).toEqual(def);
-    expect(parseSettings(JSON.stringify({ gore: 'x', volume: 2, muted: 'yes', quality: 'ultra' }))).toEqual(def);
+    expect(parseSettings(JSON.stringify({ gore: 'x', volume: 2, muted: 'yes', narrationVolume: -1, quality: 'ultra', contentSeen: 'yes' }))).toEqual(def);
   });
 
   it('keeps valid values', () => {
-    const s = { gore: 'documentary', volume: 0.3, muted: true, quality: 'low' } as const;
+    const s = { gore: 'documentary', volume: 0.3, muted: true, narrationVolume: 0.5, quality: 'low', contentSeen: true } as const;
     expect(parseSettings(JSON.stringify(s))).toEqual(s);
+  });
+
+  it('reads settings stored before narration volume and first-run setup existed', () => {
+    const old = parseSettings(JSON.stringify({ gore: 'documentary', volume: 0.4, muted: false, quality: 'high' }));
+    expect(old).toMatchObject({ gore: 'documentary', volume: 0.4, narrationVolume: 1, quality: 'high', contentSeen: false });
   });
 });
 
 describe('messages', () => {
   it('captions stay longer for longer text, up to 11 s', () => {
-    expect(captionDuration('')).toBe(3500);
-    expect(captionDuration('x'.repeat(100))).toBe(8000);
-    expect(captionDuration('x'.repeat(1000))).toBe(11000);
+    expect(captionDuration('')).toBe(3000);
+    expect(captionDuration('x'.repeat(100))).toBe(7200);
+    expect(captionDuration('x'.repeat(1000))).toBe(9000);
   });
 
   it('a jack opening flashes longest, a hit shortest', () => {

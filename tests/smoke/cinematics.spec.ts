@@ -36,11 +36,12 @@ test('a cinematic moment plays once, a key skips it, and the setting turns it of
   await page.waitForTimeout(400);
   expect(await active(page)).toBeNull();
 
-  // Turned off in Readability, the smolt run's shot doesn't play.
+  // Turned off in Settings (Gameplay), the smolt run's shot doesn't play.
   await page.keyboard.press('Escape');
-  await page.click('#btn-access');
+  await page.click('#btn-pause-settings');
+  await page.click('#tab-gameplay');
   await page.click('[data-opt="cinematics:off"]');
-  await page.click('#btn-access-back');
+  await page.click('#btn-gameplay-back');
   await page.evaluate(() => (window.__hw!.app as unknown as { debugJump(i: number): void }).debugJump(2));
   await page.click('#btn-play');
   await page.waitForTimeout(500);

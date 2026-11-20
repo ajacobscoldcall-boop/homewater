@@ -1,5 +1,5 @@
 /**
- * The "How to play" and "About" panels, reached from the title screen.
+ * The "How to play" and "About" panels, reached from the title screen's menu.
  * Plain UI text, not science captions: the science itself lives in captions.json.
  */
 import { k } from '../input/bindings';
@@ -20,6 +20,7 @@ function keys(): [string, string][] {
     [k('sound'), 'Sound on or off'],
     [k('pause'), `Pause (${k('journal')} opens the field journal while paused)`],
     [k('guide'), 'Skip the step-by-step guide on a first life'],
+    ['Arrow keys, Enter, Esc', 'Move through menus, choose, and go back (a gamepad’s D-pad, A and B do the same)'],
   ];
 }
 
@@ -31,16 +32,6 @@ const STAGES: [string, string][] = [
   ['The return', 'Follow the magnetic track home, thread the nets, smell your river, slip past bears and anglers.'],
   ['Spawning', 'Dig a redd, fight for a mate, or sneak in as a jack.'],
 ];
-
-/** Buttons for the title screen. `show` puts a panel on screen; `back` returns to the title. */
-export function titleLinks(show: (panel: HTMLElement) => void, back: () => void): HTMLElement {
-  return h(
-    'div',
-    { class: 'row' },
-    h('button', { id: 'btn-howto', onclick: () => show(howToPlayPanel(back)) }, 'How to play'),
-    h('button', { id: 'btn-about', onclick: () => show(aboutPanel(back)) }, 'About'),
-  );
-}
 
 export function howToPlayPanel(back: () => void): HTMLElement {
   return h(
@@ -80,7 +71,7 @@ export function aboutPanel(back: () => void): HTMLElement {
     h(
       'p',
       { class: 'warning-box' },
-      'Content warning: this game shows predation, deaths from fishing, and decay. A Gore setting on the title screen cuts away before the worst of it.',
+      'Content warning: this game shows predation, deaths from fishing, and decay. The Gore setting (Settings, Content) can cut away before the worst of it.',
     ),
     h('p', { class: 'label' }, 'The science'),
     h(

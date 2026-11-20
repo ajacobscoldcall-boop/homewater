@@ -29,4 +29,13 @@ export const NIGHT = {
   schoolGlow: 0x0b1620,
   /** The player's own smolt glows a little more, so it never sinks into the dark. */
   playerGlow: 0x14222c,
+  /**
+   * The player's own smolt, seen from the low chase camera against dark water: a moonlit rim along the back
+   * and edges (fishMesh.ts uRim), a little light from the camera's side on the silver flank (uFill), and less
+   * metal, so the flank takes the moonlight instead of mirroring a black sky. Colours are sRGB hex.
+   */
+  playerRim: 0x6f8fb8,
+  playerFill: 0x8aa2bf,
+  playerMetalness: 0.08,
+  playerRoughness: 0.4,
 } as const;

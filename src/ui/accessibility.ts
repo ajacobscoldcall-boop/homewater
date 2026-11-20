@@ -1,7 +1,8 @@
 /**
  * Readability and comfort options: caption size and background, threat
  * marker style and colours, reduced motion, game speed, hold or toggle
- * for swimming and bursting, and cinematic camera moments. Kept per browser in localStorage under
+ * for swimming and bursting, and (on the Gameplay tab) Documentary view, guidance,
+ * the camera view and cinematic camera moments. Kept per browser in localStorage under
  * `homewater.access` (not in the save), and applied to the page as data
  * attributes and CSS variables on <html> (see styles.css).
  */
@@ -37,6 +38,8 @@ export interface AccessOptions {
    * approach, its shadow, a shadow at the screen edge, the sound and the fish's startle (docs/feel.md). Off by default.
    */
   documentaryView: boolean;
+  /** The Field guide's step-by-step guide on a first life (Settings, Gameplay). On by default. */
+  guidance: boolean;
 }
 
 /** Mouse sensitivity steps on the Controls page. */
@@ -61,7 +64,7 @@ function systemReducedMotion(): boolean {
 }
 
 export function defaultAccess(): AccessOptions {
-  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true, mouseSensitivity: 1, invertY: false, cameraView: 'chase', documentaryView: false };
+  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true, mouseSensitivity: 1, invertY: false, cameraView: 'chase', documentaryView: false, guidance: true };
 }
 
 /** Rebuild options from stored data; anything malformed falls back to the default. */
@@ -84,6 +87,7 @@ export function parseAccess(raw: unknown): AccessOptions {
     invertY: s.invertY === true,
     cameraView: s.cameraView === 'high' ? 'high' : 'chase',
     documentaryView: s.documentaryView === true,
+    guidance: s.guidance !== false,
   };
 }
 
@@ -131,7 +135,7 @@ export function applyAccess(): void {
   root.dataset.view = current.documentaryView ? 'documentary' : 'game';
 }
 
-// ---------- The Readability page ----------
+// ---------- The Readability and Gameplay tabs of Settings ----------
 
 function choiceRow<T extends string | number>(label: string, options: { value: T; label: string }[], value: T, set: (v: T) => void, id: string): HTMLElement {
   return h(
@@ -151,41 +155,76 @@ const onOff = [
   { value: 'on', label: 'On' },
 ];
 
-/** The Readability page, for the title screen and the pause menu. */
-export function accessPanel(back: () => void): HTMLElement {
-  const panel = h('div', { class: 'panel options', id: 'access-panel' });
+/** One panel of the Settings screen: re-rendered in place when an option changes. */
+function optionsPanel(id: string, title: string, body: (set: (p: Partial<AccessOptions>) => void, o: AccessOptions) => (HTMLElement | null)[], back: () => void, backId: string): HTMLElement {
+  const panel = h('div', { class: 'panel options', id });
   const render = () => {
-    const o = access();
     const set = (p: Partial<AccessOptions>) => {
       setAccess(p);
       render();
     };
-    const bg = h('input', { type: 'range', min: String(CAPTION_BG.min), max: String(CAPTION_BG.max), step: '0.05', value: String(o.captionBg), 'aria-label': 'Caption background', id: 'opt-caption-bg' });
-    bg.addEventListener('input', () => setAccess({ captionBg: Number(bg.value) }));
-    const sample = h('div', { class: 'caption', id: 'caption-sample' }, 'The current is working you loose. Face upstream and sink deeper into the gravel.');
-    const threatSample = h(
-      'div',
-      { class: 'threat-sample' },
-      ...[
-        ['warn', 'seal'],
-        ['hot', 'orca'],
-        ['opening', 'now'],
-      ].map(([cls, label]) => h('div', { class: `threat ${cls === 'warn' ? '' : cls}` }, h('div', { class: 'ring' }), h('span', {}, label))),
-    );
-    panel.replaceChildren(
-      h('h2', {}, 'Readability'),
-      h('p', { class: 'label' }, 'Captions'),
-      choiceRow('Text size', (Object.keys(CAPTION_SIZES) as CaptionSize[]).map((k) => ({ value: k, label: CAPTION_SIZES[k].label })), o.captionSize, (v) => set({ captionSize: v }), 'captionSize'),
-      h('label', { class: 'opt-row' }, h('span', { class: 'opt-label' }, 'Background'), bg),
-      sample,
+    panel.replaceChildren(h('h2', {}, title), ...body(set, access()).filter((e): e is HTMLElement => !!e), h('div', { class: 'row' }, h('button', { class: 'primary', id: backId, 'data-back': true, onclick: back }, 'Back')));
+  };
+  render();
+  return panel;
+}
+
+/** The Readability tab of Settings: captions, threat markers and comfort. */
+export function accessPanel(back: () => void): HTMLElement {
+  return optionsPanel(
+    'access-panel',
+    'Readability',
+    (set, o) => {
+      const bg = h('input', { type: 'range', min: String(CAPTION_BG.min), max: String(CAPTION_BG.max), step: '0.05', value: String(o.captionBg), 'aria-label': 'Caption background', id: 'opt-caption-bg' });
+      bg.addEventListener('input', () => setAccess({ captionBg: Number(bg.value) }));
+      const threatSample = h(
+        'div',
+        { class: 'threat-sample' },
+        ...[
+          ['warn', 'seal'],
+          ['hot', 'orca'],
+          ['opening', 'now'],
+        ].map(([cls, label]) => h('div', { class: `threat ${cls === 'warn' ? '' : cls}` }, h('div', { class: 'ring' }), h('span', {}, label))),
+      );
+      return [
+        h('p', { class: 'label' }, 'Captions'),
+        choiceRow('Text size', (Object.keys(CAPTION_SIZES) as CaptionSize[]).map((k) => ({ value: k, label: CAPTION_SIZES[k].label })), o.captionSize, (v) => set({ captionSize: v }), 'captionSize'),
+        h('label', { class: 'opt-row' }, h('span', { class: 'opt-label' }, 'Background'), bg),
+        h('div', { class: 'caption', id: 'caption-sample' }, 'The current is working you loose. Face upstream and sink deeper into the gravel.'),
+        h('p', { class: 'label' }, 'Threat markers'),
+        choiceRow('High contrast', onOff, o.highContrast ? 'on' : 'off', (v) => set({ highContrast: v === 'on' }), 'highContrast'),
+        choiceRow('Colour-blind-safe colours', onOff, o.colourBlind ? 'on' : 'off', (v) => set({ colourBlind: v === 'on' }), 'colourBlind'),
+        threatSample,
+        h(
+          'p',
+          { class: 'muted small' },
+          o.colourBlind
+            ? 'Yellow rings warn, orange dashed rings mean an attack, and a blue square marks an opening.'
+            : 'Amber rings warn, red rings mean an attack, and green marks an opening. Colour-blind-safe colours add shapes as well as colours.',
+        ),
+        h('p', { class: 'label' }, 'Comfort'),
+        choiceRow('Reduced motion', onOff, o.reducedMotion ? 'on' : 'off', (v) => set({ reducedMotion: v === 'on' }), 'reducedMotion'),
+        h('p', { class: 'muted small' }, 'Softer screen flashes and no pulsing or sliding on-screen markers.'),
+        choiceRow('Game speed', GAME_SPEEDS.map((s) => ({ value: s, label: s === 1 ? 'Normal' : `${s}×` })), o.gameSpeed, (v) => set({ gameSpeed: v }), 'gameSpeed'),
+        h('p', { class: 'muted small' }, 'Slows the whole game, so there is more time to react. Everything else stays the same.'),
+      ];
+    },
+    back,
+    'btn-access-back',
+  );
+}
+
+/**
+ * The Gameplay tab of Settings: the aids (Documentary view, the Field guide's guidance), the camera view
+ * and cinematic moments. `extra` goes under the guidance row (the pause menu's "skip guidance for this life").
+ */
+export function gameplayPanel(back: () => void, extra: HTMLElement | null = null): HTMLElement {
+  return optionsPanel(
+    'gameplay-panel',
+    'Gameplay',
+    (set, o) => [
       h('p', { class: 'label' }, 'Aids'),
-      choiceRow(
-        'Documentary view',
-        onOff,
-        o.documentaryView ? 'on' : 'off',
-        (v) => set({ documentaryView: v === 'on' }),
-        'documentaryView',
-      ),
+      choiceRow('Documentary view', onOff, o.documentaryView ? 'on' : 'off', (v) => set({ documentaryView: v === 'on' }), 'documentaryView'),
       h(
         'p',
         { class: 'muted small' },
@@ -193,22 +232,9 @@ export function accessPanel(back: () => void): HTMLElement {
           ? 'No labels, rings or arrows. Watch for the predator itself, its shadow, a darkening at the edge of the screen where it is coming from, and your fish flinching. Listen for the warning sounds. Home scent is a faint shimmer in the water and the sense of the way home a soft pull of light. Warnings come just as early as before.'
           : 'Off: threats are marked with labelled rings and arrows, home scent shows as specks and the way home as small markers. On: subtler cues, closer to watching a film.',
       ),
-      h('p', { class: 'label' }, 'Threat markers'),
-      choiceRow('High contrast', onOff, o.highContrast ? 'on' : 'off', (v) => set({ highContrast: v === 'on' }), 'highContrast'),
-      choiceRow('Colour-blind-safe colours', onOff, o.colourBlind ? 'on' : 'off', (v) => set({ colourBlind: v === 'on' }), 'colourBlind'),
-      threatSample,
-      h(
-        'p',
-        { class: 'muted small' },
-        o.colourBlind
-          ? 'Yellow rings warn, orange dashed rings mean an attack, and a blue square marks an opening.'
-          : 'Amber rings warn, red rings mean an attack, and green marks an opening. Colour-blind-safe colours add shapes as well as colours.',
-      ),
-      h('p', { class: 'label' }, 'Comfort'),
-      choiceRow('Reduced motion', onOff, o.reducedMotion ? 'on' : 'off', (v) => set({ reducedMotion: v === 'on' }), 'reducedMotion'),
-      h('p', { class: 'muted small' }, 'Softer screen flashes and no pulsing or sliding on-screen markers.'),
-      choiceRow('Game speed', GAME_SPEEDS.map((s) => ({ value: s, label: s === 1 ? 'Normal' : `${s}×` })), o.gameSpeed, (v) => set({ gameSpeed: v }), 'gameSpeed'),
-      h('p', { class: 'muted small' }, 'Slows the whole game, so there is more time to react. Everything else stays the same.'),
+      choiceRow('Field guide steps', onOff, o.guidance ? 'on' : 'off', (v) => set({ guidance: v === 'on' }), 'guidance'),
+      h('p', { class: 'muted small' }, 'On a first life at Field guide difficulty, short step-by-step goals teach each stage. Off: no steps, only the captions.'),
+      extra,
       h('p', { class: 'label' }, 'Camera'),
       choiceRow(
         'Camera view',
@@ -227,9 +253,8 @@ export function accessPanel(back: () => void): HTMLElement {
         { class: 'muted small' },
         'A few seconds of film-style framing at key moments: hatching, the lake, the night run, the sea, home, spawning. Any key or click returns the camera. Never shown while something is attacking. With reduced motion the camera cuts instead of moving.',
       ),
-      h('div', { class: 'row' }, h('button', { class: 'primary', id: 'btn-access-back', onclick: back }, 'Back')),
-    );
-  };
-  render();
-  return panel;
+    ],
+    back,
+    'btn-gameplay-back',
+  );
 }

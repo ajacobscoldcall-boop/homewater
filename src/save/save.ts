@@ -10,7 +10,7 @@ import { populationFromConditions, yearFromPopulation } from '../sim/population'
 import type { FishIdentity, YearConditions } from '../sim/types';
 import type { Checkpoint } from '../sim/world';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export interface LifeSave {
   checkpoint: Checkpoint;
@@ -20,6 +20,8 @@ export interface LifeSave {
   seed: number;
   /** Fish played so far in this life who died. */
   deaths: Lineage['records'][number]['deaths'];
+  /** Years in the nursery lake once the fish has left it (1 or 2), for the life route map; null before then or when not known (schema 6). */
+  lakeYears?: number | null;
 }
 
 export interface SaveFile {
@@ -60,7 +62,20 @@ const migrations: Record<number, Migration> = {
     if (!life || !progress || typeof progress.imprint === 'number') return old;
     return { ...old, life: { ...life, checkpoint: { ...life.checkpoint, progress: { ...progress, imprint: averageImprint() } } } };
   },
+  // 5 -> 6: life records and the life in progress note the years spent in the lake (route map); older ones are not known.
+  5: (old) => {
+    const lineage = old.lineage ? upgradeLineage6(old.lineage as Record<string, unknown>) : old.lineage;
+    const archive = Array.isArray(old.archive) ? (old.archive as Record<string, unknown>[]).map(upgradeLineage6) : [];
+    const life = old.life && typeof old.life === 'object' ? { lakeYears: null, ...(old.life as Record<string, unknown>) } : old.life;
+    return { ...old, lineage, archive, life };
+  },
 };
+
+/** Schema 6 lineage: records gain lakeYears, unknown (null) for lives recorded before. */
+function upgradeLineage6(l: Record<string, unknown>): Record<string, unknown> {
+  const records = Array.isArray(l.records) ? (l.records as Record<string, unknown>[]).map((r) => ({ lakeYears: null, ...r })) : l.records;
+  return { ...l, records };
+}
 
 /** Schema 4 lineage: a population rebuilt from the run sizes it has already lived through. */
 function upgradeLineage4(l: Record<string, unknown>): Record<string, unknown> {

@@ -58,7 +58,7 @@ Composer notes:
 
 - **Starting:** the audio context is created on the player's first click or key press, as browsers require. Pressing Begin or Continue also resumes it.
 - **No audio:** if Web Audio is missing or fails, the game stays silent and logs nothing.
-- **Settings:** volume and mute are on the title screen and the pause menu. **M** toggles mute at any time. Both are saved in `localStorage` with the other settings. Mute also silences narration.
+- **Settings:** volume, mute and narration volume are on the **Audio** tab of Settings (title screen and pause menu). Narration plays at the sound volume × the narration volume. **M** toggles mute at any time. Both are saved in `localStorage` with the other settings. Mute also silences narration.
 - **Volume by screen:** pausing fades everything down. Menus and stage cards play at a lower level.
 
 ## Cost

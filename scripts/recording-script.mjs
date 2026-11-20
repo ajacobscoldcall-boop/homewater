@@ -29,7 +29,12 @@ const entries = Object.entries(captions).sort((a, b) => ORDER.indexOf(a[0].split
 for (const [id, raw] of entries) {
   const [group, key] = id.split('.');
   const stage = STAGE[group] ?? group;
-  const when = group === 'death' ? 'On the death screen' : group === 'end' ? 'After spawning, as the life ends' : WHEN[key] ?? 'When it happens in play';
+  // Text diet: a `.short` line is what plays in place of its full line; `card.*` lines sit on the stage card and are not narrated.
+  const when = group === 'death' ? 'On the death screen' : group === 'end' ? 'After spawning, as the life ends' : group === 'card' ? 'On the stage card' : group === 'help' ? 'The first time the mouse steers' : id.endsWith('.short') ? `Shown and played in place of ${id.slice(0, -6)}` : WHEN[key] ?? 'When it happens in play';
+  if (group === 'card') {
+    rows.push({ file: '(not recorded: stage card text)', stage: 'Stage cards', when, text: raw });
+    continue;
+  }
   // Key placeholders ({key:burst}, {hold:act}) show the player's key on screen only; narration leaves them out.
   const text = raw.replace(/\s*\{(key|hold):\w+\}/g, '');
   const vars = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);

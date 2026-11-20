@@ -19,7 +19,7 @@ It keeps the names the game gives your fish, but nothing about you: not your nam
 
 ## For you: turning it on and sending a file
 
-1. On the title screen, click **Play log** (it's in the row with Controls and Readability). The pause menu (Esc) has the same button.
+1. On the title screen, click **Settings**, then the **Play log** tab. The pause menu (Esc) has the same Settings button.
 2. Read the short explanation, then click **On**.
 3. Play as you normally would. Quitting to the title or closing the tab is fine; the stage you were in is kept as "unfinished".
 4. When you're done, open **Play log** again. It shows how many lives are logged. Click **Export play log**. A file called something like `homewater-playlog-2026-11-21-1430.json` downloads.
@@ -32,7 +32,7 @@ Switching it off stops the log at once; what was already logged stays until you 
 
 Send them the game link and this short note:
 
-> Before you play, click **Play log** on the title screen and switch it **On**. It only records how the game goes (stage times, deaths, settings), stays in your browser and is never sent anywhere. When you've finished, open Play log again, click **Export play log** and send me the file that downloads. Thank you!
+> Before you play, open **Settings** on the title screen, pick the **Play log** tab and switch it **On**. It only records how the game goes (stage times, deaths, settings), stays in your browser and is never sent anywhere. When you've finished, open Play log again, click **Export play log** and send me the file that downloads. Thank you!
 
 Each person's file is separate, so ask them to keep the name the game gives it, or to add their first name or a nickname to it.
 

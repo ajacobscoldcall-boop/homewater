@@ -167,7 +167,7 @@ The lineage score rewards a line for lasting and for doing well, and is shown on
 - **Guidance:** In "Field guide" mode, the first life works as a guided tutorial with clear objectives at each stage. Later lives are hands-off.
 - **Tone:** Unflinching realism: predation, wounds, decay.
   - **Gore setting:** "Unflinching" by default, with a milder "Documentary" setting players can choose.
-  - **Warning:** a specific content warning on the title screen naming predation, deaths from fishing, and decay.
+  - **Warning:** a specific content warning naming predation, deaths from fishing, and decay, shown with the gore choice once before the first life (first-run setup) and kept in Settings, Content.
   - **Human-caused deaths** are no more graphic than natural ones.
 
 ## Presentation

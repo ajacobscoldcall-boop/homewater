@@ -4,18 +4,18 @@
  */
 import { endCards } from '../../render/goreConfig';
 import { yearFavours } from '../../sim/genetics';
-import { advanceGeneration, offerOffspring, recordLife, type LifeRecord } from '../../sim/lineage';
-import type { FishIdentity } from '../../sim/types';
+import { advanceGeneration, offerOffspring, peekNextYear, recordLife, type LifeRecord } from '../../sim/lineage';
+import type { FishIdentity, YearConditions } from '../../sim/types';
 import type { World } from '../../sim/world';
 import { $, h } from '../../ui/dom';
 import { playEndSequence } from '../../ui/endSequence';
-import { familyTree, recapLineage } from '../../ui/lineageView';
-import { populationRecapLine } from '../../ui/populationView';
-import { caption, sexSymbol, traitLines, yearLine } from '../../ui/text';
+import { fitFor } from '../../ui/offspringFit';
+import { recapPanel, traitBars, type RecapStart } from '../../ui/recap';
+import { caption, sexSymbol } from '../../ui/text';
 import type { App } from '../App';
 import { lifeRecord } from '../saving';
 import { showNaming } from './naming';
-import { showScreen, stat } from './screen';
+import { showScreen } from './screen';
 
 export async function onLifeComplete(app: App, w: World): Promise<void> {
   app.mode = 'menu';
@@ -25,7 +25,7 @@ export async function onLifeComplete(app: App, w: World): Promise<void> {
   const l = app.lineage;
   if (!l) return;
   // Record the life and save the offspring on offer first, so a reload during the sequence reopens the choice.
-  const rec = lifeRecord(w, app.deaths, true);
+  const rec = lifeRecord(w, app.deaths, true, app.lakeYears);
   recordLife(l, rec);
   app.deaths = [];
   const kids = offerOffspring(app.params, l, w.fish);
@@ -39,60 +39,36 @@ export async function onLifeComplete(app: App, w: World): Promise<void> {
       app.renderer.gore.setEnding(w, card.scene);
     },
   });
-  showOffspringChoice(app, rec, kids);
+  showOffspringChoice(app, rec, kids, 'life');
 }
 
-/** The recap of a finished life and the choice of the next generation. Built from the saved record, so it can reopen after a reload. */
-export function showOffspringChoice(app: App, rec: LifeRecord, kids: FishIdentity[]): void {
+/**
+ * The recap of a finished life, in pages, ending with the choice of the next generation (src/ui/recap.ts).
+ * Built from the saved record, so it can reopen after a reload; then it opens on the choice.
+ */
+export function showOffspringChoice(app: App, rec: LifeRecord, kids: FishIdentity[], start: RecapStart = 'next'): void {
   const l = app.lineage;
   if (!l) return;
   app.mode = 'menu';
   app.ending = true;
   app.noteJournal(['year.betHedging', ...yearFavours(rec.conditions)]);
-  const r = rec.result;
-  const role = rec.sex === 'F' ? 'eggs laid' : 'eggs fertilized';
+  const coming = peekNextYear(app.params, l, (kids[0]?.generation ?? l.generation + 1));
   showScreen(
-    h(
-      'div',
-      { class: 'panel wide' },
-      h('p', { class: 'label' }, `Generation ${rec.generation} · ${rec.name}`),
-      h('h2', {}, `${r ? r.relativeFitness.toFixed(2) : '0'}× an average spawner`),
-      h(
-        'dl',
-        { class: 'stats' },
-        stat(role, r ? r.eggs.toLocaleString() : '0'),
-        stat('Life history', rec.sex === 'F' ? `${rec.oceanYears ?? '?'} years at sea` : rec.isJack ? 'Jack, 1 year at sea' : `Large male, ${rec.oceanYears ?? '?'} years at sea`),
-        stat('Siblings lost', String(rec.deaths.length)),
-        stat('Notes', r?.detail ?? ''),
-      ),
-      h('p', { class: 'muted' }, yearLine(rec.conditions)),
-      populationRecapLine(app.params, rec.conditions),
-      h('p', { class: 'muted' }, caption('year.betHedging') ?? ''),
-      recapLineage(app.params, l, app.archive),
-      h('p', { class: 'label' }, 'Choose the next generation'),
-      h(
-        'div',
-        { class: 'grid3' },
-        ...kids.map((k, i) =>
-          h(
-            'button',
-            {
-              class: 'choice',
-              'data-offspring': String(i),
-              onclick: () => chooseOffspring(app, k, kids),
-            },
-            `${k.name} · ${sexSymbol(k.sex)}`,
-            h('span', { class: 'kid-traits' }, ...traitLines(k).map((t) => h('span', {}, t))),
-          ),
-        ),
-      ),
-      h('p', { class: 'label' }, 'Family tree'),
-      familyTree(l),
-    ),
+    recapPanel({
+      p: app.params,
+      l,
+      rec,
+      kids,
+      archive: app.archive,
+      coming,
+      suggest: l.difficulty === 'fieldGuide',
+      start,
+      onChoose: (k) => chooseOffspring(app, k, kids, coming),
+    }),
   );
 }
 
-function chooseOffspring(app: App, kid: FishIdentity, kids: FishIdentity[]): void {
+function chooseOffspring(app: App, kid: FishIdentity, kids: FishIdentity[], coming: YearConditions): void {
   const l = app.lineage;
   if (!l) return;
   const used = [...l.usedNames, ...kids.filter((k) => k !== kid).map((k) => k.name)];
@@ -104,6 +80,6 @@ function chooseOffspring(app: App, kid: FishIdentity, kids: FishIdentity[]): voi
       app.pendingKids = null;
       app.startLife(null);
     },
-    h('p', {}, `${sexSymbol(kid.sex)}. ${traitLines(kid).join(' · ')}`),
+    h('div', { class: 'naming-kid' }, h('p', {}, `${sexSymbol(kid.sex)}. ${caption(fitFor(app.params, kid, coming).line) ?? ''}`), traitBars(app.params, kid)),
   );
 }

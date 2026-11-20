@@ -249,3 +249,20 @@ Presentation only; nothing in the simulation changed.
 
 - **The startle:** in both views the player's fish flinches away when a predator first warns or turns to strike near it (render only). Fast-start escape responses are well described in fishes. **Open:** is a visible flinch at the first sight of a predator a fair picture for juvenile and adult sockeye, or would they more often freeze or hold still?
 - **Scent as a shimmer:** in Documentary view the home scent is drawn as a faint shimmer in the water and the magnetic track as soft glows of light. Both are game devices: neither smell nor the magnetic field can be seen. **Open:** none for the biology; noted so captions never describe the shimmer as something real.
+
+## Open questions from the text diet stream
+
+Presentation only; nothing in the simulation changed.
+
+- **Shortened lines:** long captions now show a shorter line on screen (the `*.short` IDs in `src/data/captions.json`); the full line is one click away and always in the journal. Every short line is cut from its approved full line, without new claims, but some lose a qualifier or a reason (for example `return.bear.short` drops "Shallow riffles are where bears fish", `ocean.yearsAtSea.short` drops "perhaps half of fish survive each later year", `fry.decide.short` keeps "About 6 in 10" but drops the trade-off). **Open:** does any short line now read as stronger or plainer than the evidence allows?
+- **Stage card year lines:** the cards now say the year in a few words ("A warm year. High water. More nets on the approach."), with the full effects behind a link. These are the same game mechanics as the `year.*` and `pop.*` captions. **Open:** none for the biology.
+## Open questions from the recap and life map stream
+
+Presentation only; nothing in the simulation changed.
+
+- **The route map:** between stages and on the recap, one life's route is drawn as an illustrated map: the nest in a creek or river feeding a nursery lake (or on the lake's beach), an outlet river with the rapids, falls and fork down to the sea, one loop at sea for each year there, then the coast and nets and back up the same river and across the lake to the nest. The geography is a game device, not a real river: the return stage's falls and fork are placed on the outlet between the lake and the sea. **Open:** is it fair to draw river-spawning sockeye with their nest in a river that feeds the nursery lake?
+- **Counting the years:** the map counts a life as about half a year in the gravel, one or two years in the lake, one to three years at sea and a summer home, and says "about N years from egg to spawning", with N the lake years plus the sea years plus one (so a fish with one lake year and two years at sea is "about 4 years"). **Open:** is that the right way to put sockeye age to players?
+- **What a trait means in a year:** each offspring card has one line saying what its inherited traits mean in the coming year, following the bet-hedging rules already applied (warm and cool years and run timing, high water and run timing and body depth, low water and body depth, big and small runs and the jack leaning). Body depth only counts against deep bodies, as in the game's rules. **Open:** none beyond the earlier bet-hedging questions; noted because the cards now state these effects in plain words.
+- **Suggested:** on Field guide the offspring that best fits the coming year gets a "Suggested" badge, when one clearly stands out. This is a game device; it says nothing about which fish a real river would favour over many years.
+- **Portraits:** offspring are drawn in spawning dress; a male is drawn as a large male unless his inherited jack leaning is strong, then as a jack. Whether a male becomes a jack is still decided in play (growth matters). This is a game device.
+

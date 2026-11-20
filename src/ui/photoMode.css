@@ -4,7 +4,7 @@ body.photo-mode #vignette,
 body.photo-mode #flash,
 body.photo-mode #debug,
 body.photo-mode #cinema-bars,
-body.photo-mode #journal-toasts,
+body.photo-mode #journal-chip,
 body.photo-mode #guide,
 body.photo-mode #screen { display: none !important; }
 body.photo-mode #view { cursor: grab; }

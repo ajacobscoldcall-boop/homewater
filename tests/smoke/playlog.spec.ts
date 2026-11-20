@@ -18,6 +18,7 @@ test('play log: off by default, records a life when on, exports a file', async (
   page.on('request', (r) => requests.push(r.url()));
 
   await page.goto('./');
+  await page.click('#btn-settings');
   await page.click('#btn-playlog');
   await expect(page.locator('#btn-playlog-off')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#playlog-count')).toContainText('No lives logged yet');
@@ -45,6 +46,7 @@ test('play log: off by default, records a life when on, exports a file', async (
 
   await page.keyboard.press('Escape');
   await expect(page.locator('#screen')).toContainText('Paused');
+  await page.click('#btn-pause-settings');
   await page.click('#btn-playlog');
   await expect(page.locator('#playlog-count')).toContainText('1 life logged (3 stage attempts)');
   const download = page.waitForEvent('download');
@@ -71,9 +73,11 @@ test('play log: off by default, records a life when on, exports a file', async (
   await expect(page.locator('#btn-playlog-clear')).toContainText('Really');
   await page.click('#btn-playlog-clear');
   await page.click('#btn-playlog-back');
+  await page.click('#btn-pause-settings');
   await page.click('#btn-playlog');
   await expect(page.locator('#playlog-count')).toContainText('No lives logged yet');
   await page.reload();
+  await page.click('#btn-settings');
   await page.click('#btn-playlog');
   await expect(page.locator('#btn-playlog-on')).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);

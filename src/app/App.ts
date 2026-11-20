@@ -20,16 +20,18 @@ import type { FishIdentity, SimEvent, StageId } from '../sim/types';
 import { World } from '../sim/world';
 import { addToArchive, clearSave, readSave, requestPersistence, writeSave, type LifeSave, type SaveFile } from '../save/save';
 import { $ } from '../ui/dom';
+// Menus: arrow keys / D-pad move focus, Enter / A choose, Esc / B go back one level (src/ui/menuNav.ts).
+import { MenuNav } from '../ui/menuNav';
 import { hasRecording, loadNarration, onSpeaking, recordingUrl } from '../ui/narration';
 import { caption } from '../ui/text';
 // Field journal and guided first life: see the section of the same name below.
 import { FieldJournal } from '../ui/journal';
 import { applyAccess, gameSpeed } from '../ui/accessibility';
 import { DebugPanel } from './debugPanel';
-// Play log (opt-in, local only): src/telemetry/playLog.ts; one hook in handleEvents, one button in screens/options.ts.
+// Play log (opt-in, local only): src/telemetry/playLog.ts; one hook in handleEvents, a tab in screens/settings.ts.
 import { PlayLog } from '../telemetry/playLog';
 import { access } from '../ui/accessibility';
-import { Messages } from './messages';
+import { Messages, screenId } from './messages';
 import { buildSave } from './saving';
 import { loadSettings, QUALITY_URL_PARAM, saveSettings } from './settings';
 import { onDeath, showDeath } from './screens/death';
@@ -65,6 +67,8 @@ export class App {
   deaths: LifeRecord['deaths'] = [];
   /** Offspring on offer at the end of a life, until one is chosen. Saved, so a reload reopens the choice. */
   pendingKids: FishIdentity[] | null = null;
+  /** Years this life's fish spent in the lake, once it has left (route map, saved with the life); null before. */
+  lakeYears: number | null = null;
   private lifeSeed = 1;
   private acc = 0;
   private last = performance.now();
@@ -94,6 +98,8 @@ export class App {
     this.input = new Input(canvas);
     this.photo = new PhotoMode({ renderer: this.renderer, stageId: () => this.world?.stageId ?? 'photo', leave: () => this.closePhoto() });
     this.input.onKey = (code) => this.onKey(code);
+    this.menuNav = new MenuNav($('screen'), () => this.mode === 'menu' || this.mode === 'paused');
+    this.menuNav.onBack = () => this.menuBack();
     this.renderer.gore.mode = this.settings.gore;
     canvas.addEventListener('click', () => {
       if (this.mode === 'playing') this.input.requestLock();
@@ -101,7 +107,10 @@ export class App {
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.mode === 'playing' && this.world?.status === 'playing' && this.wasLocked) this.pause();
       this.wasLocked = !!document.pointerLockElement;
+      // Text diet: the first time the mouse takes over steering, a note says how to get the pointer back.
+      if (document.pointerLockElement && this.mode === 'playing') this.messages.pointerLocked();
     });
+    this.messages.guided = () => !!this.world && this.guided(this.world);
     window.addEventListener('resize', () => this.resize());
     // Browsers only allow sound after a user gesture: start it on the first one.
     const unlock = () => this.audio.unlock();
@@ -115,6 +124,7 @@ export class App {
   }
 
   private wasLocked = false;
+  readonly menuNav: MenuNav;
   /** Photo mode's panel and controls; the mode it was opened from comes back on leaving. */
   readonly photo: PhotoMode;
   private photoFrom: 'playing' | 'paused' = 'playing';
@@ -154,6 +164,7 @@ export class App {
     } else {
       this.acc = 0;
     }
+    this.messages.frame(frameDt * 1000, !!w && this.mode === 'playing' && w.status === 'playing');
     if (this.mode === 'photo') this.photo.frame(frameDt);
     if (w) {
       this.renderer.cinematics.running = this.mode === 'playing'; // cinematic shots hold while paused
@@ -162,6 +173,8 @@ export class App {
       this.playHud.update(this, w, frameDt);
     }
     this.audio.update(frameDt, w, this.audioPhase());
+    // Paused: the scene dims and captions, toasts and the guide hide behind the menu (styles.css).
+    document.body.classList.toggle('paused', this.mode === 'paused');
     if (this.debug) this.debugPanel.update();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -176,6 +189,7 @@ export class App {
   }
 
   private handleEvents(events: SimEvent[]): void {
+    this.messages.setStage(this.world?.stageId ?? null);
     this.audio.onEvents(events);
     this.renderer.gore.onEvents(events, this.world);
     this.renderer.cinematics.onEvents(events, this.world);
@@ -184,8 +198,9 @@ export class App {
     for (const ev of events) {
       if (ev.type === 'caption' || ev.type === 'reveal' || ev.type === 'spawned') {
         if (ev.key) {
-          this.messages.caption(ev.key, ev.vars, false);
-          this.lastCaption = caption(ev.key, ev.vars);
+          if (ev.key === 'fry.leave' || ev.key === 'fry.leaveSecond') this.lakeYears = ev.key === 'fry.leave' ? 1 : 2;
+          this.messages.caption(ev.key, ev.vars);
+          this.lastCaption = caption(screenId(ev.key), ev.vars);
         }
       } else if (ev.type === 'warning') {
         this.messages.flash(ev.key === 'opening' ? 'opening' : 'on');
@@ -218,10 +233,16 @@ export class App {
     if (code === 'KeyP' && this.mode === 'playing') return this.openPhoto();
     if (this.journalKey(code)) return;
     if (code === 'Escape' && this.mode === 'playing') this.pause();
-    else if (code === 'Escape' && this.mode === 'paused') this.resume();
+    else if (code === 'Escape') this.menuBack();
     else if (code === 'KeyV') this.toggleView();
     else if (code === 'KeyH') this.hudDetailed = !this.hudDetailed;
     else if (code === 'KeyM') this.toggleMute();
+  }
+
+  /** Esc or the pad's B in a menu: back one level (the pause menu's Back is Resume). */
+  private menuBack(): void {
+    if (this.journalBack) return this.journalBack();
+    if (!this.menuNav.back() && this.mode === 'paused') this.resume();
   }
 
   /** Third-person or first-person camera. */
@@ -297,6 +318,7 @@ export class App {
     this.atTitle = false;
     this.ending = false;
     this.lifeSeed = resume?.seed ?? Math.floor(Math.random() * 2 ** 31);
+    this.lakeYears = resume?.lakeYears ?? null;
     const firstLife = resume?.firstLife ?? l.records.length === 0;
     const w = new World(this.params, {
       fish: l.current,
@@ -323,7 +345,7 @@ export class App {
       }
     }
     this.world = w;
-    this.messages.clearCaptions();
+    this.messages.newLife();
     this.pending = w.drainEvents();
     void this.save();
     showStageCard(this, w);
@@ -425,7 +447,7 @@ export class App {
 
   /** A Field guide first life whose guidance hasn't been skipped. */
   guided(w: World): boolean {
-    return w.firstLife && this.lineage?.difficulty === 'fieldGuide' && !this.messages.guide.isSkipped(this.lifeKey);
+    return access().guidance && w.firstLife && this.lineage?.difficulty === 'fieldGuide' && !this.messages.guide.isSkipped(this.lifeKey);
   }
 
   private journalAndGuideEvents(events: SimEvent[]): void {
@@ -447,6 +469,11 @@ export class App {
   private journalKey(code: string): boolean {
     if (code === 'Escape' && this.journalBack) this.journalBack();
     else if (code === 'KeyJ' && this.mode === 'paused' && !this.journalBack) openJournal(this, () => showPauseMenu(this));
+    else if (code === 'KeyJ' && this.mode === 'playing' && this.world?.status === 'playing') {
+      // From play (the journal chip names this key): pause, and Back returns to the pause menu.
+      this.pause();
+      openJournal(this, () => showPauseMenu(this));
+    }
     else if (code === 'KeyG' && this.mode === 'playing') this.skipGuide();
     else return false;
     return true;
@@ -467,7 +494,7 @@ export class App {
   // ---------- Saving ----------
 
   currentSave(): SaveFile | null {
-    return buildSave({ lineage: this.lineage, world: this.world, lifeSeed: this.lifeSeed, deaths: this.deaths, pendingKids: this.pendingKids, archive: this.archive });
+    return buildSave({ lineage: this.lineage, world: this.world, lifeSeed: this.lifeSeed, deaths: this.deaths, pendingKids: this.pendingKids, archive: this.archive, lakeYears: this.lakeYears });
   }
 
   async save(): Promise<void> {

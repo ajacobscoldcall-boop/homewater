@@ -690,6 +690,10 @@ export function buildFishGeometry(shape: FishShape, look: FishLook, opts: { lod?
 export interface FishUniforms {
   uTime: { value: number };
   uAmp: { value: number };
+  /** Moonlit rim on the back and edges (linear colour; black is off). Used for the player's fish at night. */
+  uRim: { value: THREE.Color };
+  /** A soft light from the camera's side on the flank (linear colour; black is off). */
+  uFill: { value: THREE.Color };
 }
 
 /**
@@ -698,7 +702,7 @@ export interface FishUniforms {
  * vertical: the wave bends the body up and down (whales), not side to side.
  */
 export function fishMaterial(opts: { transparent?: boolean; opacity?: number; vertical?: boolean; roughness?: number; metalness?: number } = {}): THREE.MeshStandardMaterial {
-  const uniforms: FishUniforms = { uTime: { value: 0 }, uAmp: { value: 0.06 }, ...goreUniforms() };
+  const uniforms: FishUniforms = { uTime: { value: 0 }, uAmp: { value: 0.06 }, uRim: { value: new THREE.Color(0, 0, 0) }, uFill: { value: new THREE.Color(0, 0, 0) }, ...goreUniforms() };
   const m = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: opts.roughness ?? 0.42,
@@ -722,6 +726,22 @@ export function fishMaterial(opts: { transparent?: boolean; opacity?: number; ve
         transformed.z += aFin.y * sign(position.z) * (0.006 + uAmp * 0.08) * sin(uTime * 0.6 + position.x * 20.0);`,
       );
     injectGore(shader);
+    // Rim and fill (off unless set, e.g. the player's fish on the night smolt run): a moonlit edge, strongest
+    // along the back, and a little light from the camera's side so the flank never sinks into the dark.
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uRim;\nuniform vec3 uFill;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        {
+          vec3 hwV = normalize(vViewPosition);
+          float hwFacing = abs(dot(hwV, normal));
+          vec3 hwUp = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+          float hwBack = clamp(dot(normal, hwUp) * 0.5 + 0.5, 0.0, 1.0);
+          totalEmissiveRadiance += uRim * pow(1.0 - hwFacing, 2.5) * (0.3 + 0.7 * hwBack);
+          totalEmissiveRadiance += uFill * diffuseColor.rgb * hwFacing;
+        }`,
+      );
   };
   m.customProgramCacheKey = () => `fish-${axis}`;
   return m;

@@ -41,7 +41,7 @@ Your fish carries heritable traits (size, run timing, years at sea, homing, body
 | M | Sound on or off |
 | Esc | Pause (J opens the field journal) |
 
-The title screen also has **How to play** and **About** panels.
+The title screen also has **How to play** and **About** panels, and one **Settings** screen (gameplay aids, controls, readability, graphics, audio, content, play log).
 
 ## Screenshots
 
@@ -56,7 +56,7 @@ More views of every fish and animal model are in [docs/gallery](docs/gallery/).
 
 The biology follows published research on sockeye salmon; see the Sources section of [docs/DESIGN.md](docs/DESIGN.md). Some numbers are simplified or tuned so the game plays well.
 
-**Content warning:** the game shows predation, deaths from fishing, and decay. A Gore setting on the title screen cuts away before the worst of it.
+**Content warning:** the game shows predation, deaths from fishing, and decay. The game asks before the first life whether to show it plainly or cut away before the worst of it (Settings, Content changes it later).
 
 ## Run it locally
 

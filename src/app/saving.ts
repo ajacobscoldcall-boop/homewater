@@ -18,6 +18,8 @@ export interface SaveInput {
   /** Offspring on offer at the end of a life, until one is chosen. */
   pendingKids: FishIdentity[] | null;
   archive: Lineage[];
+  /** Years in the lake once the fish has left it (route map); null before then. */
+  lakeYears?: number | null;
   now?: Date;
 }
 
@@ -32,13 +34,13 @@ export function buildSave(s: SaveInput): SaveFile | null {
   if (!l) return null;
   const w = s.world;
   const active = w && w.status !== 'lifeComplete' && w.fish.generation === l.current.generation;
-  const life: LifeSave | null = active ? { checkpoint: w.checkpoint, siblingsLeft: w.siblingsLeft, firstLife: w.firstLife, seed: s.lifeSeed, deaths: [...s.deaths] } : null;
+  const life: LifeSave | null = active ? { checkpoint: w.checkpoint, siblingsLeft: w.siblingsLeft, firstLife: w.firstLife, seed: s.lifeSeed, deaths: [...s.deaths], lakeYears: s.lakeYears ?? null } : null;
   if (active) l.current = w.fish;
   return { schemaVersion: SCHEMA_VERSION, savedAt: (s.now ?? new Date()).toISOString(), game: 'homewater', lineage: l, life, pendingOffspring: active ? null : s.pendingKids, archive: s.archive };
 }
 
 /** The record of a life that has ended, spawned or with the whole brood dead. */
-export function lifeRecord(w: World, deaths: LifeRecord['deaths'], spawned: boolean): LifeRecord {
+export function lifeRecord(w: World, deaths: LifeRecord['deaths'], spawned: boolean, lakeYears: number | null = null): LifeRecord {
   return {
     fishId: w.fish.id,
     name: w.fish.name,
@@ -57,5 +59,6 @@ export function lifeRecord(w: World, deaths: LifeRecord['deaths'], spawned: bool
     habitat: w.fish.habitat,
     offspring: [],
     chosenId: null,
+    lakeYears,
   };
 }

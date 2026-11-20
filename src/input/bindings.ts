@@ -26,7 +26,7 @@ export const ACTION_LABELS: Record<Action, string> = {
   view: 'Switch view',
   details: 'Detailed HUD',
   sound: 'Sound on/off',
-  journal: 'Field journal (while paused)',
+  journal: 'Field journal',
   guide: 'Skip guidance',
   photo: 'Photo mode',
   pause: 'Pause',

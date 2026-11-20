@@ -16,7 +16,7 @@ import { animalOf, BEAR_FORE_X, createBear, createChar, createGull, createMergan
 import { buildEnvironment, buildGravelPatch, type Detail, type EnvScene } from './env';
 import { bodyLook } from './bodyChange';
 import { SCENT_FLOOR, SCENT_SCALE } from './bodyConfig';
-import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape } from './fishMesh';
+import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape, type FishUniforms } from './fishMesh';
 import { FoodSwarm } from './krill';
 import { LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
 // The world above the water (sky, shore, the bear's bulk) and splashes: see above.ts, splash.ts.
@@ -52,9 +52,13 @@ import { eggRadius, MODEL_SCALE, smoltMateScale } from './scaleConfig';
 import { buildEggGeometry, eggMaterial, eggTint } from './eggMesh';
 import { pixelsPerUnit, PlanktonSwarm } from './midwater';
 import { NIGHT } from './nightConfig';
+import { drawnBedTop, easeLift, restLift, type DrawnPatch } from './bedRest';
+import { BED } from './bedConfig';
 
 export type CameraMode = 'third' | 'first';
 const NO_WALLS: readonly never[] = [];
+/** How far the surface plane reaches past the arena (world units): beyond the camera's far clip (400). */
+const SURFACE_REACH = 420;
 
 const WATER: Record<ArenaKind, { fog: number; density: number; floor: [number, number]; shafts: number; shaftColor: number }> = {
   gravel: { fog: 0x3e5244, density: 0.18, floor: [0x6b6152, 0x8e8270], shafts: 0.0, shaftColor: 0xd8f0e6 },
@@ -143,6 +147,11 @@ export class Renderer {
   private lastYaw = NaN;
   private yawRate = 0;
   private roll = 0;
+  /** Render-only lift keeping the drawn player fish on top of the drawn bed (bedRest.ts). */
+  private playerLift = 0;
+  /** Gravel patches as drawn this frame, and the frame's dt, for resting fish on the bed. */
+  private patches: DrawnPatch[] = [];
+  private frameDt = 0;
   // Reused by syncEntities every frame.
   private instanceCounts = new Map<EntityKind, number>();
   private seenIds = new Set<number>();
@@ -222,6 +231,8 @@ export class Renderer {
     this.threats = w.status === 'playing' ? activeThreats(w) : [];
     this.cues.update(w, this.threats, frameDt, access().documentaryView, (x, z) => this.groundAt(w, x, z));
     this.cues.applyLook(this.instanced);
+    this.frameDt = frameDt;
+    this.collectPatches(w);
     this.syncEntities(w);
     const px = pixelsPerUnit(this.renderer, this.camera);
     this.food.update(w.stageId === 'ocean' ? w.live('herring') : [], w.stageTime, px, this.fog.density);
@@ -247,7 +258,7 @@ export class Renderer {
     this.updateHidingSpots(w);
     frameQuality(this.fog, this.camera, 400); // quality: fog scale and far clip
     if (this.surfaceMat) this.surfaceMat.uniforms.uFogDensity!.value = this.fog.density;
-    this.shafts.update(this.camera, (x, z) => w.arena.floor(x, z), w.arena.surfaceY, sharedWater.uTime.value);
+    this.shafts.update(this.camera, (x, z) => w.arena.floor(x, z), w.arena.surfaceY, sharedWater.uTime.value, this.fog.density);
     this.snow.update(this.camera);
     if (photo) this.photo.draw(this.renderer, this.scene, this.camera);
     else this.renderer.render(this.scene, this.camera);
@@ -451,7 +462,10 @@ export class Renderer {
     this.above.build(w, (x, z) => this.groundAt(w, x, z));
     this.splash.clear();
     this.surfaceMat = surfaceMaterial(this.fog, this.above.uniforms, a.surfaceY);
-    const surf = new THREE.Mesh(new THREE.PlaneGeometry(sx + 120, sz + 120), this.surfaceMat);
+    // Reaching past the far clip from anywhere in the arena, so from the low camera the surface fades into the fog
+    // at the horizon and its far edge never shows as a step against the water beyond.
+    const reach = Math.max(sx, sz) + 2 * SURFACE_REACH;
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(reach, reach), this.surfaceMat);
     surf.renderOrder = 1;
     surf.rotation.x = -Math.PI / 2;
     surf.position.set((a.min.x + a.max.x) / 2, a.surfaceY, (a.min.z + a.max.z) / 2);
@@ -860,6 +874,7 @@ export class Renderer {
           animal.update({ mode: e.state, t: w.time, phase, amp });
         } else setSwim(obj, w.time * (3 + speed * 1.5) + e.id, e.state === 'fight' ? 0.18 : 0.05 + 0.02 * speed);
         if (e.kind === 'female') obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.35;
+        this.restOnBed(w, obj);
         break;
       }
       case 'birdShadow': {
@@ -995,8 +1010,8 @@ export class Renderer {
         this.programs.release(this.player.material as THREE.Material);
       }
       this.player = createFish(shape, look);
-      // At night (the smolt run) the player's fish keeps a faint glow, so it stays readable.
-      if (w.stageId === 'smolt') (this.player.material as THREE.MeshStandardMaterial).emissive.setHex(NIGHT.playerGlow);
+      // At night (the smolt run) the player's fish keeps a faint glow, a moonlit rim and a little fill light, so it stays readable.
+      if (w.stageId === 'smolt') nightPlayer(this.player.material as THREE.MeshStandardMaterial);
       this.entityGroup.add(this.player);
       this.playerKey = key;
     }
@@ -1025,6 +1040,39 @@ export class Renderer {
     this.swimPhase += frameDt * st.tail * 60;
     setSwim(p, this.swimPhase, w.stageId === 'egg' ? 0.03 : 0.04 + 0.03 * b.thrust + (b.burst ? 0.04 : 0) + st.tail);
     p.visible = (this.cameraMode === 'third' || w.stageId === 'egg') && !(w.stageId === 'egg' && alevinView(w)?.phase === 'egg');
+    // The drawn body rests on the drawn bed, never in it (render only; the alevin belongs in the gravel).
+    let lift = 0;
+    if (w.stageId !== 'egg' && w.status === 'playing') {
+      p.updateMatrixWorld();
+      lift = restLift(p, (x, z) => this.bedTop(w, x, z));
+    }
+    this.playerLift = w.status === 'playing' ? easeLift(this.playerLift, lift, frameDt) : 0;
+    p.position.y += this.playerLift;
+  }
+
+  /** The drawn bed's top: the scenery's ground, raised by the cobble of any gravel patch (bedRest.ts). */
+  private bedTop(w: World, x: number, z: number): number {
+    // The scenery's ground where it is the bed itself; a bank top or an overhang far above the sim's floor is not.
+    const floor = w.arena.floor(x, z);
+    const ground = this.groundAt(w, x, z);
+    return drawnBedTop(ground > floor && ground - floor < BED.groundStep ? ground : floor, x, z, this.patches);
+  }
+
+  private collectPatches(w: World): void {
+    this.patches.length = 0;
+    if (w.stageId !== 'spawn') return;
+    for (const e of w.entities) if (e.alive && e.kind === 'gravelPatch') this.patches.push({ x: e.pos.x, z: e.pos.z, radius: e.radius, cobble: e.size?.x ?? 0.2 });
+  }
+
+  /** Lifts a drawn fish (a createFish mesh) clear of the drawn bed, easing the lift (render only). */
+  private restOnBed(w: World, obj: THREE.Object3D): void {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.userData.look) return;
+    obj.updateMatrixWorld();
+    const target = restLift(mesh, (x, z) => this.bedTop(w, x, z));
+    const lift = easeLift((obj.userData.bedLift as number | undefined) ?? target, target, this.frameDt);
+    obj.userData.bedLift = lift;
+    obj.position.y += lift;
   }
 
   private updateCamera(w: World, frameDt: number): void {
@@ -1157,4 +1205,14 @@ export class Renderer {
       if (this.player && !(w.stageId === 'egg' && alevinView(w)?.phase === 'egg')) this.player.visible = true;
     }
   }
+}
+
+/** The player's fish on the night smolt run (nightConfig.ts): glow, moonlit rim, fill light and a less mirror-like flank. */
+function nightPlayer(m: THREE.MeshStandardMaterial): void {
+  m.emissive.setHex(NIGHT.playerGlow);
+  m.metalness = NIGHT.playerMetalness;
+  m.roughness = NIGHT.playerRoughness;
+  const u = m.userData.uniforms as FishUniforms | undefined;
+  u?.uRim.value.setHex(NIGHT.playerRim);
+  u?.uFill.value.setHex(NIGHT.playerFill);
 }

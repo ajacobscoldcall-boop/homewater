@@ -61,7 +61,7 @@ export function showDeath(app: App, w: World): void {
     return;
   }
   // The whole brood is gone.
-  const rec = lifeRecord(w, app.deaths, false);
+  const rec = lifeRecord(w, app.deaths, false, app.lakeYears);
   recordLife(l, rec);
   app.deaths = [];
   if (l.difficulty === 'fieldGuide') {

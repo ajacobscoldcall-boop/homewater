@@ -38,10 +38,16 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 .bar i { display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
 .bar i b { display: block; height: 100%; background: var(--silver); }
 .bar.low i b { background: var(--sockeye); }
-#hud-captions { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); width: min(720px, calc(100% - 32px)); display: grid; gap: 8px; }
-.caption { background: rgba(8, 26, 30, var(--caption-bg, 0.78)); border-left: 3px solid var(--kype); padding: 10px 14px; font-size: var(--caption-size, 16px); line-height: 1.45; border-radius: 4px; transition: opacity 0.6s; }
+/* Text diet (src/app/messages.ts): one caption at a time, low in the right-hand corner, off the fish in the middle.
+   A new line and the one fading out share one grid cell, so nothing jumps. */
+#hud-captions { position: absolute; right: 16px; bottom: 44px; width: min(440px, calc(100% - 32px)); display: grid; align-items: end; }
+#hud-captions > .caption { grid-area: 1 / 1; }
+.caption { background: rgba(8, 26, 30, var(--caption-bg, 0.78)); border-left: 3px solid var(--kype); padding: 9px 13px; font-size: var(--caption-size, 16px); line-height: 1.45; border-radius: 4px; transition: opacity 0.5s; animation: caption-in 0.35s ease both; }
 .caption.warn { border-left-color: var(--warn); }
 .caption.fade { opacity: 0; }
+.caption .caption-more { pointer-events: auto; margin-left: 8px; padding: 0 6px; font: 500 12px var(--f-mono); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 4px; vertical-align: 1px; }
+.caption .caption-more:hover { color: var(--fg); background: var(--surface); }
+@keyframes caption-in { from { opacity: 0; } to { opacity: 1; } }
 /* Always-visible minimal HUD (src/ui/vitals.ts): thin rings in the bottom-left corner, and a water chip when it matters. */
 #hud-vitals-wrap { position: absolute; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 12px; }
 #hud-vitals { display: flex; gap: 10px; }
@@ -137,10 +143,44 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 .facts li::before { content: counter(fact); grid-row: span 2; font: 800 34px/1 var(--f-display); color: var(--sockeye); }
 .facts p { font-size: 15px; max-width: none; }
 
-#journal-toasts { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; pointer-events: none; z-index: 5; }
-.journal-toast { display: grid; gap: 2px; text-align: center; background: rgba(8, 26, 30, 0.88); border: 1px solid var(--rule); border-top: 2px solid var(--kype); border-radius: 6px; padding: 7px 14px; font: 600 14px var(--f-body); animation: fadein 0.5s ease both; transition: opacity 0.6s; }
-.journal-toast .label { font-size: 10px; }
-.journal-toast.fade { opacity: 0; }
+/* New journal entries: one small chip, top centre (src/app/messages.ts). */
+#journal-chip { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; background: rgba(8, 26, 30, 0.85); border: 1px solid var(--rule); border-radius: 14px; padding: 4px 6px 4px 12px; font: 500 13px var(--f-body); pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.5s; }
+#journal-chip.show { opacity: 1; }
+#journal-chip b { font-weight: 600; }
+#journal-chip .chip-key { font: 500 11px var(--f-mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 10px; padding: 1px 7px; }
+/* The journal's "This life" page and new entries. */
+.life-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.life-line { border-left: 2px solid var(--kype); padding: 2px 0 2px 12px; }
+.life-line p { margin: 2px 0; font-size: 14px; line-height: 1.5; }
+.life-line .label { font-size: 10px; }
+.life-line .how { font: 500 11px var(--f-mono); color: var(--warn); }
+.life-line.guide { border-left-color: var(--rule); }
+.life-line.guide .how { color: var(--muted); }
+.life-line.missed { border-left-color: var(--warn); }
+.entry.fresh { border-left-color: var(--warn); }
+.new-badge { margin-left: 8px; font: 500 10px var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--warn); vertical-align: 3px; }
+/* Stage cards: the year in one line, the rest behind "This year" (src/ui/yearView.ts). */
+button.link { background: none; border: none; padding: 0; font: inherit; color: var(--fg); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+button.link:hover { background: none; color: #fff; }
+.year-effects { border-left: 2px solid var(--rule); padding: 2px 0 2px 14px; display: grid; gap: 6px; }
+.year-effects h3 { margin: 0; font: 500 12px var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.year-effects ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; line-height: 1.45; }
+.year-effects p { margin: 0; font-size: 14px; line-height: 1.45; }
+/* Onboarding: a picture of the controls with the player's own keys (src/ui/controlsPicture.ts). */
+.controls-picture { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; padding-top: 4px; }
+.controls-picture .ctl { display: grid; justify-items: center; gap: 3px; opacity: 0.45; }
+.controls-picture .ctl.lit { opacity: 1; }
+.controls-picture .caps { display: flex; gap: 3px; }
+.controls-picture .ctl-label { font: 500 10px var(--f-mono); color: var(--muted); }
+.controls-picture .ctl.lit .ctl-label { color: var(--fg); }
+.keycap { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; font: 600 12px var(--f-mono); color: var(--fg); border: 1px solid var(--rule); border-bottom-width: 3px; border-radius: 5px; background: rgba(21, 67, 77, 0.6); }
+.keycap.wide { min-width: 48px; }
+.keycap.lit { border-color: var(--kype); background: rgba(143, 160, 74, 0.28); }
+.controls-picture .mouse svg { width: 22px; height: 30px; overflow: visible; }
+.controls-picture .m-body { fill: rgba(21, 67, 77, 0.6); stroke: var(--kype); stroke-width: 1.5; }
+.controls-picture .m-line { stroke: var(--kype); stroke-width: 1.2; }
+.controls-picture .m-left { fill: rgba(143, 160, 74, 0.55); }
+.controls-picture .m-arrows { fill: none; stroke: var(--fg); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Guided first life */
 #guide { position: absolute; top: 64px; left: 16px; width: min(380px, calc(100% - 32px)); background: rgba(8, 26, 30, 0.82); border-left: 3px solid var(--kype); border-radius: 4px; padding: 10px 14px 12px; display: grid; gap: 6px; pointer-events: none; text-shadow: none; }
@@ -151,7 +191,7 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 #guide .guide-progress { font: 500 12px var(--f-mono); color: var(--kype); }
 #guide.advance { animation: guide-step 0.6s ease both; }
 @keyframes guide-step { from { opacity: 0.2; transform: translateX(-6px); box-shadow: inset 3px 0 0 var(--kype); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { #guide.advance, .journal-toast { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #guide.advance, .caption { animation: none; } .caption, #journal-chip { transition: none; } }
 
 /* Lineage depth: family tree, records, trait drift, extinction, Lineages page */
 .small { font-size: 13px; }
@@ -245,7 +285,7 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 .threat.opening { color: var(--threat-open); }
 #flash.on { box-shadow: inset 0 0 140px 40px rgba(var(--flash-warn), 0.55); }
 #flash.opening { box-shadow: inset 0 0 140px 40px rgba(var(--flash-open), 0.6); }
-#hud-captions { width: min(calc(720px * var(--caption-scale, 1)), calc(100% - 32px)); }
+#hud-captions { width: min(calc(440px * var(--caption-scale, 1)), calc(100% - 32px)); }
 
 /* Colour-blind-safe threat colours (Okabe-Ito yellow, vermillion, sky blue), plus shape cues. */
 :root[data-colours='safe'] { --threat-warn: #f0e442; --threat-hot: #e66100; --threat-open: #56b4e9; --flash-warn: 240, 228, 66; --flash-open: 86, 180, 233; }
@@ -269,7 +309,9 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 :root[data-motion='reduced'] .vital.critical .arc,
 :root[data-motion='reduced'] .fade-line,
 :root[data-motion='reduced'] #guide.advance,
-:root[data-motion='reduced'] .journal-toast { animation: none; }
+:root[data-motion='reduced'] .caption { animation: none; }
+:root[data-motion='reduced'] .caption,
+:root[data-motion='reduced'] #journal-chip { transition: none; }
 
 /* Option pages */
 .options { gap: 14px; }
@@ -305,3 +347,32 @@ kbd { font: 500 12px var(--f-mono); background: var(--surface); border: 1px soli
 
 /* Play log page (src/ui/playLogPanel.ts) */
 #playlog-panel button:disabled { opacity: 0.45; cursor: default; }
+
+/* ---------- Menus: title, pause, Settings (screens/title.ts, pause.ts, settings.ts) ---------- */
+/* Keyboard and gamepad focus is always visible (src/ui/menuNav.ts). Segmented buttons clip, so their ring sits inside. */
+#screen :focus-visible { outline: 2px solid var(--kype); outline-offset: 2px; }
+#screen .seg button:focus-visible, #screen .tabs .tab:focus-visible { outline-offset: -3px; }
+.panel.title { width: min(560px, 100%); }
+.panel.pause { width: min(420px, 100%); }
+.menu { display: grid; gap: 8px; }
+.menu-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; text-align: left; padding: 12px 16px; font-size: 16px; }
+.menu-item > span { grid-column: 1; font-weight: 400; font-size: 13px; color: var(--muted); }
+.menu-item.primary > span { color: rgba(255, 255, 255, 0.85); }
+.menu-item > kbd { grid-column: 2; grid-row: 1; font-weight: 400; color: var(--muted); }
+.menu-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.settings .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.settings .tab { font-size: 14px; padding: 7px 12px; background: transparent; }
+.settings .tab[aria-selected='true'] { border-color: var(--kype); box-shadow: inset 0 -2px 0 var(--kype); background: var(--surface); }
+/* A tab's page is one of the existing panels, drawn without its own frame or heading (the tab names it). */
+.settings-body > .panel { width: auto; background: none; border: 0; box-shadow: none; padding: 0; }
+.settings-body > .panel > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.lineages-page { display: grid; gap: 14px; justify-items: center; width: 100%; }
+.panel.files { gap: 10px; }
+.first-run { display: grid; gap: 10px; border: 1px solid var(--rule); border-radius: 6px; padding: 14px; }
+.first-run .grid3, #content-panel .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 520px) { .menu-pair, .first-run .grid3, #content-panel .grid3 { grid-template-columns: 1fr; } }
+/* Paused: the scene dims and the play messages step back behind the menu. */
+body.paused #screen { background: rgba(3, 12, 16, 0.62); }
+body.paused #hud-captions, body.paused #journal-toasts, body.paused #guide, body.paused #threats, body.paused #edge-shadow, body.paused #hud-hint, body.paused #flash { visibility: hidden; }
+/* Settings sits at the top, so switching tabs never moves the tab bar. */
+#screen > .settings { align-self: start; }

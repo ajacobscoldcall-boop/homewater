@@ -28,6 +28,8 @@ const snap = (over: Partial<GuideSnapshot> = {}): GuideSnapshot => ({
   schoolNear: 0,
   coast: null,
   spawn: null,
+  yaw: 0,
+  burst: false,
   ...over,
 });
 
@@ -48,9 +50,10 @@ describe('guide steps', () => {
     for (const [stage, role] of cases) {
       const steps = guideSteps(stage, role);
       expect(steps.length, stage).toBeGreaterThanOrEqual(3);
-      expect(steps.length, stage).toBeLessThanOrEqual(5);
+      // The fry stage carries the onboarding (steer, depth, burst) in front of its own steps.
+      expect(steps.length, stage).toBeLessThanOrEqual(stage === 'fry' ? 7 : 5);
       const last = steps.at(-1);
-      expect(last?.done(snap({ stage, role }), { eat: 99 })).toBe(false);
+      expect(last?.done(snap({ stage, role }), { eat: 99 }, freshGuideState('x').obs)).toBe(false);
     }
   });
 });
@@ -90,33 +93,60 @@ describe('guide progression', () => {
   });
 
   it('a hold resets when the player stops doing the thing', () => {
-    const swim = snap({ stage: 'fry', thrust: 1 });
-    const idle = snap({ stage: 'fry', thrust: 0 });
-    let st = advanceGuide(start(swim), swim, 0.6);
-    st = advanceGuide(st, idle, 0.1);
-    st = advanceGuide(st, swim, 0.6);
+    const school = snap({ stage: 'smolt', smoltSection: 'outlet', schoolNear: 5, thrust: 1 });
+    const alone = snap({ stage: 'smolt', smoltSection: 'outlet', schoolNear: 0, thrust: 1 });
+    let st = advanceGuide(start(school), school, 1);
+    st = advanceGuide(st, alone, 0.1);
+    st = advanceGuide(st, school, 1);
     expect(st.index).toBe(0);
-    st = advanceGuide(st, swim, 0.5);
+    st = advanceGuide(st, school, 0.6);
     expect(st.index).toBe(1);
   });
 
+  it('fry onboarding: steer both ways, dive and rise, then burst, each done by doing it', () => {
+    const s = snap({ stage: 'fry', thrust: 1 });
+    let st = advanceGuide(start(s), s, 0.1);
+    expect(st.index).toBe(0);
+    expect(guidePrompt(st, s)?.keys).toContain('steer');
+    // Turning one way only is not enough.
+    for (let i = 1; i <= 4; i++) st = advanceGuide(st, { ...s, yaw: i * 0.2 }, 0.1);
+    expect(st.index).toBe(0);
+    for (let i = 3; i >= -1; i--) st = advanceGuide(st, { ...s, yaw: i * 0.2 }, 0.1);
+    expect(st.index).toBe(1);
+    st = advanceGuide(st, { ...s, depth: 2 }, 0.1);
+    expect(st.index).toBe(1);
+    st = advanceGuide(st, { ...s, depth: 1 }, 0.1);
+    expect(st.index).toBe(2);
+    expect(guidePrompt(st, s)?.keys).toEqual(['burst']);
+    st = advanceGuide(st, { ...s, burst: true }, 0.1);
+    expect(st.index).toBe(3);
+    expect(guidePrompt(st, s)?.text).toMatch(/plankton/);
+  });
+
+  /** Steer both ways, dive and rise, and burst: the onboarding steps at the start of the fry stage. */
+  function onboard(s: GuideSnapshot): GuideState {
+    let st = start(s);
+    for (const o of [{ yaw: 0.8 }, { yaw: -0.8 }, { depth: 2 }, { depth: 1 }, { burst: true }, { burst: false }]) st = advanceGuide(st, { ...s, ...o }, 0.1);
+    return st;
+  }
+
   it('fry: counts eat events toward the goal', () => {
     const s = snap({ stage: 'fry', thrust: 1 });
-    let st = advanceGuide(start(s), s, 2);
-    expect(st.index).toBe(1);
+    let st = onboard(s);
+    expect(st.index).toBe(3);
     st = countGuideEvents(st, [ev('eat'), ev('eat'), ev('caption', 'fry.intro'), ev('eat'), ev('eat')]);
     st = advanceGuide(st, s, 0.1);
-    expect(st.index).toBe(1);
+    expect(st.index).toBe(3);
     expect(guidePrompt(st, s)?.progress).toBe('4 / 5 eaten');
     st = advanceGuide(countGuideEvents(st, [ev('eat')]), s, 0.1);
-    expect(st.index).toBe(2);
+    expect(st.index).toBe(4);
     // Escaping into the weeds completes the next step...
     const escaped = advanceGuide(countGuideEvents(st, [ev('caption', 'fry.safeWeeds')]), s, 0.1);
-    expect(escaped.index).toBe(3);
+    expect(escaped.index).toBe(5);
     // ...and if no Dolly Varden ever gave chase, it is passed over once winter comes.
     const winter = snap({ stage: 'fry', thrust: 1, fryGrowth: 0.8, fryPhase: 'winter' });
     const grown = advanceGuide(st, winter, 0.1);
-    expect(grown.index).toBe(3);
+    expect(grown.index).toBe(5);
     expect(guidePrompt(grown, winter)?.progress).toBe('grown 80%');
     // Spring brings the choice to leave or stay.
     const spring = snap({ stage: 'fry', fryPhase: 'decide' });
@@ -125,9 +155,9 @@ describe('guide progression', () => {
 
   it('an escape that happened earlier in the stage still counts', () => {
     const s = snap({ stage: 'fry', thrust: 1 });
-    let st = countGuideEvents(start(s), [ev('caption', 'fry.safeWeeds'), ...Array.from({ length: 5 }, () => ev('eat'))]);
+    let st = countGuideEvents(onboard(s), [ev('caption', 'fry.safeWeeds'), ...Array.from({ length: 5 }, () => ev('eat'))]);
     st = advanceGuide(st, s, 2);
-    expect(st.index).toBe(3);
+    expect(st.index).toBe(5);
   });
 
   it('smolt: school, then past the outlet, then dive under a bird', () => {
@@ -173,7 +203,7 @@ describe('guide progression', () => {
     expect(st.index).toBe(1);
     st = advanceGuide(st, { ...female, spawn: { dig: 1, spawned: false, hiding: false, nearFemale: false, burial: 0 } }, 0.1);
     expect(st.index).toBe(2);
-    expect(guidePrompt(st, female)?.text).toMatch(/male joins you/);
+    expect(guidePrompt(st, female)?.text).toMatch(/for a male/);
     st = advanceGuide(st, { ...female, spawn: { dig: 1, spawned: true, hiding: false, nearFemale: false, burial: 0.5 } }, 0.1);
     expect(st.index).toBe(3);
     expect(guidePrompt(st, { ...female, spawn: { dig: 1, spawned: true, hiding: false, nearFemale: false, burial: 0.5 } })?.progress).toBe('covered 50%');
@@ -200,8 +230,8 @@ describe('guide progression', () => {
 
   it('starts afresh for a new stage or a new fish', () => {
     const fry = snap({ stage: 'fry', thrust: 1 });
-    let st = advanceGuide(start(fry), fry, 2);
-    expect(st.index).toBe(1);
+    let st = onboard(fry);
+    expect(st.index).toBe(3);
     const sibling = { ...fry, fishId: 'f2', thrust: 0 };
     st = advanceGuide(st, sibling, 0.1);
     expect(st.index).toBe(0);

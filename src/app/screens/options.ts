@@ -1,32 +1,38 @@
 /**
- * Option controls shared by the title screen and the pause menu: sound,
- * graphics preset, and the Controls and Readability pages.
+ * Option controls for the Settings screen (screens/settings.ts): sound and the graphics preset.
  * Key bindings, gamepad, hold/toggle (src/input/bindings.ts, gamepad.ts, src/ui/controls.ts) and
  * readability options (src/ui/accessibility.ts) are kept per browser in localStorage, not in the save.
  */
 import { k } from '../../input/bindings';
 import type { Graphics, QualitySetting } from '../../render/quality';
-import { accessPanel } from '../../ui/accessibility';
-import { controlsPanel } from '../../ui/controls';
 import { h } from '../../ui/dom';
 import { setNarrationVolume } from '../../ui/narration';
 import type { App } from '../App';
 import { saveSettings } from '../settings';
-import { playLogPanel } from '../../ui/playLogPanel';
-import { showScreen } from './screen';
 
 const muteLabel = (muted: boolean) => (muted ? `Sound off (${k('sound')})` : `Sound on (${k('sound')})`);
 
 /** Apply the saved volume and mute to the sound engine, the narration and any mute buttons on screen. */
 export function applySound(app: App): void {
-  const { volume, muted } = app.settings;
+  const { volume, muted, narrationVolume } = app.settings;
   app.audio.setVolume(volume);
   app.audio.setMuted(muted);
-  setNarrationVolume(muted ? 0 : volume);
+  setNarrationVolume(muted ? 0 : volume * narrationVolume);
   for (const b of document.querySelectorAll<HTMLButtonElement>('[data-sound-mute]')) {
     b.setAttribute('aria-pressed', String(muted));
     b.textContent = muteLabel(muted);
   }
+}
+
+/** Narration volume slider (on top of the sound volume). */
+export function narrationControls(app: App): HTMLElement {
+  const v = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(app.settings.narrationVolume), 'aria-label': 'Narration volume', id: 'narration-volume' });
+  v.addEventListener('input', () => {
+    app.settings.narrationVolume = Number(v.value);
+    saveSettings(app.settings);
+    applySound(app);
+  });
+  return h('div', { class: 'row sound' }, h('label', { class: 'volume' }, 'Narration', v));
 }
 
 /** Volume slider and mute toggle. */
@@ -65,13 +71,4 @@ export function refreshGraphicsControls(graphics: Graphics): void {
   const note = graphics.setting === 'auto' ? `Now ${graphics.current()}. Steps down if the game runs slowly.` : '';
   const aa = graphics.antialiasPending ? ' Smoother edges change the next time the game loads.' : '';
   for (const el of document.querySelectorAll<HTMLElement>('[data-quality-note]')) el.textContent = (note + aa).trim();
-}
-
-/** Controls, Readability and Play log buttons; `back` reopens the screen they were opened from. */
-export function optionButtons(app: App, back: () => void): HTMLElement[] {
-  return [
-    h('button', { id: 'btn-controls', onclick: () => showScreen(controlsPanel(back)) }, 'Controls'),
-    h('button', { id: 'btn-access', onclick: () => showScreen(accessPanel(back)) }, 'Readability'),
-    h('button', { id: 'btn-playlog', onclick: () => showScreen(playLogPanel(app.playLog, back)) }, 'Play log'),
-  ];
 }

@@ -126,14 +126,42 @@ export class FieldJournal {
 // ---------- Screens ----------
 
 const STAGES: StageId[] = ['egg', 'fry', 'smolt', 'ocean', 'return', 'spawn'];
-type Page = 'facts' | StageId;
+type Page = 'facts' | 'life' | StageId;
 let lastPage: Page = 'facts';
 
+/** A caption line of the current life (src/app/messages.ts `LifeLine`). */
+export interface JournalLifeLine {
+  stage: StageId | null;
+  text: string;
+  how: 'shown' | 'guide' | 'missed';
+}
+
+export interface JournalOptions {
+  /** This life's caption lines: the "This life" page, with every line in full, including those that never reached the screen. */
+  life?: readonly JournalLifeLine[];
+  /** Entries unlocked since the journal was last opened: marked "new", and the journal opens on their page. */
+  fresh?: ReadonlySet<string>;
+}
+
+/** The page to open on: the page of the newest unseen entry, else the last page looked at. */
+export function journalStartPage(journal: FieldJournal, opts: JournalOptions = {}): Page {
+  const fresh = journal.data.entries.filter((e) => opts.fresh?.has(e.id)).at(-1);
+  if (fresh) return fresh.stage;
+  if (lastPage === 'life' && !opts.life) return 'facts';
+  return lastPage;
+}
+
+const HOW_NOTE: Record<JournalLifeLine['how'], string> = {
+  shown: '',
+  guide: 'in the Field guide',
+  missed: 'not shown: too much at once',
+};
+
 /** The journal panel. `onBack` returns to whatever opened it (title or pause). */
-export function journalPanel(journal: FieldJournal, onBack: () => void, page: Page = lastPage): HTMLElement {
+export function journalPanel(journal: FieldJournal, onBack: () => void, page: Page = journalStartPage(journal), opts: JournalOptions = {}): HTMLElement {
   lastPage = page;
   const panel = h('div', { class: 'panel wide journal', id: 'journal' });
-  const go = (p: Page) => panel.replaceWith(journalPanel(journal, onBack, p));
+  const go = (p: Page) => panel.replaceWith(journalPanel(journal, onBack, p, opts));
   const tab = (p: Page, label: string, count?: string) =>
     h('button', { class: 'tab', 'aria-pressed': String(page === p), 'data-journal-page': p, onclick: () => go(p) }, label, count ? h('span', {}, count) : null);
   const stageCount = (s: StageId) => {
@@ -142,7 +170,23 @@ export function journalPanel(journal: FieldJournal, onBack: () => void, page: Pa
   };
 
   let body: HTMLElement;
-  if (page === 'facts') {
+  if (page === 'life') {
+    const lines = opts.life ?? [];
+    body = h(
+      'div',
+      { class: 'journal-body life-log' },
+      h('p', { class: 'muted' }, 'Every line of this life so far, newest first and in full, including any that were left off the screen.'),
+      lines.length
+        ? h(
+            'ol',
+            { class: 'life-lines' },
+            ...[...lines].reverse().map((l) =>
+              h('li', { class: `life-line ${l.how}` }, l.stage ? h('span', { class: 'label' }, STAGE_TITLES[l.stage]) : null, h('p', {}, l.text), HOW_NOTE[l.how] ? h('span', { class: 'how' }, HOW_NOTE[l.how]) : null),
+            ),
+          )
+        : h('p', { class: 'muted' }, 'Nothing yet.'),
+    );
+  } else if (page === 'facts') {
     const f = journal.data.facts;
     body = h(
       'div',
@@ -157,7 +201,7 @@ export function journalPanel(journal: FieldJournal, onBack: () => void, page: Pa
       { class: 'journal-body entries' },
       ...entries.map((e) =>
         journal.unlocked.has(e.id)
-          ? h('article', { class: 'entry', 'data-entry': e.id }, h('h3', {}, e.title), h('p', {}, e.text))
+          ? h('article', { class: `entry${opts.fresh?.has(e.id) ? ' fresh' : ''}`, 'data-entry': e.id }, h('h3', {}, e.title, opts.fresh?.has(e.id) ? h('span', { class: 'new-badge' }, 'new') : null), h('p', {}, e.text))
           : h('article', { class: 'entry locked', 'data-entry': e.id }, h('h3', {}, 'Not yet seen'), h('p', {}, 'Live through it to fill in this page.')),
       ),
     );
@@ -165,29 +209,16 @@ export function journalPanel(journal: FieldJournal, onBack: () => void, page: Pa
 
   panel.append(
     h('p', { class: 'label' }, `Field journal · ${journal.count} of ${journal.total} entries`),
-    h('h2', {}, page === 'facts' ? journal.data.facts.title : STAGE_TITLES[page]),
-    h('nav', { class: 'tabs', 'aria-label': 'Journal pages' }, tab('facts', 'Facts to remember'), ...STAGES.map((s) => tab(s, STAGE_TITLES[s], stageCount(s)))),
+    h('h2', {}, page === 'facts' ? journal.data.facts.title : page === 'life' ? 'This life' : STAGE_TITLES[page]),
+    h(
+      'nav',
+      { class: 'tabs', 'aria-label': 'Journal pages' },
+      tab('facts', 'Facts to remember'),
+      opts.life ? tab('life', 'This life', String(opts.life.length)) : null,
+      ...STAGES.map((s) => tab(s, STAGE_TITLES[s], stageCount(s))),
+    ),
     body,
     h('div', { class: 'row' }, h('button', { class: 'primary', id: 'btn-journal-back', onclick: onBack }, 'Back')),
   );
   return panel;
-}
-
-/** A brief note, over everything, that a journal entry was unlocked. Never blocks clicks. */
-export function showJournalToast(entries: readonly JournalEntry[]): void {
-  if (!entries.length || typeof document === 'undefined') return;
-  const root = document.getElementById('app');
-  if (!root) return;
-  let box = document.getElementById('journal-toasts');
-  if (!box) {
-    box = h('div', { id: 'journal-toasts', 'aria-live': 'polite' });
-    root.append(box);
-  }
-  for (const e of entries) {
-    const el = h('div', { class: 'journal-toast' }, h('span', { class: 'label' }, 'New in the field journal'), e.title);
-    box.append(el);
-    setTimeout(() => el.classList.add('fade'), 3800);
-    setTimeout(() => el.remove(), 4500);
-  }
-  while (box.children.length > 3) box.firstElementChild?.remove();
 }

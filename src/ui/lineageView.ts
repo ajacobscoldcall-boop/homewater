@@ -11,6 +11,10 @@ import { hallOfRecords, lineageScore, summarize, traitDrift, traitHistory, yearT
 import { TRAIT_IDS, type TraitId } from '../sim/types';
 import { h } from './dom';
 import { caption, DEATH_TITLES, STAGE_TITLES } from './text';
+import { YEAR_LABEL } from './yearWords';
+import { mapFromRecord } from './lifeMap';
+import { lifeMap } from './lifeMapView';
+import { pagedView } from './pages';
 
 /** Above this many generations the tree switches to one line per generation. */
 const COMPACT_FROM = 12;
@@ -28,16 +32,7 @@ export const TRAIT_LABELS: Record<TraitId, [string, string, string]> = {
   eggTradeoff: ['Eggs', 'many, small', 'few, large'],
 };
 
-const YEAR_LABEL: Record<string, string> = {
-  'year.warm': 'warm',
-  'year.cool': 'cool',
-  'year.highWater': 'high water',
-  'year.lowWater': 'low water',
-  'year.bigRun': 'big run',
-  'year.smallRun': 'small run',
-  'year.crowded': 'crowded ocean',
-  'year.ordinary': 'ordinary',
-};
+export { YEAR_LABEL };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const sym = (s: 'F' | 'M') => (s === 'F' ? '♀' : '♂');
@@ -277,8 +272,37 @@ export interface ExtinctionOptions {
   onTitle: () => void;
 }
 
-/** The ending screen for a line whose last sibling has died. */
+/** The ending screen for a line whose last sibling has died: in pages like the recap (the last life's map, the river, the line), with the way on below. */
 export function extinctionPanel(p: Params, l: Lineage, o: ExtinctionOptions): HTMLElement {
+  const last = l.records.at(-1);
+  const pages = pagedView('extinction', [
+    {
+      id: 'life',
+      title: 'The last life',
+      body: last
+        ? [
+            lifeMap(mapFromRecord(last), { events: true, conditions: last.conditions, id: 'extinction-map' }),
+            h('p', { class: 'muted small' }, caption('recap.mapNote') ?? ''),
+            h('ul', { class: 'losses' }, ...last.deaths.map((d) => h('li', {}, h('b', {}, d.name), ` · ${DEATH_TITLES[d.cause].toLowerCase()} · ${STAGE_TITLES[d.stage].toLowerCase()}`))),
+          ]
+        : [h('p', { class: 'muted' }, 'No life was recorded.')],
+    },
+    { id: 'river', title: 'Your river', body: [h('p', { class: 'label' }, 'The years'), yearsStrip(l), ...runSection(p, l)] },
+    {
+      id: 'line',
+      title: 'Your line',
+      body: [
+        lineFacts(p, l),
+        h('p', { class: 'label' }, 'How the traits drifted'),
+        h('p', { class: 'muted small' }, caption('lineage.traitDrift') ?? ''),
+        traitChart(l),
+        h('p', { class: 'label' }, 'Family tree'),
+        familyTree(l),
+        h('p', { class: 'label' }, 'Records'),
+        recordsBlock(p, [l, ...o.archive], l.id),
+      ],
+    },
+  ]);
   return h(
     'div',
     { class: 'panel wide line-end', id: 'extinction' },
@@ -286,16 +310,18 @@ export function extinctionPanel(p: Params, l: Lineage, o: ExtinctionOptions): HT
     h('h2', {}, `The ${lineageName(l)} line ends`),
     h('p', {}, h('b', {}, o.deathTitle), o.science.startsWith(o.deathTitle) ? o.science.slice(o.deathTitle.length) : ` ${o.science}`),
     h('p', { class: 'muted' }, caption('lineage.extinct') ?? ''),
-    ...lineSections(p, l),
-    h('p', { class: 'label' }, 'Records'),
-    recordsBlock(p, [l, ...o.archive], l.id),
-    h('p', { class: 'muted' }, caption('lineage.strayOffer') ?? ''),
+    pages.root,
     h(
       'div',
-      { class: 'row' },
-      h('button', { class: 'primary', id: 'btn-stray-line', onclick: o.onStray }, 'A stray from this river'),
-      h('button', { id: 'btn-new-lineage', onclick: o.onNewLineage }, 'New lineage'),
-      h('button', { onclick: o.onTitle }, 'Back to title'),
+      { class: 'line-end-actions' },
+      h('p', { class: 'muted' }, caption('lineage.strayOffer') ?? ''),
+      h(
+        'div',
+        { class: 'row' },
+        h('button', { class: 'primary', id: 'btn-stray-line', onclick: o.onStray }, 'A stray from this river'),
+        h('button', { id: 'btn-new-lineage', onclick: o.onNewLineage }, 'New lineage'),
+        h('button', { onclick: o.onTitle }, 'Back to title'),
+      ),
     ),
   );
 }
@@ -334,7 +360,7 @@ export function lineagesPanel(p: Params, current: Lineage | null, archive: reado
       h('p', { class: 'label' }, `${DIFFICULTY_LABEL[l.difficulty]} · ${HABITAT_LABEL[l.current.habitat]}${l.extinct ? ' · extinct' : ''}`),
       h('h2', {}, `The ${lineageName(l)} line`),
       ...lineSections(p, l),
-      h('div', { class: 'row' }, h('button', { class: 'primary', onclick: list }, 'All lineages')),
+      h('div', { class: 'row' }, h('button', { class: 'primary', 'data-back': true, onclick: list }, 'All lineages')),
     );
     root.scrollIntoView({ block: 'start' });
   };
