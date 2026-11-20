@@ -13,9 +13,10 @@ import type { Entity, EntityKind } from '../sim/types';
 import { headingVec } from '../sim/vec';
 import type { World } from '../sim/world';
 import { animalOf, createBear, createChar, createGull, createMerganser, createOrca, createSeal, createShark } from './animals';
+import { buildEnvironment, buildGravelPatch, type Detail, type EnvScene } from './env';
 import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape } from './fishMesh';
 import { FoodSwarm } from './krill';
-import { causticFloorMaterial, LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
+import { LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
 // Gore: wounds, senescence, death beats and the carcass (render only).
 import { GoreLayer } from './gore';
 // Graphics quality (Low/Medium/High/Auto): see quality.ts. Hooks are marked "quality".
@@ -46,8 +47,8 @@ const tmpS = new THREE.Vector3();
 const tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
 const UP = new THREE.Vector3(0, 1, 0);
-/** Width of the gravel banks drawn beyond the spawning bed's edges (render only). */
-const SPAWN_BANK = 5;
+/** Ring and circle geometry faces +z. */
+const FACING = new THREE.Vector3(0, 0, 1);
 const tmpTarget = new THREE.Vector3();
 const projV = new THREE.Vector3();
 const projF = new THREE.Vector3();
@@ -58,6 +59,12 @@ export class Renderer {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(65, 1, 0.05, 400);
   cameraMode: CameraMode = 'third';
+  /** Scenery detail, 0 (low) to 2 (high); read when a stage is built. */
+  /** Scenery detail, from the graphics preset (quality.envDetail). */
+  get envDetail(): Detail {
+    return quality.envDetail as Detail;
+  }
+  private env: EnvScene | null = null;
   private stageGroup = new THREE.Group();
   private entityGroup = new THREE.Group();
   private objects = new Map<number, THREE.Object3D>();
@@ -129,6 +136,7 @@ export class Renderer {
     this.updateCamera(w, frameDt);
     this.gore.update(w, frameDt, this.player, this.objects, this.camera);
     sharedWater.uTime.value += frameDt;
+    this.env?.update(w, frameDt, this.camera);
     this.updateAlevin(w, frameDt);
     this.updateHidingSpots(w);
     frameQuality(this.fog, this.camera, 400); // quality: fog scale and far clip
@@ -159,7 +167,10 @@ export class Renderer {
       const ring = this.spotRings[i];
       if (!ring) return;
       ring.visible = true;
-      ring.position.set(sp.x, w.arena.floor(sp.x, sp.z) + 0.05, sp.z);
+      // Lie flat on the sloping bed so the whole ring shows.
+      const f = (x: number, z: number) => w.arena.floor(x, z);
+      ring.position.set(sp.x, f(sp.x, sp.z) + 0.07, sp.z);
+      ring.quaternion.setFromUnitVectors(FACING, tmpTarget.set(f(sp.x - 0.5, sp.z) - f(sp.x + 0.5, sp.z), 1, f(sp.x, sp.z - 0.5) - f(sp.x, sp.z + 0.5)).normalize());
       const owner = s.owners[i];
       (ring.material as THREE.MeshBasicMaterial).color.setHex(owner === 0 ? 0x8fa04a : owner === -1 ? 0xdfe8dc : 0xd9473a);
     });
@@ -253,31 +264,11 @@ export class Renderer {
     this.flow = null;
     this.scene.background = new THREE.Color(look.fog);
 
-    // Bottom. On the spawning grounds the bed runs up into shallow gravel banks
-    // beyond the arena's edges, where the bears stand.
-    const bank = a.kind === 'spawnBed' ? SPAWN_BANK : 0;
+    // The place itself: terrain, banks, rocks, plants (src/render/env).
+    this.env = buildEnvironment(w, { detail: this.envDetail, fog: this.fog });
+    this.stageGroup.add(this.env.group);
     const sx = a.max.x - a.min.x;
-    const sz = a.max.z - a.min.z + 2 * bank;
-    const segX = Math.min(220, Math.max(8, Math.round(sx / 1.2)));
-    const segZ = Math.min(120, Math.max(8, Math.round(sz / 1.2)));
-    const floorGeo = new THREE.PlaneGeometry(sx, sz, segX, segZ);
-    floorGeo.rotateX(-Math.PI / 2);
-    floorGeo.translate((a.min.x + a.max.x) / 2, 0, (a.min.z + a.max.z) / 2);
-    const pos = floorGeo.attributes.position as THREE.BufferAttribute;
-    const colors: number[] = [];
-    const c0 = new THREE.Color(look.floor[0]);
-    const c1 = new THREE.Color(look.floor[1]);
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const n = Math.sin(x * 3.1 + z * 1.7) * Math.cos(z * 2.3 - x * 0.9);
-      pos.setY(i, this.bedAt(w, x, z) + 0.06 * n);
-      tmpC.copy(c0).lerp(c1, 0.5 + 0.5 * n);
-      colors.push(tmpC.r, tmpC.g, tmpC.b);
-    }
-    floorGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    floorGeo.computeVertexNormals();
-    this.stageGroup.add(new THREE.Mesh(floorGeo, causticFloorMaterial()));
+    const sz = a.max.z - a.min.z;
     this.shafts.setStrength(look.shafts, look.shaftColor);
 
     // The surface, seen from below.
@@ -288,14 +279,6 @@ export class Renderer {
     surf.position.set((a.min.x + a.max.x) / 2, a.surfaceY, (a.min.z + a.max.z) / 2);
     this.stageGroup.add(surf);
 
-    // Banks and walls.
-    const bankMat = new THREE.MeshStandardMaterial({ color: 0x3b3326, roughness: 1 });
-    for (const wall of a.walls ?? []) {
-      const box = new THREE.Mesh(new THREE.BoxGeometry(wall.max.x - wall.min.x, Math.min(30, wall.max.y - wall.min.y), wall.max.z - wall.min.z), bankMat);
-      box.position.set((wall.min.x + wall.max.x) / 2, (Math.max(-30, wall.min.y) + wall.max.y) / 2, (wall.min.z + wall.max.z) / 2);
-      this.stageGroup.add(box);
-    }
-
     // Gillnets are static: build them once.
     for (const net of w.live('netLine')) this.buildNet(w, net);
 
@@ -305,24 +288,10 @@ export class Renderer {
     this.makeInstanced('eggs', new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf28a3a, roughness: 0.25, transparent: true, opacity: 0.85 }), 20);
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
     this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
-    this.makeInstanced('weed', new THREE.CylinderGeometry(0.07, 0.12, 1, 5), new THREE.MeshStandardMaterial({ color: 0x3f6b2f, roughness: 0.9 }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
     this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'ocean', { lod: quality.fishDetail }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
 
     if (a.kind === 'gravel') {
-      // Stones around the egg.
-      const stoneGeo = new THREE.DodecahedronGeometry(1, 0);
-      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x7c7462, roughness: 1, flatShading: true });
-      const stones = new THREE.InstancedMesh(stoneGeo, stoneMat, 70);
-      for (let i = 0; i < 70; i++) {
-        const ang = (i * 2.399) % (Math.PI * 2);
-        const r = 0.6 + ((i * 37) % 23) / 10;
-        tmpP.set(Math.cos(ang) * r, -1.55 + ((i * 13) % 5) * 0.04, Math.sin(ang) * r);
-        tmpS.setScalar(0.18 + ((i * 7) % 9) * 0.03);
-        tmpQ.setFromEuler(new THREE.Euler(i, i * 0.7, 0));
-        stones.setMatrixAt(i, tmpM.compose(tmpP, tmpQ, tmpS));
-      }
-      this.stageGroup.add(stones);
       // Flecks carried by the flow show which way the water is moving.
       const flow = new THREE.InstancedMesh(new THREE.SphereGeometry(0.018, 5, 3), new THREE.MeshBasicMaterial({ color: 0xd8cfb8 }), 140);
       flow.frustumCulled = false;
@@ -370,6 +339,7 @@ export class Renderer {
     }
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    const floatsAt: number[] = [];
     for (const [z0, z1] of spans) {
       const width = z1 - z0;
       const t = tex.clone();
@@ -384,18 +354,21 @@ export class Renderer {
       this.stageGroup.add(panel);
       // Float line: one instanced draw per span (it was one draw per float).
       const floats = Math.max(1, Math.floor(width / 1.6));
-      const line = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff7a1a }), floats + 1);
-      for (let i = 0; i <= floats; i++) line.setMatrixAt(i, tmpM.makeTranslation(x, -0.05, z0 + (width * i) / floats));
-      line.computeBoundingSphere();
-      this.stageGroup.add(line);
+      for (let i = 0; i <= floats; i++) floatsAt.push(z0 + (width * i) / floats);
     }
+    // All the floats of one line in a single draw call.
+    const floatMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshStandardMaterial({ color: 0xff7a1a }), Math.max(1, floatsAt.length));
+    floatMesh.count = floatsAt.length;
+    floatsAt.forEach((fz, i) => floatMesh.setMatrixAt(i, tmpM.makeTranslation(x, -0.05, fz)));
+    floatMesh.computeBoundingSphere();
+    this.stageGroup.add(floatMesh);
   }
 
   private syncEntities(w: World): void {
     const counts = new Map<EntityKind, number>();
     const seen = new Set<number>();
     for (const e of w.entities) {
-      if (!e.alive) continue;
+      if (!e.alive || this.env?.handles.has(e.kind)) continue;
       const inst = this.instanced.get(e.kind);
       if (inst) {
         const n = counts.get(e.kind) ?? 0;
@@ -443,13 +416,6 @@ export class Renderer {
         const pulse = 1 + 0.25 * Math.sin(w.stageTime * 3 + e.id);
         tmpS.setScalar(pulse * (e.value === 1 ? 1.15 : 0.8));
         mesh.setColorAt(i, tmpC.setHex(e.value === 1 ? 0xf6ff9a : 0xb8d88a));
-        break;
-      }
-      case 'weed': {
-        const h = 5 * (e.value ?? 1);
-        tmpP.y = w.arena.floor(e.pos.x, e.pos.z) + h / 2;
-        tmpQ.setFromEuler(new THREE.Euler(0.08 * Math.sin(w.stageTime + e.id), 0, 0.08 * Math.cos(w.stageTime * 0.8 + e.id)));
-        tmpS.set(1, h, 1);
         break;
       }
       case 'smolt':
@@ -571,24 +537,10 @@ export class Renderer {
         return m;
       }
       case 'gravelPatch': {
-        // Advisor: females judge gravel by cobble size. Stones show it.
-        const cobble = e.size?.x ?? 0.2;
-        const g = new THREE.Group();
-        const base = new THREE.Mesh(new THREE.CircleGeometry(e.radius, 24), new THREE.MeshStandardMaterial({ color: 0x8a7d63, roughness: 1 }));
-        base.rotation.x = -Math.PI / 2;
-        g.add(base);
-        const n = Math.round(Math.min(90, 6 / (cobble * cobble)));
-        const stones = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xb3a587, roughness: 1, flatShading: true }), n);
-        for (let i = 0; i < n; i++) {
-          const a = i * 2.399;
-          const r = Math.sqrt((i + 0.5) / n) * e.radius * 0.95;
-          tmpP.set(Math.cos(a) * r, 0.02, Math.sin(a) * r);
-          tmpS.setScalar(cobble * (0.7 + ((i * 37) % 10) / 20));
-          tmpQ.setFromEuler(new THREE.Euler(i, i * 0.6, 0));
-          stones.setMatrixAt(i, tmpM.compose(tmpP, tmpQ, tmpS));
-        }
-        g.add(stones);
-        return g;
+        // Advisor: females judge gravel by cobble size. Stones show it, at their real size.
+        const a = w.arena;
+        const base = a.floor(e.pos.x, e.pos.z);
+        return buildGravelPatch(e.radius, e.size?.x ?? 0.2, this.envDetail, (dx, dz) => a.floor(e.pos.x + dx, e.pos.z + dz) - base);
       }
       case 'ice': {
         // Lake ice, seen from below: a pale, unlit, unfogged sheet, so the ceiling reads even in the winter gloom.
@@ -721,7 +673,7 @@ export class Renderer {
         break;
       }
       case 'gravelPatch':
-        obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.03;
+        obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.02;
         break;
       case 'lure': {
         const spoon = obj.getObjectByName('spoon') as THREE.Mesh;
@@ -747,22 +699,9 @@ export class Renderer {
     }
   }
 
-  /** The river bed, continued up into gravel banks beyond the spawning bed's edges. */
-  private bedAt(w: World, x: number, z: number): number {
-    const a = w.arena;
-    if (a.kind === 'spawnBed') {
-      const d = Math.abs(z) - a.max.z;
-      if (d > 0) return a.floor(x, Math.sign(z) * a.max.z) + d * 1.1;
-    }
-    return a.floor(x, z);
-  }
-
   /** Where an animal standing at (x, z) has its feet: the top of a bank, or the bed. */
   private groundAt(w: World, x: number, z: number): number {
-    for (const wall of w.arena.walls ?? []) {
-      if (x >= wall.min.x && x <= wall.max.x && z >= wall.min.z && z <= wall.max.z) return wall.max.y;
-    }
-    return this.bedAt(w, x, z);
+    return this.env ? this.env.ground(x, z) : w.arena.floor(x, z);
   }
 
   private playerShape(w: World): { look: FishLook; shape: FishShape } {

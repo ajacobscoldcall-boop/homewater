@@ -45,7 +45,8 @@ describe('jack maturation', () => {
     const n = 20000;
     for (let i = 0; i < n; i++) {
       const fish = makeFish(p, r, { sex: 'M', name: 'x', generation: 1, bv: populationBv(p, r) });
-      const growthPerf = Math.min(1, Math.max(0, 0.5 + r.normal(0, 0.25)));
+      // Growth spread around a typical fish's growth (the calibration reference).
+      const growthPerf = Math.min(1, Math.max(0, p.get('genetics.jackGrowthReference') + r.normal(0, 0.25)));
       if (becomesJack(p, fish, growthPerf)) jacks++;
     }
     const base = p.get('genetics.jackBaseRate.creek');

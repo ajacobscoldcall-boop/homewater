@@ -75,13 +75,13 @@ export function jackThreshold(p: Params, habitat: Habitat): number {
   return inverseNormalCdf(1 - base) * Math.sqrt(1 + ge * ge);
 }
 
-/** growthPerf in 0..1 mapped to a growth z-score. */
-export const growthZ = (growthPerf: number, sizeZ: number): number => (growthPerf - 0.5) * 2 + 0.5 * sizeZ;
+/** growthPerf in 0..1 mapped to a growth z-score, centred on a typical fish's growth so the habitat base rate holds for typical growth. */
+export const growthZ = (growthPerf: number, sizeZ: number, reference = 0.5): number => (growthPerf - reference) * 2 + 0.5 * sizeZ;
 
 export function becomesJack(p: Params, fish: FishIdentity, growthPerf: number): boolean {
   if (fish.sex !== 'M') return false;
   if (fish.lockedJack) return true;
-  const liability = fish.z.jack + p.get('genetics.jackGrowthEffect') * growthZ(growthPerf, fish.z.size);
+  const liability = fish.z.jack + p.get('genetics.jackGrowthEffect') * growthZ(growthPerf, fish.z.size, p.get('genetics.jackGrowthReference'));
   return liability > jackThreshold(p, fish.habitat);
 }
 

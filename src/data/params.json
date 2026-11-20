@@ -180,6 +180,7 @@
     {"id": "habitat.depthOffset.beach", "value": 0.8, "units": "z (body depth)", "min": -2, "max": 2, "source": "Advisor: beach fish are larger and deeper-bodied still", "placeholder": true},
     {"id": "habitat.sizeOffset.river", "value": 0.35, "units": "z (size)", "min": -2, "max": 2, "source": "Advisor: river fish are larger than creek fish", "placeholder": true},
     {"id": "habitat.sizeOffset.beach", "value": 0.6, "units": "z (size)", "min": -2, "max": 2, "source": "Advisor: beach fish are larger still", "placeholder": true},
+    {"id": "genetics.jackGrowthReference", "value": 0.78, "units": "growthPerf", "min": 0, "max": 1, "source": "Calibration: typical growthPerf in balance runs, so a typical male's jack odds equal the habitat base rate (advisor: 4% in creeks, 1-2% run-wide); faster growth than typical still raises them", "placeholder": false},
     {"id": "genetics.jackGrowthEffect", "value": 0.6, "units": "liability per growth z", "min": 0, "max": 2, "source": "Faster early growth raises the chance of early maturation; strength awaiting advisor", "placeholder": true},
     {"id": "genetics.jackStartBreedingValue", "value": 2.5, "units": "z", "min": 0, "max": 4, "source": "design", "placeholder": false},
     {"id": "life.oceanAge2Share", "value": 0.5, "units": "fraction of non-jacks", "min": 0, "max": 1, "source": "Advisor: about 60% spend one year in fresh water; ocean age is close to an even split between 2 and 3 years.", "placeholder": false},
