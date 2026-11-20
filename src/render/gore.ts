@@ -19,6 +19,7 @@ import { otherFishLook, senescence, WoundTracker, type Wound } from './wounds';
 const OTHER_KINDS = new Set(['rival', 'female', 'guardMale', 'jackAI']);
 const tmpV = new THREE.Vector3();
 const tmpW = new THREE.Vector3();
+const tmpCam = new THREE.Vector3();
 
 const ease = (t: number): number => {
   const k = Math.max(0, Math.min(1, t));
@@ -410,7 +411,9 @@ export class GoreLayer {
           const local = killer.worldToLocal(tmpW.clone());
           // Pull back towards the bank a little once it has the fish.
           local.multiplyScalar(1 - 0.12 * ease((t - 0.8) / 0.9));
-          anim.update({ mode: 'strike', t: w.time, k: 1, target: local, surface: w.arena.surfaceY - killer.position.y, jaw: 0.3 - 0.12 * ease(t / 0.35) });
+          // On its own feet: the renderer leaves the ground in the bear's frame on the group (Renderer, 'bear').
+          const ground = killer.userData.ground as ((x: number, z: number) => number) | undefined;
+          anim.update({ mode: 'strike', t: w.time, k: 1, target: local, surface: w.arena.surfaceY - killer.position.y, jaw: 0.3 - 0.12 * ease(t / 0.35), ground });
           killer.updateMatrixWorld(true);
           jaws.getWorldPosition(mouth);
           // Gripped on the side of the jaws nearest the camera, so the near foreleg doesn't hide it.
@@ -421,7 +424,9 @@ export class GoreLayer {
           mouth.copy(b.fishStart);
         }
       }
-      fish.position.lerpVectors(b.fishStart, mouth, ease(t / (b.held ? 0.22 : 0.5)));
+      // A bear standing at the bank may take a fish from further out: it is hauled in over a little longer.
+      const haul = b.held ? 0.22 + 0.04 * Math.min(10, b.fishStart.distanceTo(mouth)) : 0.5;
+      fish.position.lerpVectors(b.fishStart, mouth, ease(t / haul));
       fish.rotation.set(0, 0, 0);
       if (b.held) {
         // Gripped across the back, broadside to the camera, thrashing.
@@ -446,7 +451,18 @@ export class GoreLayer {
       mouth.copy(b.fishStart);
       fish.rotateZ(-0.25 * ease(t / 0.4));
     }
-    // The camera turns to follow the fish (it stays where it was, under the water).
+    // The camera turns to follow the fish (it stays where it was, under the water). With a bear,
+    // it closes in under the water on the jaws, so the bear at the bank with the fish reads.
+    if (b.held) {
+      // Three-quarters side on, on the camera's side of the bear, so its forelegs don't hide the fish.
+      const near = GORE.beat.bearCamNear * Math.max(0.8, size);
+      const fwd = tmpV.subVectors(mouth, killer!.position).setY(0).normalize();
+      tmpCam.set(-fwd.z, 0, fwd.x);
+      if (tmpCam.dot(tmpW.subVectors(camera.position, mouth)) < 0) tmpCam.negate();
+      tmpCam.multiplyScalar(0.8).addScaledVector(fwd, 0.6).normalize().multiplyScalar(near).add(mouth);
+      tmpCam.y = Math.min(w.arena.surfaceY - 0.25, Math.max(w.arena.floor(tmpCam.x, tmpCam.z) + 0.3, mouth.y - 0.3 * size));
+      camera.position.lerp(tmpCam, ease(t / GORE.beat.bearCamSeconds));
+    }
     const look = tmpW.copy(b.fishStart).lerp(fish.position, ease(t / 0.6) * (b.held ? 0.9 : plan.style === 'lift' ? 0.75 : 0.6));
     if (plan.style === 'lift' && !b.held) camera.position.y = Math.min(w.arena.surfaceY - 0.15, camera.position.y + 0.6 * ease(t / 0.8));
     camera.lookAt(look);

@@ -12,11 +12,15 @@ import { roleOf, spawnState } from '../sim/stages/spawn';
 import type { Entity, EntityKind } from '../sim/types';
 import { headingVec } from '../sim/vec';
 import type { World } from '../sim/world';
-import { animalOf, createBear, createChar, createGull, createMerganser, createOrca, createSeal, createShark } from './animals';
+import { animalOf, BEAR_FORE_X, createBear, createChar, createGull, createMerganser, createOrca, createSeal, createShark } from './animals';
 import { buildEnvironment, buildGravelPatch, type Detail, type EnvScene } from './env';
 import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape } from './fishMesh';
 import { FoodSwarm } from './krill';
 import { LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
+// The world above the water (sky, shore, the bear's bulk) and splashes: see above.ts, splash.ts.
+import { AboveWater } from './above';
+import { BEAR_STRIKE } from './aboveConfig';
+import { softDisc, Splashes } from './splash';
 // Gore: wounds, senescence, death beats and the carcass (render only).
 import { GoreLayer } from './gore';
 // Cinematic camera moments (render only): see cinematics.ts. Hook is in updateCamera.
@@ -29,15 +33,15 @@ import { ProgramKeeper } from './programKeeper';
 
 export type CameraMode = 'third' | 'first';
 
-const WATER: Record<ArenaKind, { fog: number; density: number; floor: [number, number]; surface: number; shafts: number; shaftColor: number }> = {
-  gravel: { fog: 0x3e5244, density: 0.18, floor: [0x6b6152, 0x8e8270], surface: 0xcfe2d2, shafts: 0.0, shaftColor: 0xd8f0e6 },
-  lake: { fog: 0x2d5c60, density: 0.05, floor: [0x4d4a3a, 0x6b6650], surface: 0xd4ecea, shafts: 0.247, shaftColor: 0xd8f0e6 },
-  river: { fog: 0x3b6a62, density: 0.045, floor: [0x5d5848, 0x8a8068], surface: 0xdcefe6, shafts: 0.209, shaftColor: 0xe2f2e6 },
-  ocean: { fog: 0x123d5a, density: 0.032, floor: [0x1d2b33, 0x2b3a42], surface: 0xb7dcf0, shafts: 0.285, shaftColor: 0xbfe2ff },
-  bayCreek: { fog: 0x36605a, density: 0.042, floor: [0x5a5545, 0x857b63], surface: 0xd4ebe2, shafts: 0.209, shaftColor: 0xe0f2e8 },
-  spawnBed: { fog: 0x416c5c, density: 0.06, floor: [0x6a604c, 0x9a8c70], surface: 0xdaeee2, shafts: 0.152, shaftColor: 0xe8f4e2 },
-  spawnRiver: { fog: 0x3c665e, density: 0.05, floor: [0x5f5848, 0x8d816a], surface: 0xd6ebe2, shafts: 0.13, shaftColor: 0xe4f2e6 },
-  lakeBeach: { fog: 0x2f6366, density: 0.04, floor: [0x6e6650, 0xa59a7c], surface: 0xd8eeec, shafts: 0.2, shaftColor: 0xe0f2ee },
+const WATER: Record<ArenaKind, { fog: number; density: number; floor: [number, number]; shafts: number; shaftColor: number }> = {
+  gravel: { fog: 0x3e5244, density: 0.18, floor: [0x6b6152, 0x8e8270], shafts: 0.0, shaftColor: 0xd8f0e6 },
+  lake: { fog: 0x2d5c60, density: 0.05, floor: [0x4d4a3a, 0x6b6650], shafts: 0.247, shaftColor: 0xd8f0e6 },
+  river: { fog: 0x3b6a62, density: 0.045, floor: [0x5d5848, 0x8a8068], shafts: 0.209, shaftColor: 0xe2f2e6 },
+  ocean: { fog: 0x123d5a, density: 0.032, floor: [0x1d2b33, 0x2b3a42], shafts: 0.285, shaftColor: 0xbfe2ff },
+  bayCreek: { fog: 0x36605a, density: 0.042, floor: [0x5a5545, 0x857b63], shafts: 0.209, shaftColor: 0xe0f2e8 },
+  spawnBed: { fog: 0x416c5c, density: 0.06, floor: [0x6a604c, 0x9a8c70], shafts: 0.152, shaftColor: 0xe8f4e2 },
+  spawnRiver: { fog: 0x3c665e, density: 0.05, floor: [0x5f5848, 0x8d816a], shafts: 0.13, shaftColor: 0xe4f2e6 },
+  lakeBeach: { fog: 0x2f6366, density: 0.04, floor: [0x6e6650, 0xa59a7c], shafts: 0.2, shaftColor: 0xe0f2ee },
 };
 
 interface InstancedKind {
@@ -105,7 +109,7 @@ export class Renderer {
     this.sun = new THREE.DirectionalLight(0xffffff, 1.3);
     this.sun.position.set(20, 60, 10);
     this.scene.add(this.hemi, this.sun);
-    this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points, this.food.group);
+    this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points, this.food.group, this.splash.group);
   }
 
   /** Ocean food patch: krill swarm with small fish and squid (krill.ts). */
@@ -118,6 +122,10 @@ export class Renderer {
   private shafts = new LightShafts(10);
   private snow = new MarineSnow();
   private surfaceMat: THREE.ShaderMaterial | null = null;
+  private above = new AboveWater();
+  private splash = new Splashes();
+  /** Bears drawn this frame (syncEntities), for their splashes and their shape above the water. */
+  private bearsSeen: THREE.Object3D[] = [];
 
   /** Graphics quality changed (quality.ts). rebuild: materials or geometry depend on it, so build the stage again. */
   applyQuality(q: Quality, rebuild: boolean): void {
@@ -154,6 +162,13 @@ export class Renderer {
     this.syncPlayer(w, frameDt);
     this.updateCamera(w, frameDt);
     this.gore.update(w, frameDt, this.player, this.objects, this.camera);
+    this.above.beginBears();
+    for (const obj of this.bearsSeen) {
+      obj.updateMatrixWorld(true);
+      this.splash.track(obj, w.arena.surfaceY, true, frameDt);
+      this.above.trackBear(obj, this.camera);
+    }
+    this.splash.update(frameDt, w.arena.surfaceY);
     sharedWater.uTime.value += frameDt;
     this.env?.update(w, frameDt, this.camera);
     this.updateAlevin(w, frameDt);
@@ -207,8 +222,19 @@ export class Renderer {
       // Smolts run at night (advisor): a darker, moonlit river.
       const night = w.stageId === 'smolt';
       // Fry and ocean moments set their own light: dusk, winter, autumn, and dark time skips.
-      const moment = fryView(w) ?? oceanView(w);
+      const fry = fryView(w);
+      const sea = oceanView(w);
+      const moment = fry ?? sea;
       const dim = moment?.light ?? 1;
+      // The sky above: night for the smolt run; dusk and winter in the lake; an autumn evening for the maturation reveal.
+      const skyLight = 1 - 0.9 * (moment?.fade ?? 0);
+      if (night) this.above.setSky('night', 'night', 0, skyLight);
+      else if (fry?.phase === 'winter') this.above.setSky('winter', 'winter', 0, skyLight);
+      else if (fry && (fry.phase === 'dusk' || fry.phase === 'second')) {
+        const duskLight = w.p.get('fry.duskLight');
+        this.above.setSky('day', 'dusk', Math.min(1, Math.max(0, (1 - fry.light) / Math.max(0.05, 1 - duskLight))), skyLight);
+      } else if (sea?.moment === 'reveal') this.above.setSky('day', 'dusk', 0.4, skyLight);
+      else this.above.setSky('day', 'day', 0, skyLight);
       this.hemi.intensity = (night ? 0.55 : 1.1) * dim;
       this.sun.intensity = (night ? 0.45 : 1.3) * dim;
       // Time skips close in with dark water, then open on the next moment.
@@ -290,8 +316,10 @@ export class Renderer {
     const sz = a.max.z - a.min.z;
     this.shafts.setStrength(look.shafts, look.shaftColor);
 
-    // The surface, seen from below.
-    this.surfaceMat = surfaceMaterial(new THREE.Color(look.surface), this.fog);
+    // The surface, seen from below, and the world above it seen through Snell's window.
+    this.above.build(w, (x, z) => this.groundAt(w, x, z));
+    this.splash.clear();
+    this.surfaceMat = surfaceMaterial(this.fog, this.above.uniforms, a.surfaceY);
     const surf = new THREE.Mesh(new THREE.PlaneGeometry(sx + 120, sz + 120), this.surfaceMat);
     surf.renderOrder = 1;
     surf.rotation.x = -Math.PI / 2;
@@ -386,6 +414,7 @@ export class Renderer {
   private syncEntities(w: World): void {
     const counts = this.instanceCounts;
     const seen = this.seenIds;
+    this.bearsSeen.length = 0;
     counts.clear();
     seen.clear();
     for (const e of w.entities) {
@@ -535,9 +564,11 @@ export class Renderer {
         const g = new THREE.Group();
         const bear = createBear();
         bear.root.name = 'bear';
-        const shadow = new THREE.Mesh(new THREE.CircleGeometry(2.4, 20), new THREE.MeshBasicMaterial({ color: 0x0c120f, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+        const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), new THREE.MeshBasicMaterial({ color: 0x0c120f, map: softDisc(), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
         shadow.rotation.x = -Math.PI / 2;
         shadow.name = 'shadow';
+        // Drawn after the surface, on its underside.
+        shadow.renderOrder = 2;
         g.add(bear.root, shadow);
         return g;
       }
@@ -568,6 +599,8 @@ export class Renderer {
         const s = e.size ?? new THREE.Vector3(90, 0.1, 90);
         const m = new THREE.Mesh(new THREE.PlaneGeometry(s.x, s.z), new THREE.MeshBasicMaterial({ color: 0x7f979c, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false }));
         m.rotation.x = -Math.PI / 2;
+        // Over the surface (drawn after it), so the sky does not show through the ice.
+        m.renderOrder = 2;
         return m;
       }
       case 'redd': {
@@ -668,13 +701,24 @@ export class Renderer {
       }
       case 'bear': {
         const shadow = obj.getObjectByName('shadow') as THREE.Mesh;
-        const bear = animalOf(obj.getObjectByName('bear') as THREE.Object3D);
+        const bearObj = obj.getObjectByName('bear') as THREE.Object3D;
+        const bear = animalOf(bearObj);
         const mat = shadow.material as THREE.MeshBasicMaterial;
-        // Stand on the bank (or in the shallows), facing the middle of the river.
-        const ground = this.groundAt(w, e.pos.x, e.pos.z);
-        obj.position.y = ground;
+        // Stand on the bank, or at most in the shallows, facing the middle of the river:
+        // where the sim's spot is under water, step back up the bank.
         const mid = returnLayout(w)?.homeMouth ?? 0;
-        obj.rotation.y = e.pos.z > mid ? Math.PI / 2 : -Math.PI / 2;
+        const out = w.fish.habitat === 'beach' && w.stageId === 'spawn' ? 1 : e.pos.z > mid ? 1 : -1;
+        const surfaceY = w.arena.surfaceY;
+        let z = e.pos.z;
+        for (let i = 0; i < 50 && this.groundAt(w, e.pos.x, z - out * BEAR_FORE_X) < surfaceY - BEAR_STRIKE.standDepth; i++) z += out * 0.1;
+        const ground = this.groundAt(w, e.pos.x, z);
+        obj.position.set(e.pos.x, ground, z);
+        obj.rotation.y = out > 0 ? Math.PI / 2 : -Math.PI / 2;
+        // The ground in the bear's own frame (it faces -out along z): local x is towards the water.
+        const ox = e.pos.x;
+        const oz = z;
+        const groundLocal = (lx: number, lz: number) => this.groundAt(w, ox + lz * out, oz - lx * out) - ground;
+        obj.userData.ground = groundLocal;
         const target = e.home;
         const warnTime = w.p.get(w.stageId === 'return' ? 'return.bearWarning' : 'spawn.bearWarning');
         let k = 0;
@@ -682,11 +726,13 @@ export class Renderer {
         else if (e.state === 'strike') k = 1 - e.timer / 0.6;
         else if (e.state === 'rest') k = 1 - e.timer / 3;
         obj.updateMatrixWorld();
-        const local = target ? obj.worldToLocal(tmpTarget.set(target.x, -0.6, target.z)).clone() : undefined;
-        bear?.update({ mode: e.state, t: w.time + e.id, k, target: local, surface: w.arena.surfaceY - ground });
+        const local = target ? obj.worldToLocal(tmpTarget.set(target.x, surfaceY - 0.6, target.z)).clone() : undefined;
+        bear?.update({ mode: e.state, t: w.time + e.id, k, target: local, surface: surfaceY - ground, ground: groundLocal });
+        // After the gore layer has posed it too (render()), its splash and its shape above the water.
+        this.bearsSeen.push(obj);
         if ((e.state === 'warn' || e.state === 'strike') && target) {
-          // Place the shadow in world space over the target.
-          shadow.position.copy(obj.worldToLocal(tmpTarget.set(target.x, -0.05, target.z)));
+          // The bear's shadow falls on the surface over the target, a dark patch seen from below.
+          shadow.position.copy(obj.worldToLocal(tmpTarget.set(target.x, surfaceY - 0.04, target.z)));
           mat.opacity = e.state === 'warn' ? 0.35 + 0.3 * Math.sin(w.time * 18) : 0.7;
         } else {
           mat.opacity = 0;

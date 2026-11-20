@@ -40,6 +40,8 @@ export interface Quality {
   fishDetail: 'high' | 'low';
   /** Environment art detail for rocks, logs, weed beds and banks: 0 sparse, 1 some, 2 full. */
   envDetail: 0 | 1 | 2;
+  /** The world above the water, seen through Snell's window: 0 sky gradient only, 1 sky and shore (fewer steps), 2 full. */
+  aboveWater: 0 | 1 | 2;
   /** Fog density multiplier. Above 1 shortens the view a little. */
   fogScale: number;
   /** Far clip, in multiples of the distance where fog is all but opaque (fog density x distance = 2.5). 0 keeps the default far plane. */
@@ -59,6 +61,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityLevel, Readonly<Quality>>> 
     schoolFraction: 1,
     fishDetail: 'high',
     envDetail: 2,
+    aboveWater: 2,
     fogScale: 1,
     fogClip: 0,
   },
@@ -74,6 +77,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityLevel, Readonly<Quality>>> 
     schoolFraction: 0.75,
     fishDetail: 'high',
     envDetail: 1,
+    aboveWater: 1,
     fogScale: 1,
     fogClip: 1.2,
   },
@@ -89,6 +93,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityLevel, Readonly<Quality>>> 
     schoolFraction: 0.5,
     fishDetail: 'low',
     envDetail: 0,
+    aboveWater: 0,
     fogScale: 1.12,
     fogClip: 1,
   },
@@ -98,7 +103,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityLevel, Readonly<Quality>>> 
 export const quality: Quality = { ...QUALITY_PRESETS.high };
 
 /** Fields that change what Renderer.buildStage makes: changing one rebuilds the stage. */
-const SCENE_FIELDS: (keyof Quality)[] = ['floorShading', 'caustics', 'schoolFraction', 'fishDetail', 'envDetail'];
+const SCENE_FIELDS: (keyof Quality)[] = ['floorShading', 'caustics', 'schoolFraction', 'fishDetail', 'envDetail', 'aboveWater'];
 
 const AUTO_KEY = 'homewater.quality.auto';
 

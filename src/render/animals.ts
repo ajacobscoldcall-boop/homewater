@@ -16,6 +16,7 @@
 import * as THREE from 'three';
 import { bell, col, decal, finPatch, GeoBuilder, hash3, keyed, loft, noise3, ringPoint, smooth, spline, surfacePatch, surfaceStrip, tube, type Ring } from './geo';
 import { quality } from './quality';
+import { BEAR_STRIKE } from './aboveConfig';
 import { createFish, fishMaterial, setSwim, type FishLook } from './fishMesh';
 
 export interface AnimalPose {
@@ -37,6 +38,8 @@ export interface AnimalPose {
   opacity?: number;
   /** Jaw opening, radians (bear), overriding the pose's own. */
   jaw?: number;
+  /** Height of the ground at (x, z), all in the animal's local frame (bear: where its feet go). Flat at 0 if missing. */
+  ground?: (x: number, z: number) => number;
 }
 
 export interface Animal {
@@ -138,8 +141,9 @@ const JAW_HINGE = new THREE.Vector3(0.1, -0.08, 0);
 /** Hip joint: the hind legs hang from here and stay upright when the bear pitches forward. */
 const HIP = new THREE.Vector3(-0.7, 1.0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
-/** Steepest nose-down pitch in a plunge; deeper targets are reached by stepping down into the water. */
-const PLUNGE_PITCH = 0.55;
+/** Forefeet, forward of the bear's origin (the hind feet are at HIP.x). */
+export const BEAR_FORE_X = 0.47;
+const FORE_X = BEAR_FORE_X;
 /** In a plunge the forelegs reach this far forward of straight down (radians): ahead of the chest, behind the jaws. */
 const PLUNGE_PAWS = 0.22;
 
@@ -418,8 +422,10 @@ export function createBear(): Animal {
 
   const root = new THREE.Group();
   const rig = new THREE.Group();
+  rig.name = 'rig';
   const body = new THREE.Mesh(torso, material);
   const headPivot = new THREE.Group();
+  headPivot.name = 'head';
   headPivot.position.set(0.82, 1.2, 0);
   headPivot.add(new THREE.Mesh(head, material));
   const jawPivot = new THREE.Group();
@@ -447,6 +453,14 @@ export function createBear(): Animal {
   const hip = new THREE.Vector3();
   const m = new THREE.Matrix4();
   const defaultTarget = new THREE.Vector3(1.9, -0.35, 0);
+  const flat = () => 0;
+  // Where the forepaws are, for the splash they make breaking the surface.
+  for (const side of [-1, 1]) {
+    const paw = new THREE.Object3D();
+    paw.name = 'paw';
+    paw.position.set(0.08, -0.86, side * 0.22);
+    forePivot.add(paw);
+  }
   return wrap('bear', root, (p) => {
     const t = p.t;
     const k = Math.max(0, Math.min(1, p.k ?? 0));
@@ -483,24 +497,43 @@ export function createBear(): Animal {
     }
     if (p.jaw !== undefined) gape = p.jaw;
     const target = p.target ?? defaultTarget;
-    // Standing: turn to face the target and travel towards it.
+    const surface = p.surface ?? -Infinity;
+    const ground = p.ground ?? flat;
+    // Face the target.
     rig.rotation.set(0, 0, 0);
-    stand.set(0, 0, 0);
-    let yaw = 0;
-    if (pounce > 0) {
-      dir.set(target.x, 0, target.z);
-      const d = dir.length();
-      if (d > 1e-3) {
-        yaw = Math.atan2(dir.z, dir.x);
-        const travel = Math.max(0, d - 1.35) * pounce;
-        stand.set((dir.x / d) * travel, 0, (dir.z / d) * travel);
-      }
-      // Off a high bank, the bear drops into the shallows.
-      const surface = p.surface ?? 0;
-      if (surface < -0.3) stand.y = (surface - 0.75) * smooth(0.2, 0.9, pounce);
-    }
-    stand.y -= 0.08 * lean;
+    dir.set(target.x, 0, target.z);
+    const d = dir.length();
+    if (d > 1e-3) dir.divideScalar(d);
+    else dir.set(1, 0, 0);
+    const yaw = Math.atan2(dir.z, dir.x);
     const yawNow = -yaw * Math.min(1, pounce * 2);
+    // Walk towards it, on the ground, until close enough to lunge or until the
+    // water at the forefeet is as deep as the bear will wade.
+    const deepAt = (s: number) => surface - ground(dir.x * (s + FORE_X), dir.z * (s + FORE_X)) > BEAR_STRIKE.wade;
+    let travel = 0;
+    if (pounce > 0) {
+      const want = Math.max(0, d - BEAR_STRIKE.reach);
+      for (let s = 0; ; s = Math.min(want, s + 0.08)) {
+        if (s > 0 && deepAt(s)) break;
+        travel = s;
+        if (s >= want) break;
+      }
+      travel *= pounce;
+    }
+    const turned = yaw * Math.min(1, pounce * 2);
+    const fx = Math.cos(turned);
+    const fz = Math.sin(turned);
+    const footing = (s: number) => {
+      const gh = ground(dir.x * s + fx * HIP.x, dir.z * s + fz * HIP.x);
+      const gf = ground(dir.x * s + fx * FORE_X, dir.z * s + fz * FORE_X);
+      // Down a bank the body tips nose-down with the slope. On a bank steeper than
+      // that, the forefeet stay planted at the edge and the hind legs stand into the bank.
+      const sl = Math.max(BEAR_STRIKE.slopePitch[0], Math.min(BEAR_STRIKE.slopePitch[1], Math.atan2(gh - gf, FORE_X - HIP.x)));
+      stand.set(dir.x * s, gf + Math.tan(sl) * (FORE_X - HIP.x), dir.z * s);
+      return sl;
+    };
+    const slope = footing(travel);
+    stand.y -= 0.08 * lean;
     headPivot.rotation.set(0, headYaw * (1 - plunge), -(headDown + (0.9 - headDown) * plunge));
     jawPivot.rotation.set(0, 0, -gape);
     // Pitch nose-down about the hips; the hind legs stay planted.
@@ -513,34 +546,36 @@ export function createBear(): Animal {
       rig.updateMatrix();
       hindPivot.rotation.set(0, 0, pitch);
     };
-    const standPitch = 0.12 * lean;
+    const standPitch = slope * Math.min(1, pounce * 2) + 0.12 * lean;
     place(standPitch, stand);
     let pitch = standPitch;
     if (plunge > 0) {
-      // Find the pitch that brings the jaws down to the target's depth, then
-      // step forward (and, off a bank, down into the water) to reach it.
-      const mouthAt = (pt: number) => {
-        place(pt, stand);
+      // Lunge: pitch nose-down about the hips until the jaws reach the target's
+      // depth (or as deep as the bear can reach without going in), and push
+      // forward off the hind feet to close the last of the distance.
+      const mouthAt = (pt: number, at: THREE.Vector3) => {
+        place(pt, at);
         headPivot.updateMatrix();
         m.multiplyMatrices(rig.matrix, headPivot.matrix);
         return reach.copy(mouth.position).applyMatrix4(m);
       };
       let lo = standPitch;
-      let hi = PLUNGE_PITCH;
+      let hi = Math.max(standPitch + 0.3, BEAR_STRIKE.maxPitch);
       for (let i = 0; i < 10; i++) {
         const mid = (lo + hi) / 2;
-        if (mouthAt(mid).y > target.y) lo = mid;
+        if (mouthAt(mid, stand).y > target.y) lo = mid;
         else hi = mid;
       }
       const solved = (lo + hi) / 2;
-      mouthAt(solved);
-      const drop = Math.max(-1.6, Math.min(0, target.y - reach.y));
-      shift.set(target.x - reach.x, drop, target.z - reach.z);
+      mouthAt(solved, stand);
+      const short = (target.x - reach.x) * dir.x + (target.z - reach.z) * dir.z;
+      const push = Math.max(-BEAR_STRIKE.lunge, Math.min(BEAR_STRIKE.lunge, short));
+      shift.set(dir.x * push, 0, dir.z * push);
       pitch = standPitch + (solved - standPitch) * plunge;
-      place(pitch, stand.clone().addScaledVector(shift, plunge));
+      place(pitch, shift.multiplyScalar(plunge).add(stand));
     }
-    // Forepaws reach down and forward into the water.
-    forePivot.rotation.set(0, 0, fore + (PLUNGE_PAWS + pitch - fore) * plunge);
+    // Forepaws hang straight down standing, and reach down and forward into the water in a strike.
+    forePivot.rotation.set(0, 0, pitch * (1 - plunge) + fore + (PLUNGE_PAWS + pitch - fore) * plunge);
     // Breathing.
     body.scale.set(1, 1 + 0.01 * Math.sin(t * 1.6), 1 + 0.015 * Math.sin(t * 1.6));
   });

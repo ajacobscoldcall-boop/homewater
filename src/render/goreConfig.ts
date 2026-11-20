@@ -66,6 +66,10 @@ export const GORE = {
     bearHoldDepth: 0.45,
     /** ...and this far (times the fish's size) towards the camera from the middle of its jaws. */
     bearHoldNear: 0.16,
+    /** The camera closes in under the water to this far (times the fish's size, m) from the bear's jaws... */
+    bearCamNear: 2.6,
+    /** ...over this many seconds. */
+    bearCamSeconds: 0.9,
   },
   /** Gravel drawn round the carcass after death: stones, radius and stone sizes, times the fish's size. */
   bed: { stones: 160, radius: 1.2, minStone: 0.03, maxStone: 0.075 },
