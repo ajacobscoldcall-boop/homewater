@@ -10,7 +10,9 @@
  * - reveal: the first autumn at sea; genes and growth decide maturation.
  * Sockeye stay within 20-40 m of the surface (advisor), so the arena is that band.
  */
+import { flockStep, flockTuning, type FlockGoal, type Threat } from '../flock';
 import { adultSize, becomesJack, oceanYearsFor } from '../genetics';
+import { curvedChase, personalityOf } from '../personality';
 import { swimStep } from '../swim';
 import type { Entity } from '../types';
 import { add, clamp, dist, norm, scale, sub, v3 } from '../vec';
@@ -161,24 +163,57 @@ function skipToNext(w: World): void {
   w.emit('caption', SKIP_CAPTION[next]);
 }
 
-function stepHerring(w: World): void {
+/** Predators the food patch flees: an orca or shark on its charge, a seal on its lunge. */
+function patchThreats(w: World): Threat[] {
+  const out: Threat[] = [];
+  for (const e of w.entities) {
+    if (!e.alive) continue;
+    if ((e.kind === 'orca' || e.kind === 'shark') && (e.state === 'charge' || e.state === 'warn')) out.push({ pos: e.pos, striking: e.state === 'charge' });
+    else if (e.kind === 'seal' && (e.state === 'lunge' || e.state === 'warn')) out.push({ pos: e.pos, striking: e.state === 'lunge' });
+  }
+  return out;
+}
+
+function stepHerring(w: World, dt: number): void {
   const s = st(w);
-  const p = w.p;
   const fish = w.body.pos;
   const t = w.stageTime;
+  // How fast the patch's centre drifts (for the members' goal velocity).
+  const drift = v3();
   if (s.ballDrift) {
     // The bait ball drifts slowly around its starting point.
     const base = s.phase === 'seal' ? -3 : s.ballCenter.y;
     s.ballCenter.x = Math.sin(t * 0.15) * 8;
     s.ballCenter.z = Math.cos(t * 0.11) * 8;
     s.ballCenter.y = base;
+    drift.x = Math.cos(t * 0.15) * 1.2;
+    drift.z = -Math.sin(t * 0.11) * 0.88;
   }
-  const pinks = w.live('pink');
-  for (const h of w.live('herring')) {
+  const c = s.ballCenter;
+  // Each member's place: its own orbit round the patch's centre.
+  const place = (h: Entity): FlockGoal => {
     const sz = h.size ?? v3(4, 0, 1);
     const a = (h.value ?? 0) + t * sz.z;
-    h.pos = v3(s.ballCenter.x + Math.cos(a) * sz.x, s.ballCenter.y + sz.y + Math.sin(a * 1.7) * 0.6, s.ballCenter.z + Math.sin(a) * sz.x);
-    h.yaw = -a;
+    return {
+      pos: v3(c.x + Math.cos(a) * sz.x, c.y + sz.y + Math.sin(a * 1.7) * 0.6, c.z + Math.sin(a) * sz.x),
+      vel: v3(drift.x - Math.sin(a) * sz.x * sz.z, Math.cos(a * 1.7) * 1.02 * sz.z, drift.z + Math.cos(a) * sz.x * sz.z),
+    };
+  };
+  const all = w.live('herring');
+  // Newly added food appears at its place in the patch.
+  for (const h of all) {
+    if (h.state !== 'idle') continue;
+    const g = place(h);
+    h.pos = g.pos;
+    h.vel = g.vel ?? v3();
+    h.state = 'school';
+  }
+  flockStep(all, place, patchThreats(w), flockTuning(w.p, 'flock.patch'), dt);
+  const pinks = w.live('pink');
+  for (const h of all) {
+    h.pos = add(h.pos, scale(h.vel, dt));
+    h.pos.y = clamp(h.pos.y, -29.5, -0.5);
+    h.yaw = Math.atan2(h.vel.z, h.vel.x);
     if (dist(h.pos, fish) < 1.1) {
       h.alive = false;
       w.progress.oceanBites += 1;
@@ -192,6 +227,7 @@ function stepHerring(w: World): void {
       }
     }
   }
+  const p = w.p;
   const left = w.live('herring').length;
   if (s.phase === 'pinks') {
     if (left < p.get('ocean.pinkRefillBelow')) spawnHerring(w, 6);
@@ -229,7 +265,8 @@ function spawnCharger(w: World, kind: 'orca' | 'shark'): void {
   if (kind === 'orca') {
     const start = add(fish, v3(Math.cos(ang) * 55, w.rng.range(-4, 4), Math.sin(ang) * 55));
     start.y = Math.min(-4, Math.max(-28, start.y));
-    w.spawn('orca', start, { radius: 3, state: 'warn', timer: p.get('ocean.orcaWarning') });
+    const o = w.spawn('orca', start, { radius: 3, state: 'warn', timer: p.get('ocean.orcaWarning') });
+    o.timer *= personalityOf(w, o).patience;
     w.emit('warning', 'orca');
     w.emitOnce('caption', 'ocean.orca');
   } else {
@@ -248,12 +285,15 @@ function stepCharger(w: World, o: Entity, dt: number): void {
   const fish = w.body.pos;
   const orca = o.kind === 'orca';
   o.timer -= dt;
+  // Orcas have personalities: each circles in from its own side and charges at its own pace.
+  const me = orca ? personalityOf(w, o) : { speed: 1, angle: 0 };
   if (o.state === 'warn') {
-    const dir = norm(sub(fish, o.pos));
+    const d = sub(fish, o.pos);
+    const dir = orca ? curvedChase(d.x, d.y, d.z, me.angle * 2, p.get('behaviour.curveCloseAt') * 4) : norm(d);
     o.vel = scale(dir, p.get(orca ? 'ocean.orcaStalkSpeed' : 'ocean.sharkStalkSpeed'));
     if (o.timer <= 0) {
       o.state = 'charge';
-      o.vel = scale(norm(sub(fish, o.pos)), p.get(orca ? 'ocean.orcaSpeed' : 'ocean.sharkSpeed'));
+      o.vel = scale(norm(sub(fish, o.pos)), p.get(orca ? 'ocean.orcaSpeed' : 'ocean.sharkSpeed') * me.speed);
       o.timer = p.get('ocean.chargeTime');
     }
   } else if (o.state === 'charge') {
@@ -280,7 +320,8 @@ function spawnSeal(w: World): void {
   const ang = w.rng.range(0, Math.PI * 2);
   const r = w.p.get('ocean.sealDistance');
   const start = v3(fish.x + Math.cos(ang) * r, Math.max(-12, fish.y - 5), fish.z + Math.sin(ang) * r);
-  w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: w.p.get('ocean.sealWarning') });
+  const seal = w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: w.p.get('ocean.sealWarning') });
+  seal.timer *= personalityOf(w, seal).patience;
   w.emit('warning', 'seal');
   w.emitOnce('caption', 'ocean.seal');
 }
@@ -295,8 +336,10 @@ function stepSeal(w: World, seal: Entity, dt: number): void {
     if (seal.timer <= 0) {
       seal.state = 'lunge';
       seal.timer = p.get('ocean.sealLunge');
-      const sp = p.get('ocean.sealSpeed');
-      const lead = dist(fish.pos, seal.pos) / sp;
+      // Some seals lunge harder, and some lead the fish more than others.
+      const me = personalityOf(w, seal);
+      const sp = p.get('ocean.sealSpeed') * me.speed;
+      const lead = (dist(fish.pos, seal.pos) / sp) * (1 + me.angle);
       const aim = v3(fish.pos.x + fish.vel.x * lead, fish.pos.y + fish.vel.y * lead, fish.pos.z + fish.vel.z * lead);
       seal.vel = scale(norm(sub(aim, seal.pos)), sp);
     }
@@ -410,7 +453,7 @@ export const oceanStage: StageDef = {
       return;
     }
     swimStep(w, intent, dt);
-    stepHerring(w);
+    stepHerring(w, dt);
     if (s.phase === 'pinks') stepPinks(w, dt);
 
     // Predators for this moment.

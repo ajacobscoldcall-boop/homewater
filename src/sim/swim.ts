@@ -63,6 +63,7 @@ export function swimStep(w: World, intent: Intent, dt: number, opts: SwimOptions
   b.vel.x += acc.x * dt;
   b.vel.y += acc.y * dt;
   b.vel.z += acc.z * dt;
+  const before = { x: b.pos.x, z: b.pos.z };
   b.pos.x += b.vel.x * dt;
   b.pos.y += b.vel.y * dt;
   b.pos.z += b.vel.z * dt;
@@ -73,7 +74,7 @@ export function swimStep(w: World, intent: Intent, dt: number, opts: SwimOptions
   b.energy -= p.get('energy.swimCost') * forward * dt;
   b.energy = clamp(b.energy, 0, 1);
 
-  constrain(w);
+  constrain(w, before);
   b.burst = burst;
   b.thrust = forward;
   return { thrust: forward, burst };
@@ -85,13 +86,34 @@ export function currentAt(w: World, pos: Vec3): Vec3 {
   return { x: c.x * f, y: c.y * f, z: c.z * f };
 }
 
-/** Keep the fish inside the arena: bounds, floor, surface and walls. */
-export function constrain(w: World): void {
+/**
+ * Keep the fish inside the arena: bounds, floor, surface and walls. With `before` (where the fish was at the
+ * start of the step), water too shallow for the fish (a beach or bar whose bed reaches the surface) stops it
+ * like a wall: it slides along the edge instead of swimming up onto dry ground.
+ */
+export function constrain(w: World, before?: { x: number; z: number }): void {
   const b = w.body;
   const a = w.arena;
   const r = 0.3 * b.scale;
   b.pos.x = clamp(b.pos.x, a.min.x + r, a.max.x - r);
   b.pos.z = clamp(b.pos.z, a.min.z + r, a.max.z - r);
+  if (before) {
+    const room = (x: number, z: number): boolean => a.floor(x, z) + r <= a.surfaceY - r;
+    if (!room(b.pos.x, b.pos.z) && room(before.x, before.z)) {
+      if (room(before.x, b.pos.z)) {
+        b.pos.x = before.x;
+        b.vel.x = 0;
+      } else if (room(b.pos.x, before.z)) {
+        b.pos.z = before.z;
+        b.vel.z = 0;
+      } else {
+        b.pos.x = before.x;
+        b.pos.z = before.z;
+        b.vel.x = 0;
+        b.vel.z = 0;
+      }
+    }
+  }
   const floor = a.floor(b.pos.x, b.pos.z) + r;
   if (b.pos.y < floor) {
     b.pos.y = floor;

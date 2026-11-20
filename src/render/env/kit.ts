@@ -512,7 +512,11 @@ export function terrain(
     let i1 = i0 + 1;
     while (i1 < nx - 1 && xs[i1]! - xs[i0]! < chunk) i1++;
     const piece = terrainPiece(xs, zs, i0, i1, H, N, colour, material, cutAbove);
-    if (piece) out.push(piece);
+    if (piece) {
+      // The camera tests terrain through the ground function, not by ray (sceneryProbe.ts).
+      piece.userData.terrain = true;
+      out.push(piece);
+    }
     i0 = i1;
   }
   return out;

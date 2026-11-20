@@ -471,6 +471,22 @@ export function createBear(): Animal {
     let gape = 0.0;
     let headDown = 0.25 + 0.08 * Math.sin(t * 0.7);
     let headYaw = 0.35 * Math.sin(t * 0.4);
+    // Walking the bank (patrol), hurrying along it (stalk): legs swing in a gait, the body bobs.
+    let gait = 0;
+    let stride = 0;
+    if (p.mode === 'patrol' || p.mode === 'stalk') {
+      const fast = p.mode === 'stalk';
+      stride = t * (fast ? 7.5 : 3.6);
+      gait = fast ? 0.32 : 0.2;
+      headDown = fast ? 0.45 : 0.3 + 0.1 * Math.sin(t * 0.6);
+      headYaw = fast ? 0 : 0.45 * Math.sin(t * 0.35);
+    } else if (p.mode === 'eat') {
+      // Head down over the fish pinned under a forepaw, tearing at it.
+      headDown = 0.95 + 0.12 * Math.sin(t * 4.2);
+      headYaw = 0.12 * Math.sin(t * 2.1);
+      gape = 0.12 + 0.1 * Math.max(0, Math.sin(t * 4.2 + 1));
+      fore = 0.12;
+    }
     if (p.mode === 'warn') {
       // Lean in and fix on the fish, a forepaw lifting.
       lean = smooth(0, 0.35, k);
@@ -575,7 +591,12 @@ export function createBear(): Animal {
       place(pitch, shift.multiplyScalar(plunge).add(stand));
     }
     // Forepaws hang straight down standing, and reach down and forward into the water in a strike.
-    forePivot.rotation.set(0, 0, pitch * (1 - plunge) + fore + (PLUNGE_PAWS + pitch - fore) * plunge);
+    const swing = gait * Math.sin(stride);
+    forePivot.rotation.set(0, 0, pitch * (1 - plunge) + fore + (PLUNGE_PAWS + pitch - fore) * plunge + swing);
+    if (gait > 0) {
+      hindPivot.rotation.z -= swing;
+      rig.position.y += 0.03 * gait * Math.abs(Math.cos(stride));
+    }
     // Breathing.
     body.scale.set(1, 1 + 0.01 * Math.sin(t * 1.6), 1 + 0.015 * Math.sin(t * 1.6));
   });
@@ -699,6 +720,20 @@ export function createGull(): Animal {
   rig.add(bodyMesh, ...wings);
   root.add(rig);
   return wrap('gull', root, (p) => {
+    if (p.mode === 'float') {
+      // Floating on the water (scavenging): wings folded along the back (shortened, as the
+      // folded hand tucks under), bobbing, pecking down by `pitch`.
+      rig.rotation.z = -Math.min(0.4, p.pitch ?? 0);
+      rig.position.y = 0.01 * Math.sin(p.t * 2.1);
+      wings.forEach((w, i) => {
+        const side = i === 0 ? 1 : -1;
+        w.rotation.set(side * 0.12, -side * 1.5, 0, 'YXZ');
+        w.scale.set(1, 1, 0.5);
+      });
+      return;
+    }
+    rig.position.y = 0;
+    for (const w of wings) w.scale.set(1, 1, 1);
     const diving = p.mode === 'strike' || p.mode === 'dive';
     const fold = diving ? 1 : 0;
     const flap = diving ? 0.15 : 0.55 * Math.sin(p.t * 6.5);
@@ -707,6 +742,214 @@ export function createGull(): Animal {
       const side = i === 0 ? 1 : -1;
       // Raise or lower about the body axis, sweep back about the vertical.
       w.rotation.set(-side * flap, -side * fold * 1.15, 0, 'YXZ');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Bald eagle (a scavenger on the spawning grounds)
+// ---------------------------------------------------------------------------
+
+/** Body from tail base to the back of the bill: [x, y, top, bottom, width]. About 1.1 units long with the tail. */
+const EAGLE_BODY: number[][] = [
+  [-0.46, 0.02, 0.02, 0.018, 0.04],
+  [-0.36, 0.01, 0.07, 0.07, 0.09],
+  [-0.15, 0, 0.13, 0.14, 0.14],
+  [0.05, 0.02, 0.13, 0.13, 0.13],
+  [0.19, 0.07, 0.095, 0.085, 0.09],
+  [0.27, 0.12, 0.088, 0.07, 0.078],
+  [0.35, 0.13, 0.072, 0.056, 0.064],
+  [0.405, 0.12, 0.04, 0.032, 0.036],
+];
+/** The heavy hooked yellow bill. */
+const EAGLE_BILL: number[][] = [
+  [0.385, 0.116, 0.032, 0.03, 0.024],
+  [0.45, 0.113, 0.028, 0.024, 0.018],
+  [0.5, 0.1, 0.02, 0.016, 0.012],
+  [0.53, 0.082, 0.01, 0.009, 0.007],
+  [0.535, 0.064, 0.003, 0.003, 0.003],
+];
+const EAGLE = { brown: col(0x3a2517), dark: col(0x24170e), under: col(0x4a3322), white: col(0xf1eee4), bill: col(0xe3ae2c), foot: col(0xe0b13a), talon: col(0x151110) };
+
+/** One broad, long wing, both faces in one geometry; the primaries spread into "fingers" at the tip. */
+function eagleWing(): THREE.BufferGeometry {
+  return cached('eagle-wing', () => {
+    const b = new GeoBuilder();
+    for (const face of [1, -1]) {
+      const lead = (s: number, o: THREE.Vector3) => {
+        const x = s < 0.4 ? 0.1 + 0.08 * (s / 0.4) : 0.18 - 0.2 * Math.pow((s - 0.4) / 0.6, 1.4);
+        o.set(x, 0.05 * Math.sin(Math.PI * Math.min(1, s * 1.5)) * (1 - s) + face * 0.006, 1.3 * s);
+      };
+      const trail = (s: number, o: THREE.Vector3) => {
+        const tip = new THREE.Vector3();
+        lead(s, tip);
+        let x = s < 0.6 ? -0.26 + 0.02 * s : -0.25 + 0.28 * Math.pow((s - 0.6) / 0.4, 1.6);
+        // Slotted tip: the trailing edge steps between the primaries.
+        if (s > 0.72) x += 0.05 * Math.abs(Math.sin((s - 0.72) * 34));
+        o.set(s > 0.97 ? tip.x - 0.02 : x, tip.y, 1.3 * s);
+      };
+      finPatch(
+        b,
+        lead,
+        trail,
+        (s, r, c) => {
+          c.copy(face > 0 ? EAGLE.brown : EAGLE.under);
+          if (s > 0.7) c.lerp(EAGLE.dark, 0.6);
+          // A little paler along the coverts.
+          if (r < 0.35 && s < 0.6) c.lerp(EAGLE.under, face > 0 ? 0.35 : 0);
+        },
+        { rows: 4, cols: 18, flex: 'none' },
+      );
+    }
+    return b.build();
+  });
+}
+
+/** Legs with feathered thighs, yellow feet and black talons; hinged at the hip for flight, perching and the grab. */
+function eagleLegs(): THREE.BufferGeometry {
+  return cached('eagle-legs', () => {
+    const b = new GeoBuilder();
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    const sc = new THREE.Vector3();
+    const at = new THREE.Vector3();
+    for (const side of [-1, 1]) {
+      // Feathered "trousers".
+      b.add(new THREE.SphereGeometry(1, 10, 8), EAGLE.brown, m.compose(at.set(0, -0.06, side * 0.06), q.identity(), sc.set(0.07, 0.1, 0.055)));
+      // Bare yellow tarsus.
+      b.add(new THREE.CylinderGeometry(0.016, 0.019, 0.14, 7), EAGLE.foot, m.compose(at.set(0.01, -0.21, side * 0.065), q.identity(), sc.set(1, 1, 1)));
+      // Three toes forward, one back, each with a curved black talon.
+      for (const [yaw, len] of [
+        [0.45, 0.075],
+        [0, 0.085],
+        [-0.45, 0.075],
+        [Math.PI, 0.06],
+      ] as const) {
+        const dx = Math.cos(yaw);
+        const dz = Math.sin(yaw);
+        q.setFromEuler(e.set(0, -yaw, -Math.PI / 2));
+        b.add(new THREE.CylinderGeometry(0.009, 0.012, len, 5), EAGLE.foot, m.compose(at.set(0.01 + (dx * len) / 2, -0.28, side * 0.065 + (dz * len) / 2), q, sc.set(1, 1, 1)));
+        q.setFromEuler(e.set(0, -yaw, -Math.PI / 2 - 0.9));
+        b.add(new THREE.ConeGeometry(0.008, 0.035, 5), EAGLE.talon, m.compose(at.set(0.01 + dx * (len + 0.012), -0.29, side * 0.065 + dz * (len + 0.012)), q, sc.set(1, 1, 1)));
+      }
+    }
+    return b.build();
+  });
+}
+
+/**
+ * Bald eagle: dark brown body and wings, white head and tail, a heavy yellow
+ * bill, yellow feet. Four draw calls: body, two wings, legs.
+ * Modes: 'fly' (slow beats), 'glide', 'grab' (feet forward, wings up), 'perch'
+ * (wings folded, legs down; `pitch` dips the head to tear), 'mantle' (wings
+ * spread and drooped over a meal).
+ */
+export function createEagle(): Animal {
+  const material = mat({ roughness: 0.8 });
+  const body = cached('eagle-body', () => {
+    const b = new GeoBuilder();
+    const [x0, x1] = span(EAGLE_BODY);
+    loft(
+      b,
+      26,
+      16,
+      (t) => ringFrom(EAGLE_BODY, x0 + (x1 - x0) * t),
+      (_t, s, _side, p, out) => {
+        // The white head ends in a ragged line on the neck.
+        const edge = 0.175 + 0.012 * Math.sin(p.z * 90) + 0.01 * s;
+        out.copy(p.x > edge ? EAGLE.white : EAGLE.brown);
+        if (p.x <= edge && s < -0.3) out.lerp(EAGLE.dark, 0.3);
+        if (p.x <= edge) out.multiplyScalar(0.9 + 0.2 * hash3(Math.floor(p.x * 60), Math.floor(p.y * 60), Math.floor(p.z * 60)));
+      },
+      { caps: true, follow: true },
+    );
+    const [b0, b1] = span(EAGLE_BILL);
+    loft(b, 10, 10, (t) => ringFrom(EAGLE_BILL, b0 + (b1 - b0) * t), (_t, _s, _side, _p, out) => out.copy(EAGLE.bill), { caps: true, follow: true });
+    for (const side of [-1, 1]) {
+      // Pale yellow eye with a dark pupil, under a heavy brow.
+      b.add(new THREE.SphereGeometry(0.013, 8, 6), col(0xf0dc8a), new THREE.Matrix4().makeTranslation(0.365, 0.145, side * 0.052));
+      b.add(new THREE.SphereGeometry(0.007, 6, 4), col(0x0c0a08), new THREE.Matrix4().makeTranslation(0.373, 0.146, side * 0.061));
+    }
+    // White tail fan.
+    finPatch(
+      b,
+      (s, o) => o.set(-0.42, 0.025, (s - 0.5) * 0.08),
+      (s, o) => o.set(-0.72 + 0.04 * Math.abs(s - 0.5), 0.02, (s - 0.5) * 0.26),
+      (_s, r, c) => c.copy(EAGLE.white).multiplyScalar(1 - 0.08 * r),
+      { rows: 3, cols: 8, flex: 'none' },
+    );
+    return b.build();
+  });
+  const root = new THREE.Group();
+  const rig = new THREE.Group();
+  rig.name = 'rig';
+  const wings: THREE.Group[] = [];
+  for (const side of [1, -1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(0.05, 0.08, side * 0.1);
+    const inner = new THREE.Group();
+    inner.scale.z = side;
+    inner.add(new THREE.Mesh(eagleWing(), material));
+    pivot.add(inner);
+    wings.push(pivot);
+  }
+  const hip = new THREE.Group();
+  hip.position.set(0, -0.08, 0);
+  hip.add(new THREE.Mesh(eagleLegs(), material));
+  // Where the talons close, for carrying a fish.
+  const grip = new THREE.Object3D();
+  grip.name = 'talons';
+  grip.position.set(0.02, -0.3, 0);
+  hip.add(grip);
+  rig.add(new THREE.Mesh(body, material), hip, ...wings);
+  root.add(rig);
+  return wrap('eagle', root, (p) => {
+    const t = p.t;
+    // flap > 0 raises the wings, fold sweeps them back, span shortens them (the folded hand).
+    let flap = 0;
+    let fold = 0;
+    let span = 1;
+    // Legs trail back under the tail in flight; forward for the grab; straight down perched.
+    let legs = -1.35;
+    let pitch = 0;
+    switch (p.mode) {
+      case 'fly':
+        flap = 0.4 * Math.sin(t * 3.4);
+        break;
+      case 'glide':
+        flap = -0.1 + 0.03 * Math.sin(t * 1.5);
+        pitch = 0.04 * Math.sin(t * 0.8);
+        break;
+      case 'grab':
+        // Wings high, body tipped back, feet thrown forward.
+        flap = 0.85 + 0.15 * Math.sin(t * 9);
+        legs = 0.8;
+        pitch = 0.5;
+        break;
+      case 'mantle':
+        // Wings spread and drooped over the meal.
+        flap = -0.35;
+        fold = 0.4;
+        legs = 0;
+        span = 0.85;
+        pitch = -Math.min(0.35, p.pitch ?? 0) * 0.6;
+        break;
+      default:
+        // Perched: wings folded along the back, legs straight down; it tears at its meal.
+        fold = 1.2;
+        flap = -0.1;
+        legs = 0;
+        span = 0.55;
+        pitch = -Math.min(0.45, p.pitch ?? 0);
+    }
+    rig.rotation.z = pitch;
+    // Standing, the legs stay upright under a tipped body.
+    hip.rotation.z = legs - (legs === 0 ? pitch : 0);
+    wings.forEach((w, i) => {
+      const side = i === 0 ? 1 : -1;
+      w.rotation.set(-side * flap, -side * fold * 1.25, 0, 'YXZ');
+      w.scale.set(1, 1, span);
     });
   });
 }
@@ -1442,6 +1685,7 @@ export const ANIMALS: Record<string, () => Animal> = {
   shark: createShark,
   seal: createSeal,
   gull: createGull,
+  eagle: createEagle,
   mergMale: () => createMerganser(true),
   mergFemale: () => createMerganser(false),
   char: createChar,

@@ -7,6 +7,11 @@ import { NO_INTENT, type Intent } from '../sim/types';
 import { access } from '../ui/accessibility';
 import { actionFor, bindings, FIXED_PAUSE, SWIM_ACTIONS, type Action } from './bindings';
 import { pollPad, readPad, type PadState } from './gamepad';
+// Feel pass: keyboard turn ramp and stick curve (feel.ts); mouse sensitivity and invert from the Controls page.
+import { rampTurn, stickCurve } from './feel';
+
+/** Intent is consumed once per fixed 60 Hz sim step. */
+const STEP = 1 / 60;
 
 /**
  * App's one-shot UI handlers are written in terms of the default keys.
@@ -25,6 +30,8 @@ export class Input {
   private latched = { forward: false, burst: false };
   private pad: PadState | null = null;
   private padPrev = new Set<Action>();
+  /** Keyboard turn, ramped toward the held steer keys. */
+  private keyTurn = 0;
   locked = false;
   /** Called for one-shot UI keys, with the default code of the action (KeyV, KeyH, Escape...). */
   onKey: (code: string) => void = () => undefined;
@@ -43,8 +50,9 @@ export class Input {
     window.addEventListener('blur', () => this.down.clear());
     document.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
-      this.mouseX += e.movementX;
-      this.mouseY += e.movementY;
+      const o = access();
+      this.mouseX += e.movementX * o.mouseSensitivity;
+      this.mouseY += e.movementY * o.mouseSensitivity * (o.invertY ? -1 : 1);
     });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
@@ -91,6 +99,12 @@ export class Input {
     return false;
   }
 
+  /** Held on the keyboard only (the stick is analog already). */
+  private keyHeld(a: Action): boolean {
+    for (const c of bindings()[a]) if (this.down.has(c)) return true;
+    return false;
+  }
+
   requestLock(): void {
     try {
       const r = this.canvas.requestPointerLock() as unknown as Promise<void> | undefined;
@@ -107,8 +121,9 @@ export class Input {
   /** Intent for one simulation step. Edge flags and mouse deltas are consumed. */
   consume(): Intent {
     const o = access();
-    const keyTurn = (this.held('steerRight') ? 1 : 0) - (this.held('steerLeft') ? 1 : 0);
-    const turn = Math.max(-1, Math.min(1, keyTurn + (this.pad?.turn ?? 0)));
+    const keyWant = (this.keyHeld('steerRight') ? 1 : 0) - (this.keyHeld('steerLeft') ? 1 : 0);
+    this.keyTurn = rampTurn(this.keyTurn, keyWant, STEP);
+    const turn = Math.max(-1, Math.min(1, this.keyTurn + stickCurve(this.pad?.turn ?? 0)));
     const heldForward = this.held('forward') ? Math.max(this.pad?.forward ?? 0, this.forwardKeyDown() ? 1 : 0) : 0;
     const forward = o.forwardMode === 'toggle' ? (this.latched.forward ? 1 : 0) : heldForward;
     const burst = o.burstMode === 'toggle' ? this.latched.burst : this.held('burst');
@@ -142,5 +157,6 @@ export class Input {
     this.pressed.clear();
     this.latched.forward = this.latched.burst = false;
     this.mouseX = this.mouseY = 0;
+    this.keyTurn = 0;
   }
 }

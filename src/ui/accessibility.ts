@@ -25,7 +25,14 @@ export interface AccessOptions {
   burstMode: PressMode;
   /** Short framed camera shots at key moments (src/render/cinematics.ts). */
   cinematics: boolean;
+  /** Mouse steering speed, a multiplier on the sim's swim.mouseSensitivity (Controls page). */
+  mouseSensitivity: number;
+  /** Mouse up steers down (Controls page). */
+  invertY: boolean;
 }
+
+/** Mouse sensitivity steps on the Controls page. */
+export const MOUSE_SENSITIVITIES = [0.5, 0.75, 1, 1.5, 2, 3] as const;
 
 export const CAPTION_SIZES: Record<CaptionSize, { px: number; label: string }> = {
   normal: { px: 16, label: 'Normal' },
@@ -46,7 +53,7 @@ function systemReducedMotion(): boolean {
 }
 
 export function defaultAccess(): AccessOptions {
-  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true };
+  return { captionSize: 'normal', captionBg: CAPTION_BG.default, highContrast: false, colourBlind: false, reducedMotion: systemReducedMotion(), gameSpeed: 1, forwardMode: 'hold', burstMode: 'hold', cinematics: true, mouseSensitivity: 1, invertY: false };
 }
 
 /** Rebuild options from stored data; anything malformed falls back to the default. */
@@ -65,6 +72,8 @@ export function parseAccess(raw: unknown): AccessOptions {
     forwardMode: mode(s.forwardMode),
     burstMode: mode(s.burstMode),
     cinematics: s.cinematics !== false,
+    mouseSensitivity: (MOUSE_SENSITIVITIES as readonly number[]).includes(s.mouseSensitivity as number) ? (s.mouseSensitivity as number) : 1,
+    invertY: s.invertY === true,
   };
 }
 

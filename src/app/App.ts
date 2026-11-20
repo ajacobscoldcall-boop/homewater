@@ -71,6 +71,8 @@ interface Settings {
 /** Threat states that get a marker: hot ones (attacking) and warnings. */
 const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooked']);
 const WARN = new Set(['warn', ...HOT]);
+/** Feel pass: a lure swinging within this many units of the fish gets a (cool) marker before it hooks. */
+const LURE_MARKER_RANGE = 9;
 
 const DEFAULT_VOLUME: number = AUDIO.master.defaultVolume;
 /** ?quality=low|medium|high|auto overrides the saved graphics setting for one load. */
@@ -202,6 +204,7 @@ export class App {
     if (w) {
       this.renderer.cinematics.running = this.mode === 'playing'; // cinematic shots hold while paused
       this.renderer.render(w, frameDt);
+      this.feelHits(w);
       this.updateHud(w, frameDt);
     }
     this.audio.update(frameDt, w, this.audioPhase());
@@ -276,11 +279,22 @@ export class App {
     this.captionEls = [];
   }
 
-  private flash(kind: 'on' | 'opening'): void {
+  private flash(kind: 'on' | 'opening' | 'hit'): void {
     const el = $('flash');
     el.className = kind;
     window.clearTimeout(this.flashTimer);
-    this.flashTimer = window.setTimeout(() => (el.className = ''), kind === 'opening' ? 900 : 650);
+    this.flashTimer = window.setTimeout(() => (el.className = ''), kind === 'opening' ? 900 : kind === 'hit' ? 280 : 650);
+  }
+
+  /** Feel pass: a near miss or a fresh mark (the renderer's wound tracker) gets a sound and a short edge flash; the camera shakes (cameraRig.ts). */
+  private hitsHeard = 0;
+  private feelHits(w: World): void {
+    const hits = this.renderer.gore.tracker.hits;
+    if (hits === this.hitsHeard) return;
+    this.hitsHeard = hits;
+    if (this.mode !== 'playing' || w.status !== 'playing') return;
+    this.audio.nearMiss();
+    this.flash('hit');
   }
 
   private updateHud(w: World, _frameDt: number): void {
@@ -353,10 +367,18 @@ export class App {
       const label = LABEL[e.kind];
       if (!label) continue;
       const rivalActive = e.kind === 'rival' && e.state === 'approach';
+      // A lure on the swing near the fish is the angler's tell: mark it before it hooks.
+      if (e.kind === 'lure' && e.state === 'swing' && Math.hypot(e.pos.x - w.body.pos.x, e.pos.y - w.body.pos.y, e.pos.z - w.body.pos.z) < LURE_MARKER_RANGE) {
+        add(e.pos.x, e.pos.y, e.pos.z, 'lure', false);
+        continue;
+      }
       if (!WARN.has(e.state) && !rivalActive) continue;
       if (e.kind === 'trout' && e.state === 'chase' && e.value) continue; // chasing a school-mate
       const target = e.kind === 'bear' && e.home ? e.home : e.pos;
-      add(target.x, e.kind === 'bear' || e.kind === 'birdShadow' ? 0 : target.y, target.z, label, HOT.has(e.state));
+      // Strikes from above (bears, birds) are marked over the spot they will hit, at the fish's depth, so the marker
+      // sits in view near the fish rather than up at the surface where the default camera rarely looks (feel pass).
+      const fromAbove = e.kind === 'bear' || e.kind === 'birdShadow' || (e.kind === 'merganser' && e.state === 'warn');
+      add(target.x, fromAbove ? Math.min(w.body.pos.y, w.arena.surfaceY - 0.3) : target.y, target.z, label, HOT.has(e.state));
     }
     const female = w.live('female')[0];
     if (female && w.stageId === 'spawn' && w.live('rival').some((r) => r.state === 'fight')) add(female.pos.x, female.pos.y, female.pos.z, 'now', true, true);

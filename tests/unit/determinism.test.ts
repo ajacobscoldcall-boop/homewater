@@ -101,13 +101,13 @@ const EXPECTED: Record<string, string[]> = {
   // only the home branch past the fork, and a jack's charge for a hiding spot rolling once per press.
   egg: ['7e8be5f1', 'c423faf7', '2ca63897', 'd766c633'],
   fry: ['1bd48af9', '2632dfad', 'bbd01c82', '51ba0a71'],
-  smolt: ['dfc37040', '9ba40c76', '626fb7bb', 'c97a45a6'],
-  ocean: ['089fadfe', 'bdd2df47', '1e0aab4b', '3438a078'],
+  smolt: ['cd6f9c49', 'dca5f297', 'c8a93ea8', 'f6d79bac'], // updated: behaviour stream (flocking school, predator personalities) and feel pass (Field guide char warning 1.6x)
+  ocean: ['2a3b9f1d', '995cf30e', '60487b49', '6a396648'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
   return: ['210fc0f7', '14a48c2e', 'bed7bebc', '70f87a75'], // updated: falls, rapids and fellow migrants on the return, with water temperature and oxygen
-  'spawn female': ['41d6ba78', 'a17b2cf0', '9b4bca5a', '49a73ca6'],
-  'spawn male': ['7ff3d46e', '6cdb9854', '82c4c5d8', 'd39c21dc'],
-  'spawn jack': ['de517d66', '1e5eb093', '65e7ab92', 'c501b4c5'],
-  'spawn wild': ['5d21506f', '5864299d', '76e00405', '69617ba5'],
+  'spawn female': ['2ed99a77', '77ad8b65', '8f51c77e', '8036f9fb'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
+  'spawn male': ['02642362', 'cdfd2bd7', 'aad4c737', '2c887abc'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
+  'spawn jack': ['6a6207bc', 'c3128a9d', 'dc2b2dec', '8851beb5'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
+  'spawn wild': ['07b63431', 'cb248bd1', 'f0f23baf', '5ed3e597'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
 };
 
 describe('simulation determinism', () => {

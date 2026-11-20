@@ -25,6 +25,7 @@ import { BEAR_STRIKE } from './aboveConfig';
 import { softDisc, Splashes } from './splash';
 // Gore: wounds, senescence, death beats and the carcass (render only).
 import { GoreLayer } from './gore';
+import { ScavengerLayer } from './scavengers';
 // Cinematic camera moments (render only): see cinematics.ts. Hook is in updateCamera.
 import { Cinematics } from './cinematics';
 // Photo mode (render only): see photoRig.ts. Hooks in render(), after updateCamera.
@@ -37,8 +38,14 @@ import { MigrantLayer } from './migrants';
 // Performance: keeps shader programs compiled while materials come and go (programKeeper.ts).
 import { ProgramKeeper } from './programKeeper';
 import { WaterFeel } from './waterFeel';
+// Feel pass: the third-person camera rig (collision, lag, look-ahead, shake) and banking into turns.
+import { CameraRig, type CameraProbe } from './cameraRig';
+import { CAMERA } from './cameraConfig';
+import { SceneryProbe } from './sceneryProbe';
+import { access } from '../ui/accessibility';
 
 export type CameraMode = 'third' | 'first';
+const NO_WALLS: readonly never[] = [];
 
 const WATER: Record<ArenaKind, { fog: number; density: number; floor: [number, number]; shafts: number; shaftColor: number }> = {
   gravel: { fog: 0x3e5244, density: 0.18, floor: [0x6b6152, 0x8e8270], shafts: 0.0, shaftColor: 0xd8f0e6 },
@@ -74,6 +81,7 @@ const projF = new THREE.Vector3();
 const projD = new THREE.Vector3();
 // Per-frame scratch (performance: no allocation in the frame loop).
 const tmpE = new THREE.Euler();
+const smoltE = new THREE.Euler(0, 0, 0, 'YZX');
 const camFish = new THREE.Vector3();
 const camWant = new THREE.Vector3();
 const camLookAt = new THREE.Vector3();
@@ -104,6 +112,16 @@ export class Renderer {
   private fog = new THREE.FogExp2(0x2d5c60, 0.05);
   private baseDensity = 0.05;
   private readonly programs: ProgramKeeper;
+  /** Third-person camera (cameraRig.ts) and what it must not clip into. */
+  readonly rig = new CameraRig();
+  private scenery = new SceneryProbe();
+  private probe: CameraProbe | null = null;
+  private hitsSeen = 0;
+  private lastMode: 'third' | 'other' = 'other';
+  /** Banking: smoothed yaw rate and roll of the player fish (render only). */
+  private lastYaw = NaN;
+  private yawRate = 0;
+  private roll = 0;
   // Reused by syncEntities every frame.
   private instanceCounts = new Map<EntityKind, number>();
   private seenIds = new Set<number>();
@@ -119,6 +137,7 @@ export class Renderer {
     this.sun.position.set(20, 60, 10);
     this.scene.add(this.hemi, this.sun);
     this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points, this.food.group, this.splash.group);
+    this.scene.add(this.scavengers.group);
   }
 
   /** Ocean food patch: krill swarm with small fish and squid (krill.ts). */
@@ -135,6 +154,8 @@ export class Renderer {
   private surfaceMat: THREE.ShaderMaterial | null = null;
   private above = new AboveWater();
   private splash = new Splashes();
+  /** Gulls, the eagle and carcasses on the spawning grounds (src/render/scavengers.ts). */
+  private scavengers = new ScavengerLayer();
   /** Bears drawn this frame (syncEntities), for their splashes and their shape above the water. */
   private bearsSeen: THREE.Object3D[] = [];
   private migrants = new MigrantLayer();
@@ -178,6 +199,9 @@ export class Renderer {
     if (photo) this.photo.place(this.camera, w, this.player);
     else this.updateCamera(w, frameDt);
     this.gore.update(w, frameDt, this.player, this.objects, this.camera);
+    // Scavengers: after the gore layer has laid the carcass down at the end of a life.
+    const end = this.gore.endScene;
+    this.scavengers.update(w, frameDt, { bears: this.bearsSeen, objects: this.objects, ending: end && end !== 'spent' && this.player ? this.player.position : null, ground: (x, z) => this.groundAt(w, x, z), gore: this.gore.mode === 'unflinching' ? 1 : 0 });
     this.above.beginBears();
     for (const obj of this.bearsSeen) {
       obj.updateMatrixWorld(true);
@@ -352,6 +376,9 @@ export class Renderer {
     // The place itself: terrain, banks, rocks, plants (src/render/env).
     this.env = buildEnvironment(w, { detail: this.envDetail, fog: this.fog });
     this.stageGroup.add(this.env.group);
+    this.scenery.build(this.env.group);
+    this.rig.reset();
+    this.probe = null;
     const sx = a.max.x - a.min.x;
     const sz = a.max.z - a.min.z;
     this.shafts.setStrength(look.shafts, look.shaftColor);
@@ -473,7 +500,7 @@ export class Renderer {
         counts.set(e.kind, n + 1);
         continue;
       }
-      if (e.kind === 'netLine' || e.kind === 'netGap' || e.kind === 'wall' || e.kind === 'herring') continue;
+      if (e.kind === 'netLine' || e.kind === 'netGap' || e.kind === 'wall' || e.kind === 'herring' || e.kind === 'carcass') continue;
       seen.add(e.id);
       let obj = this.objects.get(e.id);
       if (!obj) {
@@ -514,10 +541,17 @@ export class Renderer {
         mesh.setColorAt(i, tmpC.setHex(e.value === 1 ? 0xf6ff9a : 0xb8d88a));
         break;
       }
-      case 'smolt':
-        tmpQ.setFromAxisAngle(UP, -e.yaw);
-        tmpS.setScalar(0.6 * (0.95 + 0.1 * Math.sin(w.time * 12 + e.id)));
+      case 'smolt': {
+        // Pitch with its climb or dive, a slight roll of its own, and (bursting away from a strike,
+        // flock.ts) a hard bank that flashes its silver side. The tail beat quickens with speed.
+        const sp = Math.hypot(e.vel.x, e.vel.z);
+        const pitch = Math.max(-0.6, Math.min(0.6, Math.atan2(e.vel.y, Math.max(0.8, sp))));
+        const flash = e.state === 'flash' ? Math.min(1, e.timer / 0.4) : 0;
+        const roll = 0.1 * Math.sin(w.time * 1.7 + e.id * 1.3) + flash * 0.85 * (e.id % 2 ? 1 : -1);
+        tmpQ.setFromEuler(smoltE.set(roll, -e.yaw, pitch));
+        tmpS.setScalar(0.6 * (0.96 + 0.08 * Math.sin(w.time * (10 + sp * 1.5) + e.id)));
         break;
+      }
       case 'migrant':
         this.migrants.pose(e, tmpP, tmpQ, tmpS);
         break;
@@ -780,6 +814,8 @@ export class Renderer {
         const ground = this.groundAt(w, e.pos.x, z);
         obj.position.set(e.pos.x, ground, z);
         obj.rotation.y = out > 0 ? Math.PI / 2 : -Math.PI / 2;
+        // Walking the bank (spawning grounds): it faces the way it goes.
+        if ((e.state === 'patrol' || e.state === 'stalk') && Math.hypot(e.vel.x, e.vel.z) > 0.1) obj.rotation.y = -Math.atan2(e.vel.z, e.vel.x);
         // The ground in the bear's own frame (it faces -out along z): local x is towards the water.
         const ox = e.pos.x;
         const oz = z;
@@ -879,6 +915,16 @@ export class Renderer {
     p.rotation.set(0, 0, 0);
     p.rotateY(-b.yaw);
     p.rotateZ(b.pitch);
+    // Bank into turns: the back tilts toward the inside of the turn.
+    const bank = CAMERA.bank;
+    if (frameDt > 0 && Number.isFinite(this.lastYaw) && w.stageId !== 'egg') {
+      const dy = Math.atan2(Math.sin(b.yaw - this.lastYaw), Math.cos(b.yaw - this.lastYaw));
+      this.yawRate += (dy / frameDt - this.yawRate) * (1 - Math.exp(-bank.follow * frameDt));
+    } else this.yawRate = 0;
+    this.lastYaw = b.yaw;
+    const wantRoll = Math.max(-bank.max, Math.min(bank.max, this.yawRate * bank.perYawRate));
+    this.roll += (wantRoll - this.roll) * (1 - Math.exp(-bank.follow * frameDt));
+    p.rotateX(this.roll);
     p.scale.setScalar(b.scale);
     const speed = Math.hypot(b.vel.x, b.vel.y, b.vel.z);
     this.swimPhase += frameDt * (w.stageId === 'egg' ? 2 : 4 + speed * 2.5 + (b.burst ? 6 : 0));
@@ -891,6 +937,7 @@ export class Renderer {
     const fish = camFish.set(b.pos.x, b.pos.y, b.pos.z);
     const want = camWant;
     const look = camLookAt;
+    if (w.stageId === 'egg' || this.cameraMode === 'first') this.lastMode = 'other';
     if (w.stageId === 'egg') {
       // Looking down on the alevin, so its heading against the flow is clear.
       want.set(0.35, b.pos.y + 1.05, 0.75);
@@ -900,11 +947,20 @@ export class Renderer {
       want.copy(fish).add(camH.set(h.x, h.y, h.z).multiplyScalar(0.55 * b.scale));
       look.copy(want).add(camH.set(h.x, h.y, h.z).multiplyScalar(6));
     } else {
-      // Behind and above, looking down at the back so the whole body reads.
-      const h = headingVec(b.yaw, b.pitch * 0.4);
-      const d = 1.6 * b.scale + 1.0;
-      want.copy(fish).add(camH.set(-h.x * d * 0.8, -h.y * d * 0.8 + 0.75 * d, -h.z * d * 0.8));
-      look.copy(fish).add(camH.set(h.x, h.y, h.z).multiplyScalar(0.9 * b.scale + 0.6));
+      // Behind and above, looking down at the back so the whole body reads (cameraRig.ts):
+      // lags a little on turns, looks ahead, never clips into banks, rocks or the bed, stays under the surface.
+      const hits = this.gore.tracker.hits;
+      if (hits !== this.hitsSeen) {
+        this.hitsSeen = hits;
+        this.rig.shake(this.gore.tracker.lastHit);
+      }
+      if (w.stageTime < 0.05 || this.lastMode !== 'third') this.rig.reset();
+      this.lastMode = 'third';
+      this.rig.update(b, frameDt, this.cameraProbe(w), access().reducedMotion);
+      this.camPos.set(this.rig.pos.x, this.rig.pos.y, this.rig.pos.z);
+      this.camLook.set(this.rig.look.x, this.rig.look.y, this.rig.look.z);
+      this.placeCamera(w, frameDt);
+      return;
     }
     // Keep the camera under the surface and above the bottom.
     const a = w.arena;
@@ -917,6 +973,25 @@ export class Renderer {
       this.camPos.lerp(want, k);
       this.camLook.lerp(look, k);
     }
+    this.placeCamera(w, frameDt);
+  }
+
+  /** What the play camera must stay clear of: the surface, the scenery's ground, the sim's walls, solid scenery. */
+  private cameraProbe(w: World): CameraProbe {
+    const a = w.arena;
+    if (!this.probe || this.probe.walls !== (a.walls ?? NO_WALLS) || this.probe.surfaceY !== a.surfaceY) {
+      const scenery = this.scenery;
+      this.probe = {
+        surfaceY: a.surfaceY,
+        ground: (x, z) => Math.max(a.floor(x, z), this.env ? this.env.ground(x, z) : -Infinity),
+        walls: a.walls ?? NO_WALLS,
+        rayHit: (from, dir, max) => scenery.rayHit(from, dir, max),
+      };
+    }
+    return this.probe;
+  }
+
+  private placeCamera(w: World, frameDt: number): void {
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
     // Cinematics: blend towards a framed shot; the play camera (camPos/camLook) carries on underneath.

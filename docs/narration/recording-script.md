@@ -1,6 +1,6 @@
 # Homewater narration: recording script
 
-194 lines. Record each as its own file, named exactly as in the File column. See `README.md` in this folder for how to record.
+197 lines. Record each as its own file, named exactly as in the File column. See `README.md` in this folder for how to record.
 
 | # | File | Stage | When it plays | Line |
 |---|---|---|---|---|
@@ -147,54 +147,57 @@
 | 141 | `spawn.fightLost.mp3` | 6 Spawning | When it happens in play | He was bigger, and you were driven off. Hit rivals side-on, before they reach her. |
 | 142 | `spawn.bear.mp3` | 6 Spawning | When it happens in play | A bear wades into the shallows. Bears take the biggest males first, then large females, and small jacks last. Watch for its shadow. |
 | 143 | `spawn.bearTookGuard.mp3` | 6 Spawning | When it happens in play | The bear took the guarding male. |
-| 144 | `spawn.jackScarce.mp3` | 6 Spawning | When it happens in play | Too many jacks, too few hiding spots. They fight each other for the cover under the bank. |
-| 145 | `spawn.jackSpotTaken.mp3` | 6 Spawning | When it happens in play | Another jack holds this hiding spot. Charge him out with a burst, or find another. |
-| 146 | `spawn.jackSpotWon.mp3` | 6 Spawning | When it happens in play | You pushed him out of the spot. |
-| 147 | `spawn.jackEvicted.mp3` | 6 Spawning | When it happens in play | Another jack pushed you out of your hiding spot. |
-| 148 | `spawn.jackBeaten.mp3` | 6 Spawning | When it happens in play | Another jack got there first. |
-| 149 | `spawn.habitat.creek.mp3` | 6 Spawning | When it happens in play | A small creek: shallow water and undercut banks. Bears catch fish most easily in creeks, and the bank cover gives jacks places to hide. |
-| 150 | `spawn.habitat.river.mp3` | 6 Spawning | When it happens in play | A river: deeper, faster water over coarse gravel. River sockeye are larger and deeper-bodied than creek fish, and bears find them harder to catch. |
-| 151 | `spawn.habitat.beach.mp3` | 6 Spawning | When it happens in play | A lake beach: still water along the shore. Beach spawners are the largest and deepest-bodied sockeye. Bears catch fish less easily here than in creeks, and there are few places for jacks to hide. |
-| 152 | `spawn.jackBeach.mp3` | 6 Spawning | When it happens in play | You are too small to fight. Hide behind a boulder, the only cover on the beach. When the big males clash, dart in beside the female. |
-| 153 | `spawn.reddReady.mp3` | 6 Spawning | When it happens in play | The redd is dug. Stay over it and wait for a male. |
-| 154 | `spawn.maleArrives.mp3` | 6 Spawning | When it happens in play | A male has joined you. He stays close while you dig. |
-| 155 | `spawn.femaleChoice.mp3` | 6 Spawning | When it happens in play | Two males fight beside your redd. Fights are quick and mostly settled by size, and you will spawn with the winner. |
-| 156 | `spawn.waitMale.mp3` | 6 Spawning | When it happens in play | The redd is ready, but no male is beside it. Wait over it. |
-| 157 | `spawn.bury.mp3` | 6 Spawning | When it happens in play | Now cover the eggs: sweep gravel over them with your tail over the redd. |
-| 158 | `spawn.buried.mp3` | 6 Spawning | When it happens in play | The eggs are covered. Guard the redd against other females for as long as your strength lasts. |
-| 159 | `spawn.superimposed.mp3` | 6 Spawning | When it happens in play | Another female dug into your redd, and some of your eggs were dug up. Drive rivals off with a burst. |
-| 160 | `spawn.senescence.mp3` | 6 Spawning | When it happens in play | Your strength is fading, and here it will not come back. After weeks on the spawning grounds, salmon turn sluggish and ragged. |
-| 161 | `spawn.spentFemale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. You guarded the redd for as long as you could. Females live several weeks after spawning, rarely more than a month. |
-| 162 | `spawn.spentMale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. Like other Pacific salmon, a sockeye dies after spawning. |
-| 163 | `spawn.spentJack.mp3` | 6 Spawning | When it happens in play | Your strength is gone, and the season is over. |
-| 164 | `spawn.femaleReady.mp3` | 6 Spawning | When it happens in play | She is ready to spawn. Get beside her, now. |
-| 165 | `spawn.secondFemale.mp3` | 6 Spawning | When it happens in play | A second female has started to dig farther along the bed. In the game you can go to her or stay with the first; leaving costs strength and draws more bears. |
-| 166 | `spawn.maleLeaves.mp3` | 6 Spawning | When it happens in play | You leave her to look for another female. |
-| 167 | `spawn.maleStays.mp3` | 6 Spawning | When it happens in play | You stay near her. |
-| 168 | `spawn.maleSpawnedAgain.mp3` | 6 Spawning | When it happens in play | The second female releases her eggs and you fertilize them. |
-| 169 | `spawn.secondLost.mp3` | 6 Spawning | When it happens in play | She spawned with another male before you reached her. |
-| 170 | `spawn.jackCommon.mp3` | 6 Spawning | When it happens in play | Many jacks on the grounds this year: in the game, more of them compete for every opening, and each sneak is worth less. |
-| 171 | `spawn.jackRare.mp3` | 6 Spawning | When it happens in play | Few jacks on the grounds this year: in the game, less competition for the openings, and each sneak is worth more. |
-| 172 | `death.yolk.mp3` | Deaths | On the death screen | The yolk ran out before the alevin left the gravel. An alevin has to swim up and start feeding before its stored food is gone. |
-| 173 | `death.scour.mp3` | Deaths | On the death screen | Washed out. A surge of water tore the alevin from the gravel. High flows that scour the gravel kill many eggs and alevin before they ever emerge. |
-| 174 | `death.trout.mp3` | Deaths | On the death screen | Taken by a Dolly Varden. Trout and Dolly Varden are the main predators of fry in the lake. |
-| 175 | `death.bird.mp3` | Deaths | On the death screen | Taken by a diving bird. Smolts near the surface are easy targets for mergansers and gulls. |
-| 176 | `death.orca.mp3` | Deaths | On the death screen | Taken by an orca. |
-| 177 | `death.char.mp3` | Deaths | On the death screen | Taken by a char at the lake outlet. Larger fish gather where the smolts leave the lake. |
-| 178 | `death.merganser.mp3` | Deaths | On the death screen | Taken by a merganser. These diving ducks chase smolts underwater. |
-| 179 | `death.seal.mp3` | Deaths | On the death screen | Taken by a seal. Seals gather at river mouths when the smolts run, and hunt salmon throughout their years at sea. |
-| 180 | `death.gillnet.mp3` | Deaths | On the death screen | Caught in a gillnet. The fish swims in, its head and teeth tangle, and it cannot back out. Larger males are caught most. |
-| 181 | `death.bear.mp3` | Deaths | On the death screen | Taken by a bear. Bears feed most easily in shallow creeks. They take males first, then large females. |
-| 182 | `death.exhaustion.mp3` | Deaths | On the death screen | Exhausted. Returning salmon do not eat, and this one ran out of stored energy before reaching home. |
-| 183 | `death.noSpawn.mp3` | Deaths | On the death screen | Spawning failed. The season ended before this fish could spawn. |
-| 184 | `death.sea.mp3` | Deaths | On the death screen | Lost at sea during a later year: orcas, salmon sharks or seals. Perhaps half of fish survive each extra year. Jacks, returning after one year, skip this risk. |
-| 185 | `death.shark.mp3` | Deaths | On the death screen | Taken by a salmon shark. |
-| 186 | `death.heat.mp3` | Deaths | On the death screen | Killed by heat stress. Warm, low water holds less oxygen, and salmon that spend too long in it die before they spawn. |
-| 187 | `death.angler.mp3` | Deaths | On the death screen | Landed by an angler. Sport fishing takes returning salmon in the rivers, as the commercial nets do on the approach. |
-| 188 | `end.decay.mp3` | End of life | After spawning, as the life ends | Like other Pacific salmon, a sockeye dies after spawning. |
-| 189 | `end.forest.mp3` | End of life | After spawning, as the life ends | Its body feeds the stream, the insects, the bears and the trees along the bank. |
-| 190 | `end.hatch.mp3` | End of life | After spawning, as the life ends | Under the gravel, the next generation is already growing. |
-| 191 | `end.spentFemale.mp3` | End of life | After spawning, as the life ends | Spent, she guards the redd for as long as she can. Females live several weeks after spawning, rarely more than a month. |
-| 192 | `end.spentMale.mp3` | End of life | After spawning, as the life ends | Spawned out, he grows sluggish and ragged on the grounds. |
-| 193 | `end.carcass.mp3` | End of life | After spawning, as the life ends | The body settles among the stones and slowly breaks down. |
-| 194 | `end.seasons.mp3` | End of life | After spawning, as the life ends | Autumn turns to winter, and winter to spring. |
+| 144 | `spawn.bearEats.mp3` | 6 Spawning | When it happens in play | The bear carries its catch up the bank to eat, then walks the bank again. |
+| 145 | `spawn.bearPartial.mp3` | 6 Spawning | When it happens in play | A big run. When salmon are plentiful, bears often eat only part of each fish and go back for another. |
+| 146 | `spawn.scavengers.mp3` | 6 Spawning | When it happens in play | Gulls and eagles come for what the bears leave. |
+| 147 | `spawn.jackScarce.mp3` | 6 Spawning | When it happens in play | Too many jacks, too few hiding spots. They fight each other for the cover under the bank. |
+| 148 | `spawn.jackSpotTaken.mp3` | 6 Spawning | When it happens in play | Another jack holds this hiding spot. Charge him out with a burst, or find another. |
+| 149 | `spawn.jackSpotWon.mp3` | 6 Spawning | When it happens in play | You pushed him out of the spot. |
+| 150 | `spawn.jackEvicted.mp3` | 6 Spawning | When it happens in play | Another jack pushed you out of your hiding spot. |
+| 151 | `spawn.jackBeaten.mp3` | 6 Spawning | When it happens in play | Another jack got there first. |
+| 152 | `spawn.habitat.creek.mp3` | 6 Spawning | When it happens in play | A small creek: shallow water and undercut banks. Bears catch fish most easily in creeks, and the bank cover gives jacks places to hide. |
+| 153 | `spawn.habitat.river.mp3` | 6 Spawning | When it happens in play | A river: deeper, faster water over coarse gravel. River sockeye are larger and deeper-bodied than creek fish, and bears find them harder to catch. |
+| 154 | `spawn.habitat.beach.mp3` | 6 Spawning | When it happens in play | A lake beach: still water along the shore. Beach spawners are the largest and deepest-bodied sockeye. Bears catch fish less easily here than in creeks, and there are few places for jacks to hide. |
+| 155 | `spawn.jackBeach.mp3` | 6 Spawning | When it happens in play | You are too small to fight. Hide behind a boulder, the only cover on the beach. When the big males clash, dart in beside the female. |
+| 156 | `spawn.reddReady.mp3` | 6 Spawning | When it happens in play | The redd is dug. Stay over it and wait for a male. |
+| 157 | `spawn.maleArrives.mp3` | 6 Spawning | When it happens in play | A male has joined you. He stays close while you dig. |
+| 158 | `spawn.femaleChoice.mp3` | 6 Spawning | When it happens in play | Two males fight beside your redd. Fights are quick and mostly settled by size, and you will spawn with the winner. |
+| 159 | `spawn.waitMale.mp3` | 6 Spawning | When it happens in play | The redd is ready, but no male is beside it. Wait over it. |
+| 160 | `spawn.bury.mp3` | 6 Spawning | When it happens in play | Now cover the eggs: sweep gravel over them with your tail over the redd. |
+| 161 | `spawn.buried.mp3` | 6 Spawning | When it happens in play | The eggs are covered. Guard the redd against other females for as long as your strength lasts. |
+| 162 | `spawn.superimposed.mp3` | 6 Spawning | When it happens in play | Another female dug into your redd, and some of your eggs were dug up. Drive rivals off with a burst. |
+| 163 | `spawn.senescence.mp3` | 6 Spawning | When it happens in play | Your strength is fading, and here it will not come back. After weeks on the spawning grounds, salmon turn sluggish and ragged. |
+| 164 | `spawn.spentFemale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. You guarded the redd for as long as you could. Females live several weeks after spawning, rarely more than a month. |
+| 165 | `spawn.spentMale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. Like other Pacific salmon, a sockeye dies after spawning. |
+| 166 | `spawn.spentJack.mp3` | 6 Spawning | When it happens in play | Your strength is gone, and the season is over. |
+| 167 | `spawn.femaleReady.mp3` | 6 Spawning | When it happens in play | She is ready to spawn. Get beside her, now. |
+| 168 | `spawn.secondFemale.mp3` | 6 Spawning | When it happens in play | A second female has started to dig farther along the bed. In the game you can go to her or stay with the first; leaving costs strength and draws more bears. |
+| 169 | `spawn.maleLeaves.mp3` | 6 Spawning | When it happens in play | You leave her to look for another female. |
+| 170 | `spawn.maleStays.mp3` | 6 Spawning | When it happens in play | You stay near her. |
+| 171 | `spawn.maleSpawnedAgain.mp3` | 6 Spawning | When it happens in play | The second female releases her eggs and you fertilize them. |
+| 172 | `spawn.secondLost.mp3` | 6 Spawning | When it happens in play | She spawned with another male before you reached her. |
+| 173 | `spawn.jackCommon.mp3` | 6 Spawning | When it happens in play | Many jacks on the grounds this year: in the game, more of them compete for every opening, and each sneak is worth less. |
+| 174 | `spawn.jackRare.mp3` | 6 Spawning | When it happens in play | Few jacks on the grounds this year: in the game, less competition for the openings, and each sneak is worth more. |
+| 175 | `death.yolk.mp3` | Deaths | On the death screen | The yolk ran out before the alevin left the gravel. An alevin has to swim up and start feeding before its stored food is gone. |
+| 176 | `death.scour.mp3` | Deaths | On the death screen | Washed out. A surge of water tore the alevin from the gravel. High flows that scour the gravel kill many eggs and alevin before they ever emerge. |
+| 177 | `death.trout.mp3` | Deaths | On the death screen | Taken by a Dolly Varden. Trout and Dolly Varden are the main predators of fry in the lake. |
+| 178 | `death.bird.mp3` | Deaths | On the death screen | Taken by a diving bird. Smolts near the surface are easy targets for mergansers and gulls. |
+| 179 | `death.orca.mp3` | Deaths | On the death screen | Taken by an orca. |
+| 180 | `death.char.mp3` | Deaths | On the death screen | Taken by a char at the lake outlet. Larger fish gather where the smolts leave the lake. |
+| 181 | `death.merganser.mp3` | Deaths | On the death screen | Taken by a merganser. These diving ducks chase smolts underwater. |
+| 182 | `death.seal.mp3` | Deaths | On the death screen | Taken by a seal. Seals gather at river mouths when the smolts run, and hunt salmon throughout their years at sea. |
+| 183 | `death.gillnet.mp3` | Deaths | On the death screen | Caught in a gillnet. The fish swims in, its head and teeth tangle, and it cannot back out. Larger males are caught most. |
+| 184 | `death.bear.mp3` | Deaths | On the death screen | Taken by a bear. Bears feed most easily in shallow creeks. They take males first, then large females. |
+| 185 | `death.exhaustion.mp3` | Deaths | On the death screen | Exhausted. Returning salmon do not eat, and this one ran out of stored energy before reaching home. |
+| 186 | `death.noSpawn.mp3` | Deaths | On the death screen | Spawning failed. The season ended before this fish could spawn. |
+| 187 | `death.sea.mp3` | Deaths | On the death screen | Lost at sea during a later year: orcas, salmon sharks or seals. Perhaps half of fish survive each extra year. Jacks, returning after one year, skip this risk. |
+| 188 | `death.shark.mp3` | Deaths | On the death screen | Taken by a salmon shark. |
+| 189 | `death.heat.mp3` | Deaths | On the death screen | Killed by heat stress. Warm, low water holds less oxygen, and salmon that spend too long in it die before they spawn. |
+| 190 | `death.angler.mp3` | Deaths | On the death screen | Landed by an angler. Sport fishing takes returning salmon in the rivers, as the commercial nets do on the approach. |
+| 191 | `end.decay.mp3` | End of life | After spawning, as the life ends | Like other Pacific salmon, a sockeye dies after spawning. |
+| 192 | `end.forest.mp3` | End of life | After spawning, as the life ends | Its body feeds the stream, the insects, the bears and the trees along the bank. |
+| 193 | `end.hatch.mp3` | End of life | After spawning, as the life ends | Under the gravel, the next generation is already growing. |
+| 194 | `end.spentFemale.mp3` | End of life | After spawning, as the life ends | Spent, she guards the redd for as long as she can. Females live several weeks after spawning, rarely more than a month. |
+| 195 | `end.spentMale.mp3` | End of life | After spawning, as the life ends | Spawned out, he grows sluggish and ragged on the grounds. |
+| 196 | `end.carcass.mp3` | End of life | After spawning, as the life ends | The body settles among the stones and slowly breaks down. |
+| 197 | `end.seasons.mp3` | End of life | After spawning, as the life ends | Autumn turns to winter, and winter to spring. |

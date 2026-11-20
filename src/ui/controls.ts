@@ -6,7 +6,7 @@
  */
 import { ACTION_LABELS, ACTIONS, bindings, defaultBindings, FIXED_PAUSE, isReserved, k, keyName, rebind, setBindings, SLOTS, unbind, unboundActions, type Action } from '../input/bindings';
 import { PAD_LAYOUT, padStatus } from '../input/gamepad';
-import { access, setAccess, type PressMode } from './accessibility';
+import { access, MOUSE_SENSITIVITIES, setAccess, type PressMode } from './accessibility';
 import { h } from './dom';
 
 /** The hint line at the bottom right of the HUD. */
@@ -111,6 +111,28 @@ export function controlsPanel(back: () => void): HTMLElement {
       modeRow('Swim forward', o.forwardMode, (m) => setAccess({ forwardMode: m }), 'forwardMode'),
       modeRow('Burst', o.burstMode, (m) => setAccess({ burstMode: m }), 'burstMode'),
       h('p', { class: 'muted small' }, `Toggle: press once to start, again to stop. ${k('easeOff')} (ease off) also stops.`),
+      h('p', { class: 'label' }, 'Mouse'),
+      h(
+        'div',
+        { class: 'opt-row' },
+        h('span', { class: 'opt-label' }, 'Mouse sensitivity'),
+        h(
+          'div',
+          { class: 'seg', role: 'group', 'aria-label': 'Mouse sensitivity' },
+          ...MOUSE_SENSITIVITIES.map((m) => h('button', { 'aria-pressed': String(o.mouseSensitivity === m), 'data-opt': `mouseSensitivity:${m}`, onclick: () => (setAccess({ mouseSensitivity: m }), render()) }, `${m}×`)),
+        ),
+      ),
+      h(
+        'div',
+        { class: 'opt-row' },
+        h('span', { class: 'opt-label' }, 'Mouse up and down'),
+        h(
+          'div',
+          { class: 'seg', role: 'group', 'aria-label': 'Mouse up and down' },
+          h('button', { 'aria-pressed': String(!o.invertY), 'data-opt': 'invertY:off', onclick: () => (setAccess({ invertY: false }), render()) }, 'Normal'),
+          h('button', { 'aria-pressed': String(o.invertY), 'data-opt': 'invertY:on', onclick: () => (setAccess({ invertY: true }), render()) }, 'Inverted'),
+        ),
+      ),
       h('p', { class: 'label' }, 'Gamepad'),
       h('p', { class: 'muted', id: 'pad-status' }, pad ? (pad.standard ? `Connected: ${pad.name}` : `Connected, but its layout isn't recognised: ${pad.name}`) : 'No gamepad found. Connect one and press any button on it.'),
       h('div', { class: 'pad-grid' }, ...PAD_LAYOUT.map((p) => h('div', { class: 'pad-row' }, h('span', {}, p.action === 'steer' ? 'Steer' : ACTION_LABELS[p.action]), h('span', { class: 'muted' }, p.pad)))),

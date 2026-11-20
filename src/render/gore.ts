@@ -275,6 +275,11 @@ export class GoreLayer {
     this.bedAt = at.clone();
   }
 
+  /** The post-spawn scene showing now, or null (scavengers read it). */
+  get endScene(): EndScene | null {
+    return this.ending?.scene ?? null;
+  }
+
   private get goreValue(): number {
     return this.mode === 'unflinching' ? 1 : 0;
   }

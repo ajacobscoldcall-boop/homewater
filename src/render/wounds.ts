@@ -114,6 +114,10 @@ export class WoundTracker {
   private states = new Map<number, string>();
   private marked = new Set<number>();
   private count = 0;
+  /** Feel pass: counts marks made in play (near misses, fights, hooks, nets) so the camera and sound can react. */
+  hits = 0;
+  /** Strength (0..1) of the latest mark. */
+  lastHit = 0;
 
   /** Follow the current fish: a new fish (a sibling, the next life) starts unmarked; a time skip heals. */
   private sync(w: World): void {
@@ -153,6 +157,8 @@ export class WoundTracker {
     const side = hash01(seed, n, 3) < 0.5 ? -1 : 1;
     const wd = placeWound(kind, a, b, side, clamp01(strength));
     this.wounds.push(wd);
+    this.hits++;
+    this.lastHit = clamp01(strength);
     if (this.wounds.length > GORE.wounds.max) {
       // Drop the faintest, oldest mark.
       let worst = 0;

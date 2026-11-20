@@ -115,7 +115,9 @@ export const AUDIO = {
     pulse: { freq: 46, level: 0.45, length: 1.4, repeats: 2, gap: 0.55 },
     splash: { level: 0.5, length: 0.55, startFreq: 2600, endFreq: 500 },
     surge: { level: 0.32, length: 1.6, startFreq: 200, endFreq: 700 },
-    eat: { bubbles: 4, spread: 0.18 },
+    eat: { bubbles: 4, spread: 0.18, gulpFreq: 300, gulpEnd: 170, gulpLevel: 0.11, gulpLength: 0.12 },
+    /** A strike that just missed (feel pass): a rush of water past the fish and a low thump. */
+    nearMiss: { level: 0.42, length: 0.45, startFreq: 3200, endFreq: 380, thumpFreq: 70, thumpEnd: 38, thumpLevel: 0.35, thumpLength: 0.32, minGap: 0.4 },
     wriggle: { level: 0.12, length: 0.18, freq: 700 },
     opening: { freq: 880, ratio: 1.5, level: 0.07, length: 1.6 },
     spawned: { freq: 220, ratios: [1, 1.25, 1.5, 2] as readonly number[], level: 0.06, length: 4 },

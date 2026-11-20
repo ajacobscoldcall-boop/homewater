@@ -9,6 +9,8 @@
  * the whole school, so staying in the school dilutes the player's risk.
  */
 import { fillImprint, finishSmoltImprint, stepSmoltImprint } from '../imprint';
+import { flockStep, flockTuning, type Threat } from '../flock';
+import { curvedChase, personalityOf } from '../personality';
 import { currentAt, depthOf, swimStep } from '../swim';
 import type { Entity, Vec3 } from '../types';
 import { lakeGrowth } from './fry';
@@ -84,31 +86,54 @@ function nearMiss(w: World): void {
   w.emitOnce('caption', 'smolt.nearMiss');
 }
 
+/**
+ * What the school bursts away from: a strike that has just landed (a bird's plunge, a seal turning away
+ * with its fish, a merganser surfacing, a char that has taken a fish). Not the approach: school-mates
+ * stay put while a predator closes in, so the school's shielding (pickTarget, strikeLands) is unchanged.
+ */
+function schoolThreats(w: World): Threat[] {
+  const out: Threat[] = [];
+  for (const e of w.entities) {
+    if (!e.alive) continue;
+    if (e.kind === 'birdShadow' && e.state === 'strike') out.push({ pos: v3(e.pos.x, -0.4, e.pos.z), striking: true });
+    else if (e.kind === 'seal' && e.state === 'away') out.push({ pos: e.pos, striking: true });
+    else if (e.kind === 'merganser' && e.state === 'surface') out.push({ pos: e.pos, striking: true });
+    else if (e.kind === 'trout' && e.state === 'done') out.push({ pos: e.pos, striking: true });
+  }
+  return out;
+}
+
 function stepSchool(w: World, dt: number): void {
   const b = w.body;
   const h = headingVec(b.yaw, 0);
   const side = v3(-h.z, 0, h.x);
-  for (const f of w.live('smolt')) {
-    const o = f.home ?? v3();
-    // Formation: offsets behind and beside the player, plus a little wander.
-    const goal = v3(
-      b.pos.x + h.x * o.x + side.x * o.z + Math.sin(w.stageTime * 1.3 + f.id) * 0.4,
-      Math.min(-0.4, b.pos.y * 0.7 + o.y),
-      b.pos.z + h.z * o.x + side.z * o.z + Math.cos(w.stageTime * 1.1 + f.id) * 0.4,
-    );
+  const school = w.live('smolt');
+  // Each school-mate's place: offsets behind and beside the player, plus a little wander.
+  // Flocking (separation, alignment, cohesion, flight from strikes) works around those places.
+  flockStep(
+    school,
+    (f) => {
+      const o = f.home ?? v3();
+      return {
+        pos: v3(
+          b.pos.x + h.x * o.x + side.x * o.z + Math.sin(w.stageTime * 1.3 + f.id) * 0.4,
+          Math.min(-0.4, b.pos.y * 0.7 + o.y),
+          b.pos.z + h.z * o.x + side.z * o.z + Math.cos(w.stageTime * 1.1 + f.id) * 0.4,
+        ),
+      };
+    },
+    schoolThreats(w),
+    flockTuning(w.p, 'flock.smolt'),
+    dt,
+  );
+  for (const f of school) {
     // School-mates ride the current like the player does.
     const c = currentAt(w, f.pos);
-    const d = sub(goal, f.pos);
-    const want = scale(d, 2.2);
-    const sp = Math.hypot(want.x, want.y, want.z);
-    const max = 6;
-    const swim = sp > max ? scale(want, max / sp) : want;
-    f.vel = v3(swim.x + c.x * 0.9, swim.y, swim.z + c.z * 0.9);
-    f.pos.x += f.vel.x * dt;
+    f.pos.x += (f.vel.x + c.x * 0.9) * dt;
     f.pos.y += f.vel.y * dt;
-    f.pos.z = Math.max(-HALF_WIDTH + 0.3, Math.min(HALF_WIDTH - 0.3, f.pos.z + f.vel.z * dt));
-    f.pos.y = Math.max(w.arena.floor(f.pos.x, f.pos.z) + 0.3, f.pos.y);
-    f.yaw = Math.atan2(f.vel.z, f.vel.x);
+    f.pos.z = Math.max(-HALF_WIDTH + 0.3, Math.min(HALF_WIDTH - 0.3, f.pos.z + (f.vel.z + c.z * 0.9) * dt));
+    f.pos.y = Math.min(-0.2, Math.max(w.arena.floor(f.pos.x, f.pos.z) + 0.3, f.pos.y));
+    f.yaw = Math.atan2(f.vel.z + c.z * 0.9, f.vel.x + c.x * 0.9);
   }
 }
 
@@ -120,7 +145,7 @@ function stepChar(w: World, c: Entity, dt: number): void {
     c.vel = v3();
     if (dist(c.pos, fish) < 11 && fish.x < c.pos.x + 4) {
       c.state = 'warn';
-      c.timer = p.get('smolt.charWarning');
+      c.timer = p.get('smolt.charWarning') * personalityOf(w, c).patience;
       w.emit('warning', 'char');
       w.emitOnce('caption', 'smolt.char');
     }
@@ -140,7 +165,10 @@ function stepChar(w: World, c: Entity, dt: number): void {
       return;
     }
     const tp = target ? target.pos : fish;
-    c.vel = scale(norm(sub(tp, c.pos)), p.get('smolt.charSpeed'));
+    // Each char comes in at its own speed and from its own angle.
+    const me = personalityOf(w, c);
+    const d = sub(tp, c.pos);
+    c.vel = scale(curvedChase(d.x, d.y, d.z, me.angle, p.get('behaviour.curveCloseAt')), p.get('smolt.charSpeed') * me.speed);
     if (target && dist(c.pos, target.pos) < 0.9) {
       takeSchoolmate(w, target);
       c.state = 'done';
@@ -207,7 +235,8 @@ function stepMergansers(w: World, dt: number, section: SmoltSection): void {
   s.mergTimer -= dt;
   if (section === 'river' && s.mergTimer <= 0) {
     const ahead = v3(w.body.pos.x + 20, 0, Math.max(-6, Math.min(6, w.body.pos.z + w.rng.range(-3, 3))));
-    w.spawn('merganser', ahead, { radius: 0.6, state: 'warn', timer: p.get('smolt.mergWarning') });
+    const m = w.spawn('merganser', ahead, { radius: 0.6, state: 'warn', timer: p.get('smolt.mergWarning') });
+    m.timer *= personalityOf(w, m).patience;
     w.emit('warning', 'merganser');
     w.emitOnce('caption', 'smolt.merganser');
     s.mergTimer = p.get('smolt.mergInterval') * w.rng.range(0.7, 1.3);
@@ -238,7 +267,9 @@ function stepMergansers(w: World, dt: number, section: SmoltSection): void {
         continue;
       }
       const tp = target ? target.pos : w.body.pos;
-      m.vel = scale(norm(sub(tp, m.pos)), p.get('smolt.mergSpeed'));
+      const me = personalityOf(w, m);
+      const d = sub(tp, m.pos);
+      m.vel = scale(curvedChase(d.x, d.y, d.z, me.angle, p.get('behaviour.curveCloseAt')), p.get('smolt.mergSpeed') * me.speed);
       if (target && dist(m.pos, target.pos) < 0.8) {
         takeSchoolmate(w, target);
         m.state = 'surface';
@@ -267,7 +298,8 @@ function stepSeals(w: World, dt: number, section: SmoltSection): void {
   if (section === 'mouth' && s.sealTimer <= 0 && w.live('seal').length === 0) {
     const side = w.rng.chance(0.5) ? 1 : -1;
     const start = v3(w.body.pos.x + w.rng.range(6, 14), -5.5, side * (HALF_WIDTH - 1));
-    w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: p.get('smolt.sealWarning') });
+    const sl = w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: p.get('smolt.sealWarning') });
+    sl.timer *= personalityOf(w, sl).patience;
     w.emit('warning', 'seal');
     w.emitOnce('caption', 'smolt.seal');
     s.sealTimer = p.get('smolt.sealInterval') * w.rng.range(0.7, 1.3);
@@ -282,10 +314,12 @@ function stepSeals(w: World, dt: number, section: SmoltSection): void {
         const t = pickTarget(w);
         const tp = targetPos(w, t);
         const tv = targetVel(w, t);
-        // Lead the target: aim where it will be.
-        const lead = dist(tp, seal.pos) / p.get('smolt.sealSpeed');
+        // Lead the target: aim where it will be. Some seals lead more than others, and lunge faster.
+        const me = personalityOf(w, seal);
+        const sp = p.get('smolt.sealSpeed') * me.speed;
+        const lead = (dist(tp, seal.pos) / sp) * (1 + me.angle);
         const aim = v3(tp.x + tv.x * lead, tp.y + tv.y * lead, tp.z + tv.z * lead);
-        seal.vel = scale(norm(sub(aim, seal.pos)), p.get('smolt.sealSpeed'));
+        seal.vel = scale(norm(sub(aim, seal.pos)), sp);
       }
     } else if (seal.state === 'lunge') {
       const catchR = p.get('smolt.sealCatchRadius');

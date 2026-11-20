@@ -184,6 +184,22 @@ export class AudioEngine {
     }
   }
 
+  private lastNearMiss = -Infinity;
+
+  /** Feel pass: a near miss or a mark on the fish (App calls this when the renderer's wound tracker counts one). */
+  nearMiss(): void {
+    const g = this.g;
+    if (!g) return;
+    const now = g.ctx.currentTime;
+    if (now - this.lastNearMiss < AUDIO.cue.nearMiss.minGap) return;
+    this.lastNearMiss = now;
+    try {
+      this.play(g, 'nearMiss', 1);
+    } catch {
+      // ignore
+    }
+  }
+
   // ---------- Graph ----------
 
   private build(ctx: AudioContext): Graph {
@@ -598,6 +614,14 @@ export class AudioEngine {
       case 'eat': {
         const b = AUDIO.bubble;
         for (let i = 0; i < c.eat.bubbles; i++) this.bubble(g, b.minFreq + Math.random() * (b.maxFreq - b.minFreq), b.level * 2 * gain, Math.random() * c.eat.spread);
+        // A small gulp, so a bite is felt as well as heard.
+        this.tone(g, out, 'sine', c.eat.gulpFreq, c.eat.gulpLevel * gain, c.eat.gulpLength, now, c.eat.gulpEnd);
+        break;
+      }
+      case 'nearMiss': {
+        const s = c.nearMiss;
+        this.noiseBurst(g, out, 'bandpass', s.startFreq, s.endFreq, s.level * gain, s.length, now);
+        this.tone(g, out, 'sine', s.thumpFreq, s.thumpLevel * gain, s.thumpLength, now, s.thumpEnd);
         break;
       }
       case 'wriggle': {

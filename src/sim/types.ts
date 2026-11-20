@@ -102,7 +102,9 @@ export type EntityKind =
   /** Brood-mates hatched in the same redd (egg stage): 'hidden' in the gravel, or 'washed' out by the flow. */
   | 'brood'
   /** Other returning sockeye travelling the home river with the player; 'leap' while in the air at the falls. */
-  | 'migrant';
+  | 'migrant'
+  /** What a bear left of a fish on the spawning grounds (state: 'male' | 'female' | 'jack'; value: share left; radius: fish size). */
+  | 'carcass';
 
 export interface Entity {
   id: number;

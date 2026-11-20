@@ -220,3 +220,14 @@ Game choices made without advisor input, marked placeholder in params.json where
 - **Resting behind boulders:** the game gives extra recovery in the slack water behind rapids boulders (`return.eddyRegen`). **Open:** is resting in eddies between bursts a fair picture of how salmon pass rapids?
 - **Fellow migrants and bears:** other returning sockeye travel with the player; a bear may take one of them instead, and a swipe among them takes only one fish (`return.migrantShield`, `return.migrantDilution`). **Open:** does travelling in a group dilute bear risk for adults the way it does for smolts? Do bears at falls favour leaping fish?
 - **Jostling:** fish in the school bump the player a little. **Open:** is that a fair picture of a crowded run, or do adults keep more space?
+## Open questions from the behaviour stream
+
+Game choices made without advisor input, marked placeholder in params.json.
+
+- **Schools burst apart:** school-mates and the krill patch burst away from a striking predator and then regroup (`flock.*`). Flash expansion is well described for schooling fish. **Open:** do sockeye smolts school like this on the way out, and at night?
+- **Bears eating part of each fish:** a bear eats its catch on the bank and eats less of each fish in a big run (`spawn.bearEatShare`, `spawn.bearPartialPlenty`), as published field studies of bears on salmon streams describe. **Open:** is that true on sockeye spawning grounds, and how much is left?
+- **Choosier bears in a big run:** in a big run the preference order (males, then large females, jacks last) is sharpened (`spawn.bearChoosy`) and bears strike more often (`spawn.bearPlentyRate`). Larger females are preferred over smaller ones (`spawn.bearSizePref`). **Open:** is that a fair picture?
+- **One fish per strike:** a bear takes the fish it chose if it is still in reach, otherwise the one nearest its strike. **Open:** is that right, or do bears often miss and try again?
+- **Bears walking the bank:** a bear patrols the bank between strikes and hurries along it to a chosen fish. **Open:** do bears on spawning streams fish from one spot, or walk the bank?
+- **Scavengers:** gulls and a bald eagle come to carcasses and to dead fish drifting late in the season. **Open:** which scavengers are commonest on sockeye spawning grounds, and do eagles take floating carcasses?
+- **Predator personalities:** individual char, mergansers, seals and orcas differ a little in speed, patience and the angle they come in from (`behaviour.*`). This is a game mechanic.

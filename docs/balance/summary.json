@@ -6,14 +6,14 @@
   "lineages": 50,
   "gens": 10,
   "workers": 4,
-  "seconds": 476.448,
-  "paramsHash": "54b49d77f9e5",
+  "seconds": 921.599,
+  "paramsHash": "75294b4a4fda",
   "overrides": {
    "values": {},
    "mults": {}
   },
-  "livesPlayed": 9431,
-  "simSeconds": 2299203.0333332536
+  "livesPlayed": 9278,
+  "simSeconds": 2305898.7666665902
  },
  "cells": [
   {
@@ -21,153 +21,153 @@
    "skill": "novice",
    "lives": 800,
    "brood": 6,
-   "completion": 0.82,
-   "completionCi": 0.026622832306124007,
+   "completion": 0.82125,
+   "completionCi": 0.02655044438187429,
    "timeouts": 0,
-   "firstFishCompletion": 0.0675,
-   "siblingsUsedMean": 3.0425,
-   "siblingsUsedCompletedMean": 2.6128048780487805,
-   "playSecondsMean": 513.2599791666506,
-   "playSecondsCompletedMean": 507.23368902437454,
+   "firstFishCompletion": 0.06625,
+   "siblingsUsedMean": 2.9675,
+   "siblingsUsedCompletedMean": 2.5251141552511416,
+   "playSecondsMean": 517.7261666666495,
+   "playSecondsCompletedMean": 517.588685946203,
    "stages": {
     "egg": {
-     "attempts": 869,
-     "deaths": 69,
-     "rate": 0.07940161104718067,
-     "ci": 0.017976119461271842,
+     "attempts": 859,
+     "deaths": 59,
+     "rate": 0.06868451688009314,
+     "ci": 0.016913649438571425,
      "causes": {
-      "scour": 69
+      "scour": 59
      }
     },
     "fry": {
-     "attempts": 1012,
-     "deaths": 212,
-     "rate": 0.20948616600790515,
-     "ci": 0.025072533864024256,
+     "attempts": 1001,
+     "deaths": 201,
+     "rate": 0.2007992007992008,
+     "ci": 0.02481692552206337,
      "causes": {
-      "trout": 212
+      "trout": 201
      }
     },
     "smolt": {
-     "attempts": 1140,
-     "deaths": 341,
-     "rate": 0.29912280701754385,
-     "ci": 0.02657965707719367,
+     "attempts": 1051,
+     "deaths": 253,
+     "rate": 0.2407231208372978,
+     "ci": 0.025847211918787572,
      "causes": {
-      "bird": 84,
-      "merganser": 64,
-      "seal": 179,
-      "char": 14
+      "seal": 109,
+      "merganser": 66,
+      "bird": 70,
+      "char": 8
      }
     },
     "ocean": {
-     "attempts": 1304,
-     "deaths": 517,
-     "rate": 0.3964723926380368,
-     "ci": 0.026550476637037124,
+     "attempts": 1224,
+     "deaths": 436,
+     "rate": 0.3562091503267974,
+     "ci": 0.02682812356957294,
      "causes": {
-      "orca": 80,
-      "seal": 287,
-      "shark": 20,
-      "sea": 130
+      "seal": 200,
+      "orca": 87,
+      "sea": 136,
+      "shark": 13
      }
     },
     "return:sea": {
-     "attempts": 1074,
-     "deaths": 322,
-     "rate": 0.29981378026070765,
-     "ci": 0.02740226774453894,
+     "attempts": 1120,
+     "deaths": 348,
+     "rate": 0.3107142857142857,
+     "ci": 0.02710362060684882,
      "causes": {
-      "gillnet": 290,
-      "exhaustion": 32
+      "gillnet": 346,
+      "exhaustion": 2
      }
     },
     "return:river": {
-     "attempts": 1529,
-     "deaths": 833,
-     "rate": 0.5448005232177894,
-     "ci": 0.024961573804580646,
+     "attempts": 1683,
+     "deaths": 1010,
+     "rate": 0.6001188354129531,
+     "ci": 0.023404432574334288,
      "causes": {
-      "bear": 413,
-      "exhaustion": 331,
+      "bear": 220,
       "angler": 88,
-      "gillnet": 1
+      "exhaustion": 687,
+      "heat": 15
      }
     },
     "spawn": {
-     "attempts": 940,
-     "deaths": 284,
-     "rate": 0.3021276595744681,
-     "ci": 0.029354546861076667,
+     "attempts": 867,
+     "deaths": 210,
+     "rate": 0.2422145328719723,
+     "ci": 0.028518045480396152,
      "causes": {
-      "bear": 217,
-      "noSpawn": 67
+      "noSpawn": 74,
+      "bear": 136
      }
     }
    },
    "seconds": {
     "egg": {
-     "ok": 35.178041666665855,
-     "all": 34.62242040659686
+     "ok": 35.00320833333258,
+     "all": 34.505956538610064
     },
     "fry": {
-     "ok": 83.76538285189945,
-     "all": 72.4596160746294
+     "ok": 83.95259308510312,
+     "all": 71.88855485231798
     },
     "smolt": {
-     "ok": 39.96954526491347,
-     "all": 37.197309941519634
+     "ok": 41.910693400165975,
+     "all": 39.21176657151821
     },
     "ocean": {
-     "ok": 86.56963151206715,
-     "all": 73.7096242331256
+     "ok": 87.17246192893033,
+     "all": 76.02159586056352
     },
     "return": {
-     "ok": 54.172013487474096,
-     "all": 55.37039106145097
+     "ok": 67.88868388683635,
+     "all": 62.65302083333111
     },
     "spawn": {
-     "ok": 93.4359502032499,
-     "all": 81.5850709219837
+     "ok": 93.69518011161533,
+     "all": 85.2882160707391
     }
    },
    "broodLoss": {
     "egg": 0,
     "fry": 0,
-    "smolt": 0.00125,
-    "ocean": 0.015,
-    "return": 0.11375,
-    "spawn": 0.05
+    "smolt": 0.0025,
+    "ocean": 0.0125,
+    "return": 0.14375,
+    "spawn": 0.02
    },
    "broodLossGivenReach": {
     "egg": 0,
     "fry": 0,
-    "smolt": 0.00125,
-    "ocean": 0.015018773466833541,
-    "return": 0.1156289707750953,
-    "spawn": 0.05747126436781609
+    "smolt": 0.0025,
+    "ocean": 0.012531328320802004,
+    "return": 0.14593908629441624,
+    "spawn": 0.0237741456166419
    },
-   "offscreenShare": 0.0504266873545384,
-   "oceanSeaShare": 0.2514506769825919,
-   "jackShareOfMales": 0.042105263157894736,
-   "malesMatured": 380,
-   "jackPerDecision": 0.037037037037037035,
-   "decisions": 432,
-   "broodEmerged": 0.18270833333333336
+   "offscreenShare": 0.05403257846642829,
+   "oceanSeaShare": 0.3119266055045872,
+   "jackShareOfMales": 0.02925531914893617,
+   "malesMatured": 376,
+   "jackPerDecision": 0.025404157043879907,
+   "decisions": 433,
+   "broodEmerged": 0.20031249999999998
   },
   {
    "difficulty": "fieldGuide",
    "skill": "average",
    "lives": 800,
    "brood": 6,
-   "completion": 0.94625,
-   "completionCi": 0.01562799481299504,
+   "completion": 0.985,
+   "completionCi": 0.008423155584458834,
    "timeouts": 0,
-   "firstFishCompletion": 0.33875,
-   "siblingsUsedMean": 1.43125,
-   "siblingsUsedCompletedMean": 1.228533685601057,
-   "playSecondsMean": 495.52722916665647,
-   "playSecondsCompletedMean": 470.77276530161663,
+   "firstFishCompletion": 0.35625,
+   "siblingsUsedMean": 1.2625,
+   "siblingsUsedCompletedMean": 1.2055837563451777,
+   "playSecondsMean": 472.57827083331773,
+   "playSecondsCompletedMean": 469.63591370556804,
    "stages": {
     "egg": {
      "attempts": 800,
@@ -177,132 +177,131 @@
      "causes": {}
     },
     "fry": {
-     "attempts": 861,
-     "deaths": 61,
-     "rate": 0.07084785133565621,
-     "ci": 0.017138044066253272,
+     "attempts": 856,
+     "deaths": 56,
+     "rate": 0.06542056074766354,
+     "ci": 0.01656473266726907,
      "causes": {
-      "trout": 61
+      "trout": 56
      }
     },
     "smolt": {
-     "attempts": 869,
-     "deaths": 69,
-     "rate": 0.07940161104718067,
-     "ci": 0.017976119461271842,
+     "attempts": 874,
+     "deaths": 74,
+     "rate": 0.08466819221967964,
+     "ci": 0.01845651822048822,
      "causes": {
-      "seal": 51,
-      "merganser": 13,
-      "char": 5
+      "seal": 53,
+      "merganser": 19,
+      "char": 2
      }
     },
     "ocean": {
-     "attempts": 1151,
-     "deaths": 352,
-     "rate": 0.3058210251954822,
-     "ci": 0.026618759187051574,
+     "attempts": 1082,
+     "deaths": 284,
+     "rate": 0.26247689463955637,
+     "ci": 0.026216565472737464,
      "causes": {
-      "sea": 136,
-      "seal": 182,
-      "orca": 30,
-      "shark": 4
+      "seal": 105,
+      "sea": 154,
+      "orca": 25
      }
     },
     "return:sea": {
-     "attempts": 853,
-     "deaths": 64,
-     "rate": 0.07502930832356389,
-     "ci": 0.017679135042722866,
+     "attempts": 860,
+     "deaths": 56,
+     "rate": 0.06511627906976744,
+     "ci": 0.016490371222750953,
      "causes": {
-      "gillnet": 47,
-      "exhaustion": 17
+      "gillnet": 56
      }
     },
     "return:river": {
-     "attempts": 1304,
-     "deaths": 541,
-     "rate": 0.4148773006134969,
-     "ci": 0.02674241264207559,
+     "attempts": 1289,
+     "deaths": 500,
+     "rate": 0.3878975950349108,
+     "ci": 0.02660113695251094,
      "causes": {
-      "bear": 164,
-      "angler": 44,
-      "exhaustion": 333
+      "angler": 96,
+      "exhaustion": 298,
+      "bear": 92,
+      "heat": 14
      }
     },
     "spawn": {
-     "attempts": 858,
-     "deaths": 101,
-     "rate": 0.11771561771561771,
-     "ci": 0.02156422061254807,
+     "attempts": 840,
+     "deaths": 52,
+     "rate": 0.06190476190476191,
+     "ci": 0.016296784504471584,
      "causes": {
-      "bear": 82,
-      "noSpawn": 19
+      "bear": 35,
+      "noSpawn": 17
      }
     }
    },
    "seconds": {
     "egg": {
-     "ok": 36.69893749999912,
-     "all": 36.69893749999912
+     "ok": 36.26143749999914,
+     "all": 36.26143749999914
     },
     "fry": {
-     "ok": 83.95389170896479,
-     "all": 79.71584216725267
+     "ok": 84.02359526826908,
+     "all": 80.01250493096354
     },
     "smolt": {
-     "ok": 40.135187499999,
-     "all": 39.550076716531414
+     "ok": 42.08118749999889,
+     "all": 41.383886346299434
     },
     "ocean": {
-     "ok": 86.42486441384666,
-     "all": 78.17822183608102
+     "ok": 87.30006265663782,
+     "all": 81.33629081946687
     },
     "return": {
-     "ok": 57.777848101263935,
-     "all": 67.75189527159093
+     "ok": 66.17583826429727,
+     "all": 73.00186046511398
     },
     "spawn": {
-     "ok": 92.57446059004619,
-     "all": 88.64407536907306
+     "ok": 92.36197123519158,
+     "all": 90.17206349206054
     }
    },
    "broodLoss": {
     "egg": 0,
     "fry": 0,
     "smolt": 0,
-    "ocean": 0.00125,
-    "return": 0.045,
-    "spawn": 0.0075
+    "ocean": 0.0025,
+    "return": 0.01125,
+    "spawn": 0.00125
    },
    "broodLossGivenReach": {
     "egg": 0,
     "fry": 0,
     "smolt": 0,
-    "ocean": 0.00125,
-    "return": 0.04505632040050062,
-    "spawn": 0.007863695937090432
+    "ocean": 0.0025,
+    "return": 0.011278195488721804,
+    "spawn": 0.0012674271229404308
    },
-   "offscreenShare": 0.11447811447811448,
-   "oceanSeaShare": 0.38636363636363635,
-   "jackShareOfMales": 0.03299492385786802,
-   "malesMatured": 394,
-   "jackPerDecision": 0.02850877192982456,
-   "decisions": 456,
-   "broodEmerged": 0.1838541666666665
+   "offscreenShare": 0.1506849315068493,
+   "oceanSeaShare": 0.5422535211267606,
+   "jackShareOfMales": 0.04834605597964377,
+   "malesMatured": 393,
+   "jackPerDecision": 0.04042553191489362,
+   "decisions": 470,
+   "broodEmerged": 0.19479166666666667
   },
   {
    "difficulty": "fieldGuide",
    "skill": "skilled",
    "lives": 800,
    "brood": 6,
-   "completion": 0.995,
-   "completionCi": 0.004887734649098703,
+   "completion": 0.99125,
+   "completionCi": 0.006453669256709719,
    "timeouts": 0,
    "firstFishCompletion": 0.6125,
-   "siblingsUsedMean": 0.59375,
-   "siblingsUsedCompletedMean": 0.571608040201005,
-   "playSecondsMean": 444.76837499998584,
-   "playSecondsCompletedMean": 442.19677554437453,
+   "siblingsUsedMean": 0.61875,
+   "siblingsUsedCompletedMean": 0.5800756620428752,
+   "playSecondsMean": 456.54060416665067,
+   "playSecondsCompletedMean": 452.36382934004297,
    "stages": {
     "egg": {
      "attempts": 800,
@@ -312,89 +311,89 @@
      "causes": {}
     },
     "fry": {
-     "attempts": 808,
-     "deaths": 8,
-     "rate": 0.009900990099009901,
-     "ci": 0.006826986077581049,
+     "attempts": 803,
+     "deaths": 3,
+     "rate": 0.0037359900373599006,
+     "ci": 0.004219766055696296,
      "causes": {
-      "trout": 8
+      "trout": 3
      }
     },
     "smolt": {
-     "attempts": 823,
-     "deaths": 23,
-     "rate": 0.027946537059538274,
-     "ci": 0.011260695892835394,
+     "attempts": 805,
+     "deaths": 5,
+     "rate": 0.006211180124223602,
+     "ci": 0.00542740520073387,
      "causes": {
-      "merganser": 10,
-      "seal": 13
+      "seal": 5
      }
     },
     "ocean": {
-     "attempts": 997,
-     "deaths": 197,
-     "rate": 0.19759277833500502,
-     "ci": 0.02471675430146746,
+     "attempts": 968,
+     "deaths": 168,
+     "rate": 0.17355371900826447,
+     "ci": 0.023858474396843365,
      "causes": {
-      "seal": 62,
-      "sea": 135
+      "sea": 116,
+      "seal": 52
      }
     },
     "return:sea": {
-     "attempts": 811,
-     "deaths": 14,
-     "rate": 0.01726263871763255,
-     "ci": 0.008964332743719713,
+     "attempts": 804,
+     "deaths": 2,
+     "rate": 0.0024875621890547263,
+     "ci": 0.003443294589873636,
      "causes": {
-      "gillnet": 10,
-      "exhaustion": 4
+      "gillnet": 2
      }
     },
     "return:river": {
-     "attempts": 941,
-     "deaths": 145,
-     "rate": 0.15409139213602552,
-     "ci": 0.023068118367420575,
+     "attempts": 972,
+     "deaths": 174,
+     "rate": 0.17901234567901234,
+     "ci": 0.024100871311954413,
      "causes": {
-      "exhaustion": 136,
-      "angler": 9
+      "angler": 25,
+      "heat": 13,
+      "exhaustion": 134,
+      "bear": 2
      }
     },
     "spawn": {
-     "attempts": 888,
-     "deaths": 92,
-     "rate": 0.1036036036036036,
-     "ci": 0.020044123513223135,
+     "attempts": 943,
+     "deaths": 150,
+     "rate": 0.15906680805938495,
+     "ci": 0.023343757091991945,
      "causes": {
-      "bear": 37,
-      "noSpawn": 55
+      "noSpawn": 127,
+      "bear": 23
      }
     }
    },
    "seconds": {
     "egg": {
-     "ok": 36.499749999999224,
-     "all": 36.499749999999224
+     "ok": 36.54947916666592,
+     "all": 36.54947916666592
     },
     "fry": {
-     "ok": 84.00887909319601,
-     "all": 83.79166666666366
+     "ok": 83.930701754383,
+     "all": 83.84001248439154
     },
     "smolt": {
-     "ok": 39.85222916666569,
-     "all": 39.44283110570985
+     "ok": 41.34195833333225,
+     "all": 41.31913043478153
     },
     "ocean": {
-     "ok": 86.51199999999601,
-     "all": 83.66434302908333
+     "ok": 87.34762499999643,
+     "all": 84.88192148759991
     },
     "return": {
-     "ok": 53.130602636533155,
-     "all": 61.59928072338519
+     "ok": 65.03272683163276,
+     "all": 69.52508291873708
     },
     "spawn": {
-     "ok": 94.00565326632943,
-     "all": 94.78875750750517
+     "ok": 93.35809163513802,
+     "all": 97.08190173205769
     }
    },
    "broodLoss": {
@@ -402,175 +401,176 @@
     "fry": 0,
     "smolt": 0,
     "ocean": 0,
-    "return": 0.005,
-    "spawn": 0
+    "return": 0.0025,
+    "spawn": 0.00625
    },
    "broodLossGivenReach": {
     "egg": 0,
     "fry": 0,
     "smolt": 0,
     "ocean": 0,
-    "return": 0.005,
-    "spawn": 0
+    "return": 0.0025,
+    "spawn": 0.006265664160401002
    },
-   "offscreenShare": 0.2818371607515658,
-   "oceanSeaShare": 0.6852791878172588,
-   "jackShareOfMales": 0.061855670103092786,
+   "offscreenShare": 0.23107569721115537,
+   "oceanSeaShare": 0.6904761904761905,
+   "jackShareOfMales": 0.06443298969072164,
    "malesMatured": 388,
-   "jackPerDecision": 0.05429864253393665,
-   "decisions": 442,
-   "broodEmerged": 0.19572916666666682
+   "jackPerDecision": 0.05694760820045558,
+   "decisions": 439,
+   "broodEmerged": 0.19062500000000016
   },
   {
    "difficulty": "wild",
    "skill": "novice",
    "lives": 800,
    "brood": 4,
-   "completion": 0.0125,
-   "completionCi": 0.007699005617610628,
+   "completion": 0.025,
+   "completionCi": 0.010818907061251612,
    "timeouts": 0,
    "firstFishCompletion": 0,
-   "siblingsUsedMean": 2.99125,
-   "siblingsUsedCompletedMean": 2.3,
-   "playSecondsMean": 226.57335416666135,
-   "playSecondsCompletedMean": 499.24499999998454,
+   "siblingsUsedMean": 2.98875,
+   "siblingsUsedCompletedMean": 2.55,
+   "playSecondsMean": 212.7049166666614,
+   "playSecondsCompletedMean": 486.0508333333172,
    "stages": {
     "egg": {
-     "attempts": 1748,
-     "deaths": 1064,
-     "rate": 0.6086956521739131,
-     "ci": 0.022879303203683986,
+     "attempts": 1719,
+     "deaths": 1045,
+     "rate": 0.6079115764979639,
+     "ci": 0.02307971012085169,
      "causes": {
-      "scour": 1064
+      "scour": 1045
      }
     },
     "fry": {
-     "attempts": 1052,
-     "deaths": 434,
-     "rate": 0.41254752851711024,
-     "ci": 0.02974894466916678,
+     "attempts": 1057,
+     "deaths": 442,
+     "rate": 0.4181646168401135,
+     "ci": 0.029736666550804647,
      "causes": {
-      "trout": 434
+      "trout": 442
      }
     },
     "smolt": {
-     "attempts": 1445,
-     "deaths": 1223,
-     "rate": 0.8463667820069204,
-     "ci": 0.01859276655494492,
+     "attempts": 1519,
+     "deaths": 1350,
+     "rate": 0.8887425938117183,
+     "ci": 0.015813559868662057,
      "causes": {
-      "bird": 344,
-      "seal": 482,
-      "char": 197,
-      "merganser": 200
+      "merganser": 451,
+      "seal": 258,
+      "char": 314,
+      "bird": 327
      }
     },
     "ocean": {
-     "attempts": 346,
-     "deaths": 198,
-     "rate": 0.5722543352601156,
-     "ci": 0.0521321187671966,
+     "attempts": 249,
+     "deaths": 139,
+     "rate": 0.5582329317269076,
+     "ci": 0.061682333258762635,
      "causes": {
-      "sea": 87,
-      "seal": 93,
-      "orca": 16,
-      "shark": 2
+      "sea": 67,
+      "orca": 19,
+      "seal": 50,
+      "shark": 3
      }
     },
     "return:sea": {
-     "attempts": 176,
-     "deaths": 57,
-     "rate": 0.32386363636363635,
-     "ci": 0.06913500174910125,
+     "attempts": 137,
+     "deaths": 38,
+     "rate": 0.2773722627737226,
+     "ci": 0.07496950031896023,
      "causes": {
-      "gillnet": 54,
-      "exhaustion": 3
+      "gillnet": 38
      }
     },
     "return:river": {
-     "attempts": 209,
-     "deaths": 193,
-     "rate": 0.9234449760765551,
-     "ci": 0.03604751141447926,
+     "attempts": 173,
+     "deaths": 152,
+     "rate": 0.8786127167630058,
+     "ci": 0.04866518268312172,
      "causes": {
-      "bear": 144,
-      "angler": 28,
-      "exhaustion": 21
+      "exhaustion": 55,
+      "angler": 15,
+      "bear": 80,
+      "heat": 2
      }
     },
     "spawn": {
-     "attempts": 24,
-     "deaths": 14,
-     "rate": 0.5833333333333334,
-     "ci": 0.19724373904535625,
+     "attempts": 25,
+     "deaths": 5,
+     "rate": 0.2,
+     "ci": 0.1568,
      "causes": {
-      "bear": 14
+      "bear": 3,
+      "noSpawn": 2
      }
     }
    },
    "seconds": {
     "egg": {
-     "ok": 34.102436647172816,
-     "all": 28.20903890160149
+     "ok": 34.39673590504379,
+     "all": 28.31636610432393
     },
     "fry": {
-     "ok": 82.9564714388976,
-     "all": 65.87805590320995
+     "ok": 82.89889867841072,
+     "all": 65.2123910336214
     },
     "smolt": {
-     "ok": 38.77740240240147,
-     "all": 25.034786620530184
+     "ok": 40.054240631162706,
+     "all": 20.57953697608056
     },
     "ocean": {
-     "ok": 84.50146396396046,
-     "all": 69.90462427745402
+     "ok": 84.35030303029951,
+     "all": 70.69310575635603
     },
     "return": {
-     "ok": 56.28541666666476,
-     "all": 39.687215909089836
+     "ok": 66.51904761904514,
+     "all": 56.41289537712698
     },
     "spawn": {
-     "ok": 109.26833333333084,
-     "all": 89.99513888888613
+     "ok": 90.33416666666344,
+     "all": 87.17266666666356
     }
    },
    "broodLoss": {
-    "egg": 0.145,
-    "fry": 0.0825,
-    "smolt": 0.495,
-    "ocean": 0.0925,
-    "return": 0.165,
-    "spawn": 0.0075
+    "egg": 0.1575,
+    "fry": 0.07375,
+    "smolt": 0.5575,
+    "ocean": 0.07375,
+    "return": 0.11125,
+    "spawn": 0.00125
    },
    "broodLossGivenReach": {
-    "egg": 0.145,
-    "fry": 0.09649122807017543,
-    "smolt": 0.6407766990291263,
-    "ocean": 0.3333333333333333,
-    "return": 0.8918918918918919,
-    "spawn": 0.375
+    "egg": 0.1575,
+    "fry": 0.08753709198813056,
+    "smolt": 0.7252032520325203,
+    "ocean": 0.34911242603550297,
+    "return": 0.8090909090909091,
+    "spawn": 0.047619047619047616
    },
-   "offscreenShare": 0.027332704995287466,
-   "oceanSeaShare": 0.4393939393939394,
-   "jackShareOfMales": 0.06060606060606061,
-   "malesMatured": 99,
-   "jackPerDecision": 0.04838709677419355,
-   "decisions": 124,
-   "broodEmerged": 0.20784600389863556
+   "offscreenShare": 0.021128981393882057,
+   "oceanSeaShare": 0.48201438848920863,
+   "jackShareOfMales": 0.05555555555555555,
+   "malesMatured": 72,
+   "jackPerDecision": 0.045454545454545456,
+   "decisions": 88,
+   "broodEmerged": 0.20314045499505443
   },
   {
    "difficulty": "wild",
    "skill": "average",
    "lives": 800,
    "brood": 4,
-   "completion": 0.5475,
-   "completionCi": 0.03449152776407562,
+   "completion": 0.40875,
+   "completionCi": 0.034066344783011286,
    "timeouts": 0,
-   "firstFishCompletion": 0.07375,
-   "siblingsUsedMean": 2.295,
-   "siblingsUsedCompletedMean": 1.7123287671232876,
-   "playSecondsMean": 415.2719791666524,
-   "playSecondsCompletedMean": 473.36704718415467,
+   "firstFishCompletion": 0.04375,
+   "siblingsUsedMean": 2.52375,
+   "siblingsUsedCompletedMean": 1.834862385321101,
+   "playSecondsMean": 426.9492083333192,
+   "playSecondsCompletedMean": 484.1739041793915,
    "stages": {
     "egg": {
      "attempts": 805,
@@ -582,133 +582,134 @@
      }
     },
     "fry": {
-     "attempts": 954,
-     "deaths": 154,
-     "rate": 0.16142557651991615,
-     "ci": 0.02334741823932688,
+     "attempts": 933,
+     "deaths": 134,
+     "rate": 0.14362272240085744,
+     "ci": 0.02250398318106993,
      "causes": {
-      "trout": 154
+      "trout": 134
      }
     },
     "smolt": {
-     "attempts": 1646,
-     "deaths": 977,
-     "rate": 0.5935601458080194,
-     "ci": 0.02372857543610467,
+     "attempts": 1538,
+     "deaths": 834,
+     "rate": 0.5422626788036411,
+     "ci": 0.024899517017240646,
      "causes": {
-      "seal": 706,
-      "char": 212,
-      "merganser": 57,
-      "bird": 2
+      "char": 240,
+      "merganser": 156,
+      "seal": 437,
+      "bird": 1
      }
     },
     "ocean": {
-     "attempts": 1191,
-     "deaths": 643,
-     "rate": 0.5398824517212426,
-     "ci": 0.028306371022556176,
+     "attempts": 1260,
+     "deaths": 664,
+     "rate": 0.526984126984127,
+     "ci": 0.02756813731080466,
      "causes": {
-      "seal": 227,
-      "sea": 373,
-      "orca": 36,
-      "shark": 7
+      "sea": 405,
+      "seal": 207,
+      "orca": 47,
+      "shark": 5
      }
     },
     "return:sea": {
-     "attempts": 572,
-     "deaths": 55,
-     "rate": 0.09615384615384616,
-     "ci": 0.024159539078918987,
+     "attempts": 641,
+     "deaths": 53,
+     "rate": 0.08268330733229329,
+     "ci": 0.021320413575155177,
      "causes": {
-      "gillnet": 32,
-      "exhaustion": 23
+      "gillnet": 44,
+      "exhaustion": 9
      }
     },
     "return:river": {
-     "attempts": 734,
-     "deaths": 277,
-     "rate": 0.3773841961852861,
-     "ci": 0.03506791668264171,
+     "attempts": 1110,
+     "deaths": 769,
+     "rate": 0.6927927927927928,
+     "ci": 0.02714013243681549,
      "causes": {
-      "bear": 125,
-      "exhaustion": 127,
-      "angler": 25
+      "exhaustion": 498,
+      "bear": 137,
+      "heat": 55,
+      "angler": 79
      }
     },
     "spawn": {
-     "attempts": 525,
-     "deaths": 87,
-     "rate": 0.1657142857142857,
-     "ci": 0.031806347374908256,
+     "attempts": 360,
+     "deaths": 33,
+     "rate": 0.09166666666666666,
+     "ci": 0.029808022575752036,
      "causes": {
-      "bear": 83,
-      "noSpawn": 4
+      "bear": 27,
+      "noSpawn": 6
      }
     }
    },
    "seconds": {
     "egg": {
-     "ok": 36.14133333333261,
-     "all": 36.07283643892267
+     "ok": 36.037624999999224,
+     "all": 35.96989648033048
     },
     "fry": {
-     "ok": 82.84724186704065,
-     "all": 77.05296208530517
+     "ok": 82.84551548774525,
+     "all": 77.86851190475893
     },
     "smolt": {
-     "ok": 39.216317887393174,
-     "all": 32.4637505062771
+     "ok": 40.63357007575659,
+     "all": 32.13603164282541
     },
     "ocean": {
-     "ok": 83.33339416058058,
-     "all": 72.90124545199826
+     "ok": 83.77114093959396,
+     "all": 73.91820105819815
     },
     "return": {
-     "ok": 62.90356425702582,
-     "all": 66.11398601398365
+     "ok": 75.08386075949072,
+     "all": 75.90036401455755
     },
     "spawn": {
-     "ok": 90.89733637747074,
-     "all": 85.82584126983878
+     "ok": 89.67956167176031,
+     "all": 86.5260648148117
     }
    },
    "broodLoss": {
     "egg": 0,
-    "fry": 0,
-    "smolt": 0.16375,
-    "ocean": 0.15125,
-    "return": 0.11375,
-    "spawn": 0.02375
+    "fry": 0.00125,
+    "smolt": 0.11875,
+    "ocean": 0.135,
+    "return": 0.31875,
+    "spawn": 0.0175
    },
    "broodLossGivenReach": {
     "egg": 0,
-    "fry": 0,
-    "smolt": 0.16375,
-    "ocean": 0.18086696562032886,
-    "return": 0.16605839416058393,
-    "spawn": 0.04157549234135667
+    "fry": 0.00125,
+    "smolt": 0.11889862327909888,
+    "ocean": 0.1534090909090909,
+    "return": 0.4278523489932886,
+    "spawn": 0.04105571847507331
    },
-   "offscreenShare": 0.1696997270245678,
-   "oceanSeaShare": 0.5800933125972006,
-   "jackShareOfMales": 0.07165109034267912,
-   "malesMatured": 321,
-   "jackPerDecision": 0.05021834061135371,
-   "decisions": 458,
-   "broodEmerged": 0.19416666666666657
+   "offscreenShare": 0.16252006420545748,
+   "oceanSeaShare": 0.6099397590361446,
+   "jackShareOfMales": 0.0728862973760933,
+   "malesMatured": 343,
+   "jackPerDecision": 0.04770992366412214,
+   "decisions": 524,
+   "broodEmerged": 0.1869791666666666
   },
   {
    "difficulty": "wild",
    "skill": "skilled",
    "lives": 800,
    "brood": 4,
-   "completion": 0.83625,
-   "completionCi": 0.025643056991610805,
+   "completion": 0.68,
+   "completionCi": 0.03232514810484246,
    "timeouts": 0,
-   "firstFishCompletion": 0.27375,
-   "siblingsUsedMean": 1.46875,
-   "siblingsUsedCompletedMean": 1.1689088191330343,
-   "playSecondsMean": 468.27437499998354,
-   "playSecondsCompletedMean": 468.38664673640636,
+   "firstFishCompletion": 0.1375,
+   "siblingsUsedMean": 2.015,
+   "siblingsUsedCompletedMean": 1.5514705882352942,
+   "playSecondsMean": 477.6799999999836,
+   "playSecondsCompletedMean": 491.7021446078258,
    "stages": {
     "egg": {
      "attempts": 800,
@@ -718,116 +719,117 @@
      "causes": {}
     },
     "fry": {
-     "attempts": 912,
-     "deaths": 112,
-     "rate": 0.12280701754385964,
-     "ci": 0.02130187435209145,
+     "attempts": 905,
+     "deaths": 105,
+     "rate": 0.11602209944751381,
+     "ci": 0.02086521410821166,
      "causes": {
-      "trout": 112
+      "trout": 105
      }
     },
     "smolt": {
-     "attempts": 1026,
-     "deaths": 232,
-     "rate": 0.22612085769980506,
-     "ci": 0.025597012106531182,
+     "attempts": 1126,
+     "deaths": 340,
+     "rate": 0.3019538188277087,
+     "ci": 0.026816322327445342,
      "causes": {
-      "merganser": 6,
-      "seal": 105,
-      "char": 121
+      "seal": 151,
+      "char": 151,
+      "merganser": 38
      }
     },
     "ocean": {
-     "attempts": 1357,
-     "deaths": 620,
-     "rate": 0.45689019896831246,
-     "ci": 0.026504272531137404,
+     "attempts": 1327,
+     "deaths": 609,
+     "rate": 0.4589299171062547,
+     "ci": 0.02681146565850919,
      "causes": {
-      "sea": 490,
-      "seal": 130
+      "sea": 466,
+      "seal": 143
      }
     },
     "return:sea": {
-     "attempts": 740,
-     "deaths": 32,
-     "rate": 0.043243243243243246,
-     "ci": 0.014655482113627782,
+     "attempts": 724,
+     "deaths": 5,
+     "rate": 0.006906077348066298,
+     "ci": 0.00603250470659762,
      "causes": {
-      "exhaustion": 29,
+      "exhaustion": 2,
       "gillnet": 3
      }
     },
     "return:river": {
-     "attempts": 894,
-     "deaths": 207,
-     "rate": 0.23154362416107382,
-     "ci": 0.027651158676507227,
+     "attempts": 1263,
+     "deaths": 685,
+     "rate": 0.5423594615993665,
+     "ci": 0.02747642659059057,
      "causes": {
-      "exhaustion": 198,
-      "angler": 8,
-      "bear": 1
+      "exhaustion": 518,
+      "bear": 55,
+      "heat": 70,
+      "angler": 42
      }
     },
     "spawn": {
-     "attempts": 772,
-     "deaths": 103,
-     "rate": 0.133419689119171,
-     "ci": 0.02398621886261795,
+     "attempts": 668,
+     "deaths": 124,
+     "rate": 0.18562874251497005,
+     "ci": 0.029485036523021847,
      "causes": {
-      "bear": 42,
-      "noSpawn": 61
+      "bear": 32,
+      "noSpawn": 92
      }
     }
    },
    "seconds": {
     "egg": {
-     "ok": 36.45616666666593,
-     "all": 36.45616666666593
+     "ok": 36.23589583333256,
+     "all": 36.23589583333256
     },
     "fry": {
-     "ok": 82.83575498575192,
-     "all": 80.56674968866459
+     "ok": 82.85275829826706,
+     "all": 80.90624219725045
     },
     "smolt": {
-     "ok": 38.31238455079679,
-     "all": 34.11756010396288
+     "ok": 38.89758269720014,
+     "all": 33.66253700414377
     },
     "ocean": {
-     "ok": 83.48998190863519,
-     "all": 78.22687300417277
+     "ok": 83.86183844010795,
+     "all": 78.16802310976828
     },
     "return": {
-     "ok": 59.03412698412485,
-     "all": 66.57786036035783
+     "ok": 74.16472392637749,
+     "all": 78.40172651933396
     },
     "spawn": {
-     "ok": 95.46509715993744,
-     "all": 96.19078151985902
+     "ok": 94.22193627450658,
+     "all": 96.91823852295063
     }
    },
    "broodLoss": {
     "egg": 0,
     "fry": 0,
-    "smolt": 0.0075,
-    "ocean": 0.07125,
-    "return": 0.0625,
-    "spawn": 0.0225
+    "smolt": 0.0175,
+    "ocean": 0.085,
+    "return": 0.175,
+    "spawn": 0.0425
    },
    "broodLossGivenReach": {
     "egg": 0,
     "fry": 0,
-    "smolt": 0.0075,
-    "ocean": 0.07178841309823678,
-    "return": 0.06784260515603799,
-    "spawn": 0.026200873362445413
+    "smolt": 0.0175,
+    "ocean": 0.08651399491094147,
+    "return": 0.19498607242339833,
+    "spawn": 0.058823529411764705
    },
-   "offscreenShare": 0.37519142419601836,
-   "oceanSeaShare": 0.7903225806451613,
-   "jackShareOfMales": 0.10803324099722991,
-   "malesMatured": 361,
-   "jackPerDecision": 0.06951871657754011,
-   "decisions": 561,
-   "broodEmerged": 0.1902083333333332
+   "offscreenShare": 0.2494646680942184,
+   "oceanSeaShare": 0.7651888341543513,
+   "jackShareOfMales": 0.09831460674157304,
+   "malesMatured": 356,
+   "jackPerDecision": 0.06457564575645756,
+   "decisions": 542,
+   "broodEmerged": 0.18822916666666667
   }
  ],
  "roles": [
@@ -836,213 +838,213 @@
    "skill": "novice",
    "role": "female",
    "n": 150,
-   "spawned": 107,
+   "spawned": 113,
    "causes": {
-    "bear": 41,
-    "noSpawn": 2
+    "noSpawn": 9,
+    "bear": 28
    },
-   "fitnessMean": 0.1632609872592453
+   "fitnessMean": 0.15822745729707777
   },
   {
    "difficulty": "fieldGuide",
    "skill": "novice",
    "role": "largeMale",
    "n": 150,
-   "spawned": 103,
+   "spawned": 112,
    "causes": {
-    "bear": 34,
-    "noSpawn": 13
+    "noSpawn": 17,
+    "bear": 21
    },
-   "fitnessMean": 0.4920906148867315
+   "fitnessMean": 0.4990850340136054
   },
   {
    "difficulty": "fieldGuide",
    "skill": "novice",
    "role": "jack",
    "n": 150,
-   "spawned": 79,
+   "spawned": 76,
    "causes": {
-    "bear": 18,
-    "noSpawn": 53
+    "noSpawn": 68,
+    "bear": 6
    },
-   "fitnessMean": 0.12272935503315248
+   "fitnessMean": 0.12165914786967413
   },
   {
    "difficulty": "fieldGuide",
    "skill": "average",
    "role": "female",
    "n": 150,
-   "spawned": 141,
+   "spawned": 137,
    "causes": {
-    "bear": 9
+    "bear": 13
    },
-   "fitnessMean": 0.07738549620701594
+   "fitnessMean": 0.08147926501895335
   },
   {
    "difficulty": "fieldGuide",
    "skill": "average",
    "role": "largeMale",
-   "n": 150,
-   "spawned": 139,
-   "causes": {
-    "bear": 10,
-    "noSpawn": 1
-   },
-   "fitnessMean": 0.5120301473107228
-  },
-  {
-   "difficulty": "fieldGuide",
-   "skill": "average",
-   "role": "jack",
-   "n": 150,
-   "spawned": 120,
-   "causes": {
-    "bear": 15,
-    "noSpawn": 15
-   },
-   "fitnessMean": 0.18021587301587302
-  },
-  {
-   "difficulty": "fieldGuide",
-   "skill": "skilled",
-   "role": "female",
    "n": 150,
    "spawned": 138,
    "causes": {
-    "noSpawn": 6,
-    "bear": 6
-   },
-   "fitnessMean": 0.042838850264029664
-  },
-  {
-   "difficulty": "fieldGuide",
-   "skill": "skilled",
-   "role": "largeMale",
-   "n": 150,
-   "spawned": 147,
-   "causes": {
-    "noSpawn": 3
-   },
-   "fitnessMean": 0.5392938127632004
-  },
-  {
-   "difficulty": "fieldGuide",
-   "skill": "skilled",
-   "role": "jack",
-   "n": 150,
-   "spawned": 140,
-   "causes": {
-    "bear": 8,
-    "noSpawn": 2
-   },
-   "fitnessMean": 0.26991020408163247
-  },
-  {
-   "difficulty": "wild",
-   "skill": "novice",
-   "role": "female",
-   "n": 150,
-   "spawned": 83,
-   "causes": {
-    "bear": 65,
-    "noSpawn": 2
-   },
-   "fitnessMean": 0.14169886690082764
-  },
-  {
-   "difficulty": "wild",
-   "skill": "novice",
-   "role": "largeMale",
-   "n": 150,
-   "spawned": 94,
-   "causes": {
-    "bear": 41,
-    "noSpawn": 15
-   },
-   "fitnessMean": 0.4680891590678824
-  },
-  {
-   "difficulty": "wild",
-   "skill": "novice",
-   "role": "jack",
-   "n": 150,
-   "spawned": 69,
-   "causes": {
-    "noSpawn": 60,
-    "bear": 21
-   },
-   "fitnessMean": 0.11454520358868185
-  },
-  {
-   "difficulty": "wild",
-   "skill": "average",
-   "role": "female",
-   "n": 150,
-   "spawned": 110,
-   "causes": {
-    "bear": 40
-   },
-   "fitnessMean": 0.06667538436969056
-  },
-  {
-   "difficulty": "wild",
-   "skill": "average",
-   "role": "largeMale",
-   "n": 150,
-   "spawned": 127,
-   "causes": {
     "noSpawn": 7,
-    "bear": 16
+    "bear": 5
    },
-   "fitnessMean": 0.5229456317960256
+   "fitnessMean": 0.5249468599033812
   },
   {
-   "difficulty": "wild",
+   "difficulty": "fieldGuide",
    "skill": "average",
    "role": "jack",
    "n": 150,
-   "spawned": 129,
+   "spawned": 128,
    "causes": {
-    "noSpawn": 15,
-    "bear": 6
+    "noSpawn": 10,
+    "bear": 12
    },
-   "fitnessMean": 0.19013953488372087
+   "fitnessMean": 0.18198214285714281
   },
   {
-   "difficulty": "wild",
+   "difficulty": "fieldGuide",
    "skill": "skilled",
    "role": "female",
    "n": 150,
-   "spawned": 121,
+   "spawned": 123,
    "causes": {
-    "noSpawn": 15,
-    "bear": 14
+    "noSpawn": 23,
+    "bear": 4
    },
-   "fitnessMean": 0.057253239158828705
+   "fitnessMean": 0.04807098242951422
   },
   {
-   "difficulty": "wild",
+   "difficulty": "fieldGuide",
    "skill": "skilled",
    "role": "largeMale",
    "n": 150,
-   "spawned": 143,
+   "spawned": 145,
    "causes": {
-    "bear": 2,
-    "noSpawn": 5
+    "noSpawn": 3,
+    "bear": 2
    },
-   "fitnessMean": 0.5428251748251743
+   "fitnessMean": 0.5324269293924467
   },
   {
-   "difficulty": "wild",
+   "difficulty": "fieldGuide",
    "skill": "skilled",
    "role": "jack",
    "n": 150,
    "spawned": 136,
    "causes": {
-    "noSpawn": 5,
-    "bear": 9
+    "bear": 11,
+    "noSpawn": 3
    },
-   "fitnessMean": 0.26987675070028017
+   "fitnessMean": 0.2815378151260503
+  },
+  {
+   "difficulty": "wild",
+   "skill": "novice",
+   "role": "female",
+   "n": 150,
+   "spawned": 91,
+   "causes": {
+    "bear": 46,
+    "noSpawn": 13
+   },
+   "fitnessMean": 0.14825483181336113
+  },
+  {
+   "difficulty": "wild",
+   "skill": "novice",
+   "role": "largeMale",
+   "n": 150,
+   "spawned": 109,
+   "causes": {
+    "noSpawn": 12,
+    "bear": 29
+   },
+   "fitnessMean": 0.5045696810834427
+  },
+  {
+   "difficulty": "wild",
+   "skill": "novice",
+   "role": "jack",
+   "n": 150,
+   "spawned": 86,
+   "causes": {
+    "noSpawn": 51,
+    "bear": 13
+   },
+   "fitnessMean": 0.12141306755260242
+  },
+  {
+   "difficulty": "wild",
+   "skill": "average",
+   "role": "female",
+   "n": 150,
+   "spawned": 134,
+   "causes": {
+    "bear": 16
+   },
+   "fitnessMean": 0.09233611460824338
+  },
+  {
+   "difficulty": "wild",
+   "skill": "average",
+   "role": "largeMale",
+   "n": 150,
+   "spawned": 136,
+   "causes": {
+    "bear": 7,
+    "noSpawn": 7
+   },
+   "fitnessMean": 0.528918767507003
+  },
+  {
+   "difficulty": "wild",
+   "skill": "average",
+   "role": "jack",
+   "n": 150,
+   "spawned": 123,
+   "causes": {
+    "noSpawn": 17,
+    "bear": 10
+   },
+   "fitnessMean": 0.18533797909407657
+  },
+  {
+   "difficulty": "wild",
+   "skill": "skilled",
+   "role": "female",
+   "n": 150,
+   "spawned": 122,
+   "causes": {
+    "bear": 8,
+    "noSpawn": 20
+   },
+   "fitnessMean": 0.0735864813214012
+  },
+  {
+   "difficulty": "wild",
+   "skill": "skilled",
+   "role": "largeMale",
+   "n": 150,
+   "spawned": 141,
+   "causes": {
+    "bear": 3,
+    "noSpawn": 6
+   },
+   "fitnessMean": 0.5357811550151979
+  },
+  {
+   "difficulty": "wild",
+   "skill": "skilled",
+   "role": "jack",
+   "n": 150,
+   "spawned": 137,
+   "causes": {
+    "bear": 13
+   },
+   "fitnessMean": 0.2717358359402155
   }
  ],
  "lineages": [
@@ -1065,146 +1067,146 @@
    ],
    "meanGenerationsPlayed": 10,
    "completionByGen": [
+    0.72,
+    0.88,
     0.86,
-    0.82,
+    0.72,
     0.78,
-    0.82,
-    0.8,
-    0.86,
-    0.66,
-    0.8,
-    0.78,
-    0.78
+    0.84,
+    0.88,
+    0.76,
+    0.76,
+    0.82
    ],
-   "strayRate": 0.182,
-   "jackShareOfMales": 0.028,
-   "malesMatured": 250,
+   "strayRate": 0.18,
+   "jackShareOfMales": 0.07234042553191489,
+   "malesMatured": 235,
    "jackByGen": [
     {
-     "males": 24,
+     "males": 23,
+     "jacks": 3
+    },
+    {
+     "males": 21,
      "jacks": 0
-    },
-    {
-     "males": 15,
-     "jacks": 1
-    },
-    {
-     "males": 28,
-     "jacks": 1
-    },
-    {
-     "males": 19,
-     "jacks": 1
-    },
-    {
-     "males": 27,
-     "jacks": 1
     },
     {
      "males": 25,
+     "jacks": 2
+    },
+    {
+     "males": 26,
+     "jacks": 1
+    },
+    {
+     "males": 22,
      "jacks": 0
     },
     {
-     "males": 27,
+     "males": 21,
      "jacks": 0
     },
     {
-     "males": 29,
+     "males": 26,
      "jacks": 1
     },
     {
-     "males": 27,
+     "males": 23,
      "jacks": 1
     },
     {
-     "males": 29,
-     "jacks": 1
+     "males": 22,
+     "jacks": 2
+    },
+    {
+     "males": 26,
+     "jacks": 7
     }
    ],
    "bvByGen": {
     "size": [
      0.09129697254341368,
-     0.10631599444611442,
-     0.028712384595478122,
-     0.1936008454980046,
-     0.09405709848520633,
-     0.1966159067341027,
-     0.22701636312954854,
-     0.25558874504158974,
-     0.10416647682093255,
-     0.20147841220283638
+     -0.1416074584564129,
+     0.09310355398649735,
+     0.026350283042017537,
+     0.09805369049237583,
+     0.1753064422065663,
+     0.17537239657892237,
+     0.16881516167453292,
+     0.3197617414339657,
+     0.3021915234026956
     ],
     "jack": [
      0.016676105741586855,
-     0.10828284054287343,
-     0.11122163264131243,
-     -0.012011345098587091,
-     -0.022285144193094873,
-     -0.06059044636572525,
-     -0.007783622975091236,
-     0.041900463666330226,
-     -0.018365513059708575,
-     -0.07239957697109697
+     -0.012650588683023245,
+     -0.0003313275477164657,
+     -0.08201206072645992,
+     0.11355310015074532,
+     -0.07257569750096278,
+     -0.13208080339049227,
+     -0.12008526078332307,
+     0.019860380701572304,
+     0.0440102732554618
     ],
     "runTiming": [
      0.10160089371265207,
-     0.12565439443792703,
-     0.037021940058245176,
-     0.08510377927405369,
-     -0.16984487579542076,
-     -0.010821151730076925,
-     -0.11253585496758114,
-     -0.16893281911432945,
-     -0.13828830592377692,
-     -0.05255961524919579
+     0.09657836311970368,
+     0.070003084350411,
+     0.11320613904853932,
+     0.060891062348702396,
+     0.0861451680413024,
+     -0.0304513148096779,
+     -0.16229540437840392,
+     -0.23881461057425002,
+     -0.2654611666675798
     ],
     "oceanAge": [
      -0.08648409253917513,
-     0.007546355437321599,
-     0.02023860845565858,
-     -0.05986707016764379,
-     0.08347967355830056,
-     0.05633840860903593,
-     0.156878581652152,
-     0.13591641371608232,
-     0.08799336780997874,
-     -0.08785343158598065
+     -0.03153295386261024,
+     -0.0402989508927248,
+     0.0074698989797316265,
+     0.014002923474353314,
+     0.1383547341474503,
+     -0.03119884338379175,
+     -0.16179671303141185,
+     -0.10705000789793702,
+     -0.11582831413945069
     ],
     "homing": [
      0.09896705947811717,
-     0.17360002572370392,
-     0.09660317639909159,
-     -0.04627868907977488,
-     0.0540317606684481,
-     0.0588923272998737,
-     -0.036084776213232576,
-     0.12552698801317896,
-     0.11993624457074717,
-     0.08414133494054774
+     -0.054504263384135276,
+     -0.10026206461549236,
+     -0.17505618075282214,
+     -0.08293436849821395,
+     0.05286659077818605,
+     0.007561672166140574,
+     0.048572978579151174,
+     0.005455193475483765,
+     -0.0392871912258765
     ],
     "bodyDepth": [
      -0.05448760586277451,
-     -0.0431034663951268,
-     0.13121887026346726,
-     0.19229529908252158,
-     0.08139109354503414,
-     0.055039083802810716,
-     0.11219590448478983,
-     0.2705144564743173,
-     0.3087548787827032,
-     0.23116271421418436
+     0.21267356958921393,
+     0.3091285865819128,
+     0.31497202076589215,
+     0.15831837422974493,
+     0.1872785608833448,
+     0.1996179879571603,
+     0.08147788428156945,
+     0.10849207024811264,
+     0.20381779878649867
     ],
     "eggTradeoff": [
      -0.10923091555685,
-     -0.12839869956881272,
-     -0.1632543985936486,
-     -0.020184913285989165,
-     0.061306537106746585,
-     -0.061396646634723336,
-     -0.0603342417325168,
-     -0.09676445211119163,
-     -0.06786690650736907,
-     0.047631786523273795
+     0.022731745657242956,
+     -0.03642123408999061,
+     0.07968753614790415,
+     -0.012936778331157011,
+     0.13792292168162718,
+     0.06688723125542362,
+     -0.02260609233078364,
+     0.12027244423168444,
+     0.04630766743884068
     ]
    },
    "timeouts": 0
@@ -1229,145 +1231,145 @@
    "meanGenerationsPlayed": 10,
    "completionByGen": [
     0.96,
-    0.9,
-    0.94,
     0.98,
-    0.96,
-    0.94,
-    0.94,
+    1,
     0.96,
     1,
-    0.94
+    1,
+    1,
+    1,
+    0.96,
+    0.96
    ],
-   "strayRate": 0.042,
-   "jackShareOfMales": 0.07755102040816327,
-   "malesMatured": 245,
+   "strayRate": 0.014,
+   "jackShareOfMales": 0.042801556420233464,
+   "malesMatured": 257,
    "jackByGen": [
     {
      "males": 23,
-     "jacks": 1
-    },
-    {
-     "males": 23,
-     "jacks": 6
+     "jacks": 2
     },
     {
      "males": 25,
-     "jacks": 3
+     "jacks": 0
     },
     {
-     "males": 24,
-     "jacks": 3
+     "males": 25,
+     "jacks": 2
     },
     {
-     "males": 27,
+     "males": 26,
      "jacks": 2
     },
     {
      "males": 28,
+     "jacks": 2
+    },
+    {
+     "males": 25,
+     "jacks": 0
+    },
+    {
+     "males": 27,
+     "jacks": 0
+    },
+    {
+     "males": 27,
      "jacks": 0
     },
     {
      "males": 26,
-     "jacks": 0
-    },
-    {
-     "males": 21,
-     "jacks": 1
-    },
-    {
-     "males": 29,
      "jacks": 2
     },
     {
-     "males": 19,
+     "males": 25,
      "jacks": 1
     }
    ],
    "bvByGen": {
     "size": [
      0.020568861437720614,
-     -0.08064623096710628,
-     0.0884381842555894,
-     0.020749386139987044,
-     0.01962056491460368,
-     0.03438338780831801,
-     0.1780329696737934,
-     0.09326244096331489,
-     0.08213079726824686,
-     0.07856744571686405
+     0.09212245070192995,
+     0.08471732320817395,
+     -0.04803395978465044,
+     -0.05678467781170677,
+     -0.07712502763027133,
+     -0.06083452307284583,
+     -0.026951466998713057,
+     0.06392673525813718,
+     0.10098558982722587
     ],
     "jack": [
      0.13760740755979162,
-     -0.05155281385837867,
-     0.08126727083661231,
-     -0.02645461888686797,
-     -0.0425925119429301,
-     -0.07482563561815794,
-     -0.07684448317199143,
-     0.0519998679564363,
-     0.11494806776149258,
-     0.09476498890901099
+     0.12347701256432403,
+     -0.026917004361675233,
+     -0.1948801926818906,
+     -0.1090993836073382,
+     -0.11469736618959298,
+     -0.22660714305172117,
+     -0.011240472080452308,
+     0.04710017438231992,
+     -0.04789813813684744
     ],
     "runTiming": [
      0.010263910094379327,
-     0.11785205936511983,
-     0.01456032446738881,
-     0.10527956378647212,
-     -0.031196439391988795,
-     -0.09854474259212123,
-     -0.0006465425187758778,
-     -0.08445087980575824,
-     0.0172161930130289,
-     -0.015979818895103134
+     -0.003570620876670594,
+     -0.19661728553806337,
+     -0.1114664958965562,
+     0.06009067833970115,
+     0.08483999583120079,
+     -0.001937364899034364,
+     -0.10690103887070357,
+     -0.004148605645347209,
+     0.04205113067607723
     ],
     "oceanAge": [
      0.06091241814696988,
-     0.06951835253510144,
-     0.12627426328267904,
-     0.004851102543512695,
-     0.04383039765990306,
-     -0.0244952386274757,
-     -0.05071436542896752,
-     0.09294224866532762,
-     -0.026689022905147314,
-     0.05450188179238232
+     -0.14964273119291124,
+     -0.13382904148795555,
+     -0.20959081179139577,
+     -0.03006696255220841,
+     -0.1519376546946803,
+     -0.08252011308351012,
+     -0.033715421052881764,
+     0.020927262744959815,
+     -0.024041610299581115
     ],
     "homing": [
      -0.020277983492165027,
-     0.08790550944221112,
-     0.01228968896444272,
-     -0.1258713632537879,
-     -0.03878501469622182,
-     0.098293393159602,
-     -0.06025596818160235,
-     -0.06948481018403822,
-     -0.08253706607635536,
-     -0.09493631487822622
+     0.032400364500966734,
+     0.023345990143650113,
+     -0.003678046743886485,
+     -0.08784855343179437,
+     -0.058253942268484925,
+     0.12781390250810543,
+     -0.0025549488822748166,
+     -0.07449047719122855,
+     0.028264832903816255
     ],
     "bodyDepth": [
      -0.21541664438013583,
-     -0.17636470639829507,
-     -0.028228720073621448,
-     0.04390682604417954,
-     0.08339979592552865,
-     -0.010434865574824075,
-     -0.20013064097344316,
-     -0.06658167277679931,
-     0.08742613931512362,
-     0.09845626325867446
+     -0.11439169184705414,
+     -0.10609591237378342,
+     0.08801067560726386,
+     0.14639137320549958,
+     0.10010751279856724,
+     -0.01667024869352255,
+     -0.015361738807141116,
+     -0.1057651233378658,
+     0.05968639605002477
     ],
     "eggTradeoff": [
      0.03105211030095207,
-     -0.11983426520399537,
-     -0.09100025246734718,
-     -0.07157755537702061,
-     -0.031202163065024897,
-     0.02776831197340102,
-     0.05415387249752085,
-     0.04634822595423039,
-     0.03615792039437447,
-     -0.07238359207991855
+     0.011400712371083994,
+     0.011451903691054744,
+     0.11277792137484692,
+     0.12750686987996374,
+     -0.07404381065808037,
+     -0.09475919083298527,
+     0.015929913438883683,
+     -0.03887551481424262,
+     -0.052989992530926934
     ]
    },
    "timeouts": 0
@@ -1392,145 +1394,145 @@
    "meanGenerationsPlayed": 10,
    "completionByGen": [
     0.98,
-    0.96,
     1,
     0.98,
     1,
     0.98,
+    0.98,
+    0.98,
     1,
     1,
-    1,
-    1
+    0.98
    ],
    "strayRate": 0.01,
-   "jackShareOfMales": 0.05791505791505792,
-   "malesMatured": 259,
+   "jackShareOfMales": 0.03418803418803419,
+   "malesMatured": 234,
    "jackByGen": [
     {
      "males": 23,
-     "jacks": 2
+     "jacks": 1
     },
     {
      "males": 25,
-     "jacks": 1
+     "jacks": 0
     },
     {
-     "males": 29,
-     "jacks": 2
+     "males": 25,
+     "jacks": 0
     },
     {
-     "males": 24,
-     "jacks": 2
-    },
-    {
-     "males": 27,
-     "jacks": 1
-    },
-    {
-     "males": 27,
-     "jacks": 2
-    },
-    {
-     "males": 26,
-     "jacks": 2
-    },
-    {
-     "males": 27,
-     "jacks": 2
-    },
-    {
-     "males": 27,
-     "jacks": 1
+     "males": 25,
+     "jacks": 4
     },
     {
      "males": 24,
+     "jacks": 2
+    },
+    {
+     "males": 21,
+     "jacks": 0
+    },
+    {
+     "males": 17,
+     "jacks": 0
+    },
+    {
+     "males": 23,
+     "jacks": 1
+    },
+    {
+     "males": 23,
+     "jacks": 0
+    },
+    {
+     "males": 28,
      "jacks": 0
     }
    ],
    "bvByGen": {
     "size": [
      0.024143911302607863,
-     0.027155263189998342,
-     0.12572702599207747,
-     0.05802718566120257,
-     0.07041150722698157,
-     0.12384999923409432,
-     0.002669813090557952,
-     0.029683997441145662,
-     0.03869184307766387,
-     0.04375659124353188
+     0.006498971259950097,
+     0.05011327685482641,
+     0.10551354768064439,
+     0.1346605113524738,
+     -0.037356018704397094,
+     -0.0647371466773931,
+     -0.2018308582760719,
+     -0.053860707150197314,
+     -0.10981829956967148
     ],
     "jack": [
      0.04955231797522881,
-     0.09571603254713265,
-     0.010884611436468511,
-     -0.048024415245913984,
-     -0.039779178836584037,
-     -0.013582194630065549,
-     -0.03279747579463951,
-     0.012333443152094108,
-     -0.09025303579337683,
-     -0.06157540990662072
+     0.0782438347068248,
+     0.06612652077952541,
+     0.022275838705188372,
+     0.13912617517144882,
+     -0.0026935136665174374,
+     -0.03797484118792263,
+     0.027503883386198212,
+     -0.08638715585737498,
+     -0.0627929862800205
     ],
     "runTiming": [
      0.10262756631257709,
-     0.017433115989480007,
-     -0.06131009251325788,
-     0.1269456336391216,
-     -0.0751442211927875,
-     -0.11352815433658428,
-     -0.09524980076845826,
-     -0.12365145380707517,
-     0.04469829846187833,
-     -0.05465532021704592
+     0.030035401415622595,
+     0.17563277404233232,
+     -0.003841190990246559,
+     -0.000838754238158379,
+     -0.045459148089593546,
+     -0.1217040345502542,
+     -0.030322733201378967,
+     -0.18194167664594219,
+     0.023213119166171702
     ],
     "oceanAge": [
      -0.02873719590031597,
-     -0.04533991951752636,
-     0.020998098356930162,
-     0.04777904714759005,
-     -0.09132673754849037,
-     -0.002964785675826965,
-     0.005387825742586728,
-     -0.008384852704165177,
-     0.08754303896586385,
-     0.03591321456018453
+     -0.005113211642846419,
+     0.013824083434897211,
+     -0.023105936900067327,
+     0.021761419629708394,
+     0.07306473546219473,
+     0.09682704906568027,
+     -0.09291324159383202,
+     0.0170908293617469,
+     -0.02682532454484333
     ],
     "homing": [
      0.11176069638493841,
-     0.0437123305675165,
-     0.07295448942887252,
-     -0.06658215109854052,
-     0.022185125658632742,
-     0.033206121663856246,
-     -0.003295573084068013,
-     -0.018144284594698953,
-     -0.07488377377740468,
-     -0.07724991418389532
+     0.11058209984956548,
+     0.10141035249816405,
+     0.03911214497097162,
+     -0.09296477579805662,
+     0.020711914187854976,
+     0.025821229949202645,
+     0.011244828886710377,
+     0.06181333141289849,
+     0.026102820318713294
     ],
     "bodyDepth": [
      -0.10066915384588716,
-     -0.24817331792874994,
-     -0.2148594250427094,
-     -0.16206057012288486,
-     -0.07946281604138376,
-     -0.06033676930906744,
-     0.056731458486796386,
-     0.052964668744768725,
-     -0.06239619387734585,
-     0.10350053907918864
+     -0.04115532071493368,
+     0.13397172824987952,
+     0.13795422606858765,
+     0.05408930351253753,
+     -0.07167010333286661,
+     0.04029441960711097,
+     -0.03591581664009758,
+     0.1725050649059393,
+     0.04287179841932421
     ],
     "eggTradeoff": [
      -0.06895298345501473,
-     -0.014809455926383792,
-     0.0047464505361647265,
-     -0.1069365814845281,
-     -0.12836912723456043,
-     -0.05282093976147061,
-     -0.08683961022515624,
-     -0.04366758657277007,
-     0.0544053005528288,
-     0.029207376765041683
+     -0.07658450681547306,
+     -0.03035170393807395,
+     -0.10417443866985057,
+     -0.03755800522923883,
+     0.09605184491469945,
+     0.059462015874111714,
+     0.06538594633961083,
+     0.07625808085510345,
+     -0.05115667477704551
     ]
    },
    "timeouts": 0
@@ -1567,10 +1569,10 @@
    ],
    "strayRate": 0,
    "jackShareOfMales": 0,
-   "malesMatured": 7,
+   "malesMatured": 3,
    "jackByGen": [
     {
-     "males": 7,
+     "males": 3,
      "jacks": 0
     },
     {
@@ -1705,51 +1707,47 @@
    "gens": 10,
    "alive": [
     1,
-    0.58,
-    0.38,
-    0.28,
-    0.18,
-    0.08,
-    0.04,
-    0.04,
+    0.4,
+    0.16,
+    0.06,
     0.02,
+    0.02,
+    0,
+    0,
+    0,
     0
    ],
-   "meanGenerationsPlayed": 2.6,
+   "meanGenerationsPlayed": 1.66,
    "completionByGen": [
-    0.58,
-    0.6551724137931034,
-    0.7368421052631579,
-    0.6428571428571429,
-    0.4444444444444444,
-    0.5,
+    0.4,
+    0.4,
+    0.375,
+    0.3333333333333333,
     1,
-    0.5,
+    0,
+    0,
+    0,
     0,
     0
    ],
    "strayRate": 0,
-   "jackShareOfMales": 0.13793103448275862,
-   "malesMatured": 58,
+   "jackShareOfMales": 0.1111111111111111,
+   "malesMatured": 36,
    "jackByGen": [
     {
-     "males": 22,
-     "jacks": 5
-    },
-    {
-     "males": 14,
+     "males": 23,
      "jacks": 2
     },
     {
-     "males": 12,
+     "males": 8,
+     "jacks": 2
+    },
+    {
+     "males": 4,
      "jacks": 0
     },
     {
-     "males": 6,
-     "jacks": 0
-    },
-    {
-     "males": 2,
+     "males": 1,
      "jacks": 0
     },
     {
@@ -1757,11 +1755,15 @@
      "jacks": 0
     },
     {
-     "males": 1,
-     "jacks": 1
+     "males": 0,
+     "jacks": 0
     },
     {
-     "males": 1,
+     "males": 0,
+     "jacks": 0
+    },
+    {
+     "males": 0,
      "jacks": 0
     },
     {
@@ -1776,86 +1778,86 @@
    "bvByGen": {
     "size": [
      0.05937849066130682,
-     0.033293814188791786,
-     0.19131727685332633,
-     0.29268871684119135,
-     0.017566258639404125,
-     -0.42020048027232304,
-     -0.40627403302281856,
-     -0.7656538855990612,
-     -0.24355418356299585,
+     -0.10719720876905306,
+     0.25459157172401387,
+     0.3059965655745048,
+     -0.08738284797415868,
+     -0.7716690981432868,
+     0,
+     0,
+     0,
      0
     ],
     "jack": [
      0.08048228133476831,
-     0.15251634394523095,
-     0.19499753520647975,
-     0.3811059980030934,
-     0.3676853575076138,
-     0.0941440052221525,
-     0.2831980539255268,
-     0.3775948971311748,
-     0.5269144385355662,
+     0.1904271290447804,
+     -0.29382771263497104,
+     -0.2055490602799778,
+     0.9958151986674126,
+     0.47251054126960096,
+     0,
+     0,
+     0,
      0
     ],
     "runTiming": [
      -0.002904607287530366,
-     0.05026747824149545,
-     0.3222682035645678,
-     0.2698425565775384,
-     0.09544909958987431,
-     0.36588568193355026,
-     0.3075787223574321,
-     0.11511873402733111,
-     0.24222922138355196,
+     0.07840624952676598,
+     -0.1989947642011927,
+     -0.5215889352426973,
+     -1.2933656755155551,
+     -1.7630894222971238,
+     0,
+     0,
+     0,
      0
     ],
     "oceanAge": [
      -0.006232386436633348,
-     0.02825945190602338,
-     0.03610900605650352,
-     -0.11922433937858552,
-     -0.04858487650030108,
-     -0.20982390698433578,
-     -0.21711710887772828,
-     0.29787727650592033,
-     0.22023374600071027,
+     0.21947361020097192,
+     -0.001243859547968268,
+     0.24720002773601787,
+     0.2347743781790838,
+     -0.11586161372247479,
+     0,
+     0,
+     0,
      0
     ],
     "homing": [
      0.05579779176170107,
-     -0.007939112769359193,
-     -0.057073442791264264,
-     -0.20035114166701304,
-     -0.17959373043523186,
-     0.1705029631077023,
-     -0.050731371812837434,
-     -0.35552141609809035,
-     -0.6219392831485308,
+     -0.11650280522856078,
+     -0.02363312311552463,
+     0.6596532096242448,
+     0.2916551443921792,
+     -0.28590490848792066,
+     0,
+     0,
+     0,
      0
     ],
     "bodyDepth": [
      0.003329224948293814,
-     0.017730887571265206,
-     0.11427557197399718,
-     0.21333345965313777,
-     0.09956853728406505,
-     0.2392104512094395,
-     0.5820312391946264,
-     0.6199173255779087,
-     0.5443520070824801,
+     0.013384599596322367,
+     0.1122837223519516,
+     -0.8671190277211759,
+     -0.41222508762872573,
+     1.254761256357536,
+     0,
+     0,
+     0,
      0
     ],
     "eggTradeoff": [
      0.031140688077020178,
-     0.02365563951467747,
-     0.045036304260231245,
-     -0.09851976373999002,
-     -0.30199364327982936,
-     -0.9046945817080189,
-     -0.2133543678981778,
-     0.1890048037835192,
-     -0.45509808508052013,
+     -0.12576424118990892,
+     -0.24462439088953056,
+     -0.11311649847298638,
+     -0.7378642987142486,
+     0.379532701007339,
+     0,
+     0,
+     0,
      0
     ]
    },
@@ -1869,157 +1871,157 @@
    "alive": [
     1,
     0.74,
-    0.56,
-    0.5,
-    0.42,
-    0.42,
-    0.4,
-    0.36,
-    0.32,
-    0.3
+    0.46,
+    0.3,
+    0.18,
+    0.12,
+    0.06,
+    0.02,
+    0.02,
+    0
    ],
-   "meanGenerationsPlayed": 5.02,
+   "meanGenerationsPlayed": 2.9,
    "completionByGen": [
     0.74,
-    0.7567567567567568,
-    0.8928571428571429,
-    0.84,
+    0.6216216216216216,
+    0.6521739130434783,
+    0.6,
+    0.6666666666666666,
+    0.5,
+    0.3333333333333333,
     1,
-    0.9523809523809523,
-    0.9,
-    0.8888888888888888,
-    0.9375,
-    0.8
+    0,
+    0
    ],
    "strayRate": 0,
-   "jackShareOfMales": 0.10236220472440945,
-   "malesMatured": 127,
+   "jackShareOfMales": 0.1111111111111111,
+   "malesMatured": 72,
    "jackByGen": [
     {
      "males": 28,
-     "jacks": 1
-    },
-    {
-     "males": 21,
-     "jacks": 6
-    },
-    {
-     "males": 10,
-     "jacks": 0
-    },
-    {
-     "males": 13,
-     "jacks": 0
-    },
-    {
-     "males": 11,
-     "jacks": 1
-    },
-    {
-     "males": 7,
-     "jacks": 0
-    },
-    {
-     "males": 11,
-     "jacks": 0
-    },
-    {
-     "males": 8,
      "jacks": 2
     },
     {
-     "males": 9,
-     "jacks": 3
+     "males": 19,
+     "jacks": 4
     },
     {
-     "males": 9,
+     "males": 10,
+     "jacks": 1
+    },
+    {
+     "males": 8,
+     "jacks": 1
+    },
+    {
+     "males": 2,
+     "jacks": 0
+    },
+    {
+     "males": 2,
+     "jacks": 0
+    },
+    {
+     "males": 1,
+     "jacks": 0
+    },
+    {
+     "males": 1,
+     "jacks": 0
+    },
+    {
+     "males": 1,
+     "jacks": 0
+    },
+    {
+     "males": 0,
      "jacks": 0
     }
    ],
    "bvByGen": {
     "size": [
      -0.20260426003944831,
-     0.035850345952427434,
-     -0.08174060838416998,
-     -0.007064426888328113,
-     0.009015371831779842,
-     0.1750198599262401,
-     -0.06382327416272378,
-     0.06552925497057802,
-     0.06118338672373233,
-     0.08267337308056086
+     0.04217430224164968,
+     -0.13869299152333642,
+     0.0666387649830608,
+     -0.12542788854387657,
+     -0.05023260918012309,
+     0.32290859756538076,
+     1.0380415779491972,
+     0.1552882659817139,
+     0
     ],
     "jack": [
      0.087778560150029,
-     0.12598051612067226,
-     0.15614117244277373,
-     -0.1361802863374743,
-     -0.120107451695039,
-     0.09720584224819898,
-     0.1723674781891598,
-     0.15494784375423382,
-     0.0689349753669461,
-     0.2177021415735473
+     0.11388516737069056,
+     0.10597494197896878,
+     -0.0510449954924971,
+     -0.18443988634246944,
+     -0.4222827758839094,
+     -0.010891803617667875,
+     0.02508108340032822,
+     -0.6822605821514084,
+     0
     ],
     "runTiming": [
      -0.19962681216071096,
-     0.21742106128031777,
-     -0.018472531972999813,
-     0.16994345200555713,
-     0.0841277710101188,
-     -0.13653264937398846,
-     -0.018208033125014334,
-     -0.03993242635705502,
-     0.16800784380289818,
-     0.26094977132673364
+     -0.2833765026799492,
+     -0.169349476634108,
+     -0.18459859307976473,
+     0.006350116281288471,
+     0.4062098861808845,
+     0.055839834741716575,
+     -0.13158843669068712,
+     -1.131438555890362,
+     0
     ],
     "oceanAge": [
      0.04021031241216203,
-     0.03757462205494392,
-     0.16832725286869166,
-     0.21267613678354066,
-     0.04041078455643436,
-     -0.024728248625122674,
-     -0.1424791996750526,
-     -0.01630398885756498,
-     -0.01300612744110867,
-     -0.15196212072617496
+     -0.045977331145409035,
+     0.06369673574785056,
+     -0.16537981093981913,
+     0.08727905220050161,
+     0.10331168944302582,
+     0.1445161229779035,
+     0.2535859461331876,
+     0.8342922761808911,
+     0
     ],
     "homing": [
      -0.042919172795302024,
-     -0.06585837683256238,
-     0.14272543156176257,
-     0.17672304923156226,
-     0.028330504802139927,
-     0.05472657543983733,
-     0.11796174258618168,
-     -0.10120336890268379,
-     0.01905797760078294,
-     -0.050193405948252355
+     -0.11257267695897347,
+     0.016996367918039986,
+     -0.024997488076804422,
+     0.3579412254169044,
+     0.018377535356926905,
+     -0.5316616045815789,
+     -0.9065545942527566,
+     -0.9888833875817378,
+     0
     ],
     "bodyDepth": [
      -0.040528742816887904,
-     -0.07796497697055255,
-     -0.1474232153911134,
-     -0.15472387100234675,
-     -0.09267868826214935,
-     -0.046881296516450524,
-     -0.08064069700579637,
-     -0.17184363684216938,
-     0.16043297414546098,
-     0.10927897675415844
+     0.1072957871698045,
+     -0.07205384409272317,
+     -0.14274961669091718,
+     -0.09911569729114805,
+     -0.13435039310536231,
+     -0.09530385038517303,
+     0.5834582275991715,
+     0.45146699828555636,
+     0
     ],
     "eggTradeoff": [
      -0.02589706594886501,
-     -0.12001928607921175,
-     -0.037114492903724594,
-     0.07458772636028964,
-     -0.09497938239125535,
-     0.02248084800233957,
-     -0.21561347171368386,
-     -0.2636617434996776,
-     -0.14408286924541744,
-     -0.16800497313923668
+     -0.07612332845634316,
+     -0.18375948050551583,
+     0.034743644429035984,
+     0.09552608449673483,
+     0.02296256104126328,
+     0.6928296270941408,
+     -0.019485847744161372,
+     -0.04934163279577282,
+     0
     ]
    },
    "timeouts": 0

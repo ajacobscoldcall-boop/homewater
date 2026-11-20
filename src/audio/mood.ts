@@ -76,7 +76,7 @@ export function ambienceFor(place: Place, out: AmbienceProfile): AmbienceProfile
   return out;
 }
 
-export type Cue = 'sting' | 'pulse' | 'splash' | 'surge' | 'eat' | 'wriggle' | 'opening' | 'spawned' | 'stageComplete' | 'death';
+export type Cue = 'sting' | 'pulse' | 'splash' | 'surge' | 'eat' | 'wriggle' | 'opening' | 'spawned' | 'stageComplete' | 'death' | 'nearMiss';
 
 /** The one-shot cue for a simulation event, or null for none. */
 export function cueForEvent(ev: Pick<SimEvent, 'type' | 'key'>): Cue | null {

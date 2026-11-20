@@ -4,7 +4,7 @@ import { crowdedYear, decideMaturation, oceanView } from '../../src/sim/stages/o
 import type { Entity, Intent } from '../../src/sim/types';
 import { dist } from '../../src/sim/vec';
 import type { World } from '../../src/sim/world';
-import { intent, newWorld, run, steerTo } from './helpers';
+import { intent, newWorld, params, run, steerTo } from './helpers';
 
 const SEC = 60;
 
@@ -349,7 +349,7 @@ describe('ocean years', () => {
   it('extra years at sea are survived only with the late-ocean chance; jacks skip the roll', () => {
     let lost = 0;
     let rolled = 0;
-    for (let seed = 1; seed <= 60; seed++) {
+    for (let seed = 1; seed <= 120; seed++) {
       const { w } = newWorld({ startStage: 3, seed, sex: 'F', difficulty: 'wild' });
       const v = () => oceanView(w);
       // Jump straight to the reveal.
@@ -360,10 +360,12 @@ describe('ocean years', () => {
       if ((w.progress.oceanYears ?? 1) > 1) rolled++;
       if (w.deathCause === 'sea') lost++;
     }
-    expect(rolled).toBe(60);
-    // Wild: 0.5 per extra year, 1-2 extra years.
-    expect(lost / rolled).toBeGreaterThan(0.35);
-    expect(lost / rolled).toBeLessThan(0.85);
+    expect(rolled).toBe(120);
+    // Wild survives each extra year with life.lateOceanSurvival (0.5 x 1.4 = 0.7); 1-2 extra years,
+    // so between 1 - 0.7 and 1 - 0.7^2 are lost. Bounds allow for sampling noise.
+    const surv = params('wild').get('life.lateOceanSurvival');
+    expect(lost / rolled).toBeGreaterThan((1 - surv) * 0.75);
+    expect(lost / rolled).toBeLessThan((1 - surv * surv) * 1.25);
 
     const { w: jack } = newWorld({ startStage: 3, seed: 3, sex: 'M', preset: 'jack', difficulty: 'wild' });
     run(jack, 400 * SEC, (ww) => {

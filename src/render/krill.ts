@@ -127,8 +127,9 @@ export class FoodSwarm {
       const kind = hash(e.id * 1.37);
       if (kind < 0.12) {
         // A small fish swimming with the swarm.
+        // Facing the way it swims (the sim's yaw follows its velocity, flocking.ts).
         tmpP.set(e.pos.x, e.pos.y, e.pos.z);
-        tmpQ.setFromAxisAngle(UP, -e.yaw + Math.PI);
+        tmpQ.setFromAxisAngle(UP, -e.yaw);
         tmpS.setScalar(0.3 * (1 + 0.04 * Math.sin(t * 9 + e.id)));
         this.fish.setMatrixAt(nf++, tmpM.compose(tmpP, tmpQ, tmpS));
       } else if (kind < 0.18) {
