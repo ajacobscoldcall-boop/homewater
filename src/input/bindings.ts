@@ -7,7 +7,7 @@
  * localStorage under `homewater.controls` (per browser, not in the save).
  */
 
-export const ACTIONS = ['steerLeft', 'steerRight', 'forward', 'easeOff', 'rise', 'dive', 'burst', 'act', 'view', 'details', 'sound', 'journal', 'guide', 'pause'] as const;
+export const ACTIONS = ['steerLeft', 'steerRight', 'forward', 'easeOff', 'rise', 'dive', 'burst', 'act', 'view', 'details', 'sound', 'journal', 'guide', 'photo', 'pause'] as const;
 export type Action = (typeof ACTIONS)[number];
 
 /** Each action has up to two keys (KeyboardEvent.code values). */
@@ -28,6 +28,7 @@ export const ACTION_LABELS: Record<Action, string> = {
   sound: 'Sound on/off',
   journal: 'Field journal (while paused)',
   guide: 'Skip guidance',
+  photo: 'Photo mode',
   pause: 'Pause',
 };
 
@@ -51,6 +52,7 @@ export const DEFAULT_BINDINGS: Readonly<Bindings> = Object.freeze({
   sound: ['KeyM'],
   journal: ['KeyJ'],
   guide: ['KeyG'],
+  photo: ['KeyP'],
   pause: ['Escape'],
 });
 

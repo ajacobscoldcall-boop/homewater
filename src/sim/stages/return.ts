@@ -8,15 +8,22 @@
  * Layout (x upstream):
  *   0..COAST     open coastal water, with gillnet lines across the approach
  *   COAST        the coastline, with three river mouths
- *   COAST..L     the home river: riffles with bears, then a fork
+ *   COAST..L     the home river: riffles with bears, rapids and a falls
+ *                (falls.ts), then a fork
  *   wrong mouths lead into short channels that dead-end
+ * Other returning sockeye travel the home river with the player (migrants.ts).
  */
 import { yearEffects } from '../genetics';
+import { netLinesFor } from '../population';
 import { depthOf, swimStep } from '../swim';
 import type { Entity } from '../types';
 import { distXZ, v3 } from '../vec';
+import { heatStress, stepWater } from './returnWater';
 import type { World } from '../world';
+import { afterSwim, fallsCurrent, fallsFloor, FACE, inFallsZone, initFalls, stepPlayerLeap, type FallsState } from './falls';
 import type { Box, StageDef } from './index';
+import { stepReturnScent, type ScentLayout } from './returnScent';
+import { bearAim, bearStrike, spawnMigrants, stepMigrants } from './migrants';
 
 const COAST = 90;
 const HALF = 40;
@@ -41,18 +48,25 @@ interface ReturnState {
   trackBend: number;
   hookPulls?: number;
   wasBursting?: boolean;
+  /** Wrong rivers' smell timer (returnScent.ts). */
+  strayTimer?: number;
+  /** 0..1: farthest the fish has come up the home river (the renderer's body change reads it). */
+  upstream?: number;
+  /** The falls and rapids (falls.ts); read through fallsView(). */
+  falls?: FallsState;
+  riverHalf: number;
 }
 
 const st = (w: World) => w.stage as unknown as ReturnState;
 
-const isRiffle = (x: number) => x > COAST && Math.cos((2 * Math.PI * (x - RIFFLE_PHASE)) / RIFFLE_PERIOD) > 0.5;
+const isRiffle = (x: number) => x > COAST && !inFallsZone(x) && Math.cos((2 * Math.PI * (x - RIFFLE_PHASE)) / RIFFLE_PERIOD) > 0.5;
 
-function floorAt(x: number, z: number, homeMouth: number): number {
+function floorAt(x: number, z: number, homeMouth: number, falls?: FallsState): number {
   if (x < COAST) return -12 + 7 * Math.max(0, (x - 40) / (COAST - 40));
   const zc = z - homeMouth;
   if (Math.abs(zc) <= RIVER_HALF + 0.5) {
     const base = -3.3 + 1.4 * Math.cos((2 * Math.PI * (x - RIFFLE_PHASE)) / RIFFLE_PERIOD);
-    return base + 0.6 * (zc / RIVER_HALF) ** 2;
+    return fallsFloor(falls, x, zc, RIVER_HALF, base + 0.6 * (zc / RIVER_HALF) ** 2);
   }
   return -2.6;
 }
@@ -180,7 +194,8 @@ function stepBear(w: World, bear: Entity, dt: number): void {
       const lo = branchSide > 0 ? s.homeMouth + 1.5 : s.homeMouth - RIVER_HALF + 0.5;
       const hi = branchSide < 0 ? s.homeMouth - 1.5 : s.homeMouth + RIVER_HALF - 0.5;
       const tz = Math.max(lo, Math.min(hi, fish.z + w.body.vel.z * warn));
-      bear.home = v3(tx, 0, tz);
+      // Among other migrants, the bear may go for one of them instead (migrants.ts).
+      bear.home = bearAim(w, bear, v3(tx, 0, tz), p.get('return.bearReachDepth'), branchSide, FORK);
       w.emit('warning', 'bear');
       w.emitOnce('caption', 'return.bear');
     }
@@ -190,7 +205,9 @@ function stepBear(w: World, bear: Entity, dt: number): void {
     const target = bear.home ?? fish;
     const bonus = p.get('return.bearDepthBodyBonus') * Math.max(0, w.fish.z.bodyDepth) + yearEffects(p, w.fish, w.conditions).bearReach;
     const radius = p.get('return.bearStrikeRadius') * (0.75 + 0.35 * (w.progress.adultSize ?? 1));
-    if (sameBranch && distXZ(target, fish) < radius && depthOf(w) < p.get('return.bearReachDepth') + bonus) w.die('bear');
+    const inReach = sameBranch && distXZ(target, fish) < radius && depthOf(w) < p.get('return.bearReachDepth') + bonus;
+    // A swipe among other migrants takes only one fish (migrants.ts).
+    if (bearStrike(w, bear, target, radius, p.get('return.bearReachDepth'), inReach, branchSide, FORK)) w.die('bear');
   } else if (bear.state === 'strike' && bear.timer <= 0) {
     bear.state = 'rest';
     bear.timer = w.p.get('return.bearRest');
@@ -211,11 +228,14 @@ export const returnStage: StageDef = {
       max: v3(L, 0, HALF),
       surfaceY: 0,
       water: 'fresh',
-      floor: (x, z) => floorAt(x, z, homeMouth),
+      floor: (x, z) => floorAt(x, z, homeMouth, s.falls),
       current: (pos) => {
         if (pos.x < COAST) return v3(-0.4, 0, 0);
         const c = w.p.get('return.current');
         const inHome = Math.abs(pos.z - homeMouth) <= RIVER_HALF;
+        // Rapids, plunge pool and the falls' crest have their own water (falls.ts).
+        const falls = inHome ? fallsCurrent(w, pos, pos.z - homeMouth, RIVER_HALF, c) : null;
+        if (falls !== null) return v3(falls * yearEffects(w.p, w.fish, w.conditions).flowFactor, 0, 0);
         const edge = inHome ? 1 - 0.5 * (Math.abs(pos.z - homeMouth) / RIVER_HALF) ** 2 : 0.6;
         const lowWater = w.conditions.flow < 0.9 ? 1.1 : 1;
         const timing = yearEffects(w.p, w.fish, w.conditions).flowFactor;
@@ -231,14 +251,21 @@ export const returnStage: StageDef = {
     const homeSide: 1 | -1 = w.rng.chance(0.5) ? 1 : -1;
     // The track starts away from home, so the fish must sense its way.
     const trackStartZ = w.rng.range(-30, 30);
-    const s: ReturnState = { homeMouth, homeSide, prevX: 0, netXs: [], scentTimer: 0, trackTimer: 0, trackStartZ, trackBend: w.rng.range(-10, 10) };
+    const s: ReturnState = { homeMouth, homeSide, prevX: 0, netXs: [], scentTimer: 0, trackTimer: 0, trackStartZ, trackBend: w.rng.range(-10, 10), riverHalf: RIVER_HALF };
     w.stage = s as unknown as Record<string, unknown>;
+    const falls = initFalls(w);
     w.arena = returnStage.arena(w);
     w.body.scale = w.progress.adultSize ?? 1;
     w.body.yaw = 0;
     if (marker === 0) {
       w.progress.fat = 1;
       w.body.pos = v3(3, -5, trackStartZ);
+    } else if (marker === 2) {
+      // A sibling taking over above the falls.
+      w.body.pos = v3(FACE + 4, -2, homeMouth);
+      w.progress.fat = Math.max(w.progress.fat, p.get('return.resumeFat'));
+      falls.passed = true;
+      falls.above = true;
     } else {
       w.body.pos = v3(COAST + 4, -2.5, homeMouth);
       // A sibling taking over at the river mouth is a different fish: it arrives with its own reserves, not the last one's empty tank.
@@ -247,7 +274,8 @@ export const returnStage: StageDef = {
     s.prevX = w.body.pos.x;
 
     // Gillnet lines across the approach to the coast, with gaps.
-    const lines = p.get('return.netLines');
+    // The fishery fishes harder in big runs and closes in small ones (population.ts).
+    const lines = netLinesFor(p, w.conditions, p.get('return.netLines'));
     const gaps = p.get('return.netGaps');
     for (let i = 0; i < lines; i++) {
       const x = lines > 1 ? 52 + (i * 22) / (lines - 1) : 60;
@@ -264,7 +292,9 @@ export const returnStage: StageDef = {
       const coin = w.rng.chance(0.5) ? 1 : -1;
       // Past the fork, bears fish the home branch from its outer bank.
       const side = x > FORK - 2 ? homeSide : coin;
-      w.spawn('bear', v3(x, 0.8, homeMouth + side * (RIVER_HALF + 0.6)), { radius: 1.2 });
+      // Bears like falls: the riffle bear nearest the falls waits at the lip, on the side of the low step.
+      if (inFallsZone(x)) w.spawn('bear', v3(FACE + 0.5, 0.8, homeMouth + Math.sign(falls.notchZ) * (RIVER_HALF + 0.6)), { radius: 1.2 });
+      else w.spawn('bear', v3(x, 0.8, homeMouth + side * (RIVER_HALF + 0.6)), { radius: 1.2 });
     }
     // Anglers fish the pools between riffles (advisor: gillnets and anglers are the human pressures).
     const anglers = p.get('return.anglers');
@@ -284,12 +314,28 @@ export const returnStage: StageDef = {
     const s = st(w);
     const lowFat = w.progress.fat < 0.15;
     const ye = yearEffects(p, w.fish, w.conditions);
-    const r = swimStep(w, intent, dt, { thrustScale: (lowFat ? 0.7 : 1) * ye.thrustFactor });
+    // In the air over the falls the leap carries the fish (falls.ts); otherwise it swims.
+    const leaping = stepPlayerLeap(w, dt);
+    // Water temperature and oxygen where the fish is (returnWater.ts): warm water burns fat and slows recovery, low oxygen weakens the burst.
+    const water = stepWater(w, dt, intent.forward < 0.3 && !intent.burst);
+    if (heatStress(w) >= 1) {
+      w.die('heat');
+      return;
+    }
+    const stressed = 1 - p.get('return.water.stressThrust') * heatStress(w);
+    const r = leaping
+      ? { thrust: 1, burst: false }
+      : swimStep(w, intent, dt, {
+          thrustScale: (lowFat ? 0.7 : 1) * ye.thrustFactor * stressed,
+          burstScale: water.effects.burstFactor,
+          regenScale: water.effects.regenFactor,
+        });
+    if (!leaping) afterSwim(w, intent, r.burst, dt);
     const fish = w.body.pos;
     const L = p.get('return.length');
 
-    // Fat: salmon stop eating on the return. Warm, low water is harder.
-    const heat = ye.temperature * (w.conditions.flow < 0.9 && fish.x > COAST ? 1.2 : 1);
+    // Fat: salmon stop eating on the return. Warm water is harder.
+    const heat = ye.temperature * water.effects.fatFactor;
     const drain = p.get('return.fatDrainBase') * heat + p.get('return.fatDrainSwim') * r.thrust + (r.burst ? p.get('return.fatDrainBurst') : 0);
     w.progress.fat = Math.max(0, w.progress.fat - drain * dt);
     if (w.progress.fat < 0.25) w.emitOnce('caption', 'return.lowFat');
@@ -332,6 +378,7 @@ export const returnStage: StageDef = {
     if (fish.x > COAST + 2 && !inWrongRiver) {
       w.emitOnce('caption', 'return.rightRiver');
       w.setCheckpoint(1);
+      spawnMigrants(w);
     }
 
     for (const bear of w.live('bear')) {
@@ -340,24 +387,13 @@ export const returnStage: StageDef = {
     }
     stepLures(w, intent, dt);
     if (w.status !== 'playing') return;
+    stepMigrants(w, dt, FORK, COAST);
 
-    // Home scent drifts down the home river and out of its mouth.
-    s.scentTimer -= dt;
-    const homing = Math.max(0.25, Math.min(1, 0.65 + 0.3 * w.fish.z.homing));
-    if (s.scentTimer <= 0) {
-      s.scentTimer = 0.22 / homing;
-      const sx = Math.min(L - 2, Math.max(fish.x + 6, COAST + 2) + w.rng.range(0, 34));
-      const branch = sx > FORK ? s.homeSide * w.rng.range(1.8, RIVER_HALF - 1) : w.rng.range(-RIVER_HALF + 1, RIVER_HALF - 1);
-      w.spawn('scent', v3(sx, w.rng.range(-2.5, -0.5), s.homeMouth + branch), { radius: 0.2, timer: 9, value: homing });
-    }
-    for (const sc of w.live('scent')) {
-      sc.timer -= dt;
-      sc.pos.x -= 1.6 * dt;
-      if (sc.pos.x < FORK && sc.pos.x > COAST) sc.pos.z = s.homeMouth + (sc.pos.z - s.homeMouth) * (1 - 0.4 * dt);
-      if (sc.pos.x < COAST) sc.pos.z += Math.sin(sc.id + w.stageTime) * 0.6 * dt;
-      if (sc.timer <= 0 || sc.pos.x < COAST - 18) sc.alive = false;
-    }
+    // Home scent and the wrong rivers' smells, shaped by imprinting (returnScent.ts).
+    stepReturnScent(w, scentLayout(w, L), s, dt);
     if (fish.x > FORK + 6 && Math.abs(fish.z - s.homeMouth) <= RIVER_HALF && Math.sign(fish.z - s.homeMouth) !== s.homeSide) w.emitOnce('caption', 'return.wrongBranch');
+
+    if (fish.x > COAST && Math.abs(fish.z - s.homeMouth) <= RIVER_HALF) s.upstream = Math.max(s.upstream ?? 0, Math.min(1, (fish.x - COAST) / (L - COAST)));
 
     if (fish.x >= L - 4 && Math.sign(fish.z - s.homeMouth) === s.homeSide) {
       w.emit('caption', 'return.arrive');
@@ -388,3 +424,14 @@ export function returnLayout(w: World): ReturnLayout | null {
 }
 
 export { isRiffle };
+
+function scentLayout(w: World, L: number): ScentLayout {
+  const s = st(w);
+  return { coast: COAST, fork: FORK, length: L, riverHalf: RIVER_HALF, homeMouth: s.homeMouth, homeSide: s.homeSide, wrongMouths: MOUTHS.filter((m) => m !== s.homeMouth), wrongHalf: WRONG_HALF, wrongLen: WRONG_LEN };
+}
+
+/** 0..1: how far up the home river the fish has come (for the renderer's gradual body change); 0 at sea. */
+export function returnUpstream(w: World): number {
+  if (w.stageId !== 'return') return 0;
+  return st(w).upstream ?? 0;
+}

@@ -64,6 +64,7 @@ export const freshProgress = (): LifeProgress => ({
   oceanYears: null,
   adultSize: null,
   fat: 1,
+  imprint: 0,
 });
 
 export class World {

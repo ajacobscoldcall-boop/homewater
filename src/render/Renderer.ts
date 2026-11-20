@@ -7,13 +7,15 @@ import { alevinView } from '../sim/stages/egg';
 import { fryView } from '../sim/stages/fry';
 import { oceanView } from '../sim/stages/ocean';
 import type { ArenaKind } from '../sim/stages';
-import { returnLayout } from '../sim/stages/return';
+import { returnLayout, returnUpstream } from '../sim/stages/return';
 import { roleOf, spawnState } from '../sim/stages/spawn';
 import type { Entity, EntityKind } from '../sim/types';
 import { headingVec } from '../sim/vec';
 import type { World } from '../sim/world';
 import { animalOf, BEAR_FORE_X, createBear, createChar, createGull, createMerganser, createOrca, createSeal, createShark } from './animals';
 import { buildEnvironment, buildGravelPatch, type Detail, type EnvScene } from './env';
+import { bodyLook } from './bodyChange';
+import { SCENT_FLOOR, SCENT_SCALE } from './bodyConfig';
 import { buildFishGeometry, createFish, setSwim, shapeKey, type FishLook, type FishShape } from './fishMesh';
 import { FoodSwarm } from './krill';
 import { LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
@@ -25,11 +27,16 @@ import { softDisc, Splashes } from './splash';
 import { GoreLayer } from './gore';
 // Cinematic camera moments (render only): see cinematics.ts. Hook is in updateCamera.
 import { Cinematics } from './cinematics';
+// Photo mode (render only): see photoRig.ts. Hooks in render(), after updateCamera.
+import { PhotoRig } from './photoRig';
 // Graphics quality (Low/Medium/High/Auto): see quality.ts. Hooks are marked "quality".
 import { quality, type Quality } from './quality';
 import { adaptDetail, frameQuality, pixelRatioFor, skipInstance } from './qualityRender';
+// Fellow migrants on the return and their splashes at the falls (migrants.ts).
+import { MigrantLayer } from './migrants';
 // Performance: keeps shader programs compiled while materials come and go (programKeeper.ts).
 import { ProgramKeeper } from './programKeeper';
+import { WaterFeel } from './waterFeel';
 
 export type CameraMode = 'third' | 'first';
 
@@ -121,6 +128,8 @@ export class Renderer {
   readonly gore = new GoreLayer(this.scene);
   /** Cinematic camera moments (src/render/cinematics.ts). App feeds it sim events. */
   readonly cinematics = new Cinematics();
+  /** Photo mode (src/render/photoRig.ts): its free camera and picture pass. App opens and closes it. */
+  readonly photo = new PhotoRig();
   private shafts = new LightShafts(10);
   private snow = new MarineSnow();
   private surfaceMat: THREE.ShaderMaterial | null = null;
@@ -128,6 +137,7 @@ export class Renderer {
   private splash = new Splashes();
   /** Bears drawn this frame (syncEntities), for their splashes and their shape above the water. */
   private bearsSeen: THREE.Object3D[] = [];
+  private migrants = new MigrantLayer();
 
   /** Graphics quality changed (quality.ts). rebuild: materials or geometry depend on it, so build the stage again. */
   applyQuality(q: Quality, rebuild: boolean): void {
@@ -158,11 +168,15 @@ export class Renderer {
   }
 
   render(w: World, frameDt: number): void {
+    // Photo mode: the picture holds still (no time passes in the scene) and its own camera replaces the play camera.
+    const photo = this.photo.active;
+    if (photo) frameDt = 0;
     if (this.builtFor !== w || this.builtStage !== w.stageIndex || this.lastArena !== w.arena) this.buildStage(w);
     this.syncEntities(w);
     this.food.update(w.stageId === 'ocean' ? w.live('herring') : [], w.stageTime);
     this.syncPlayer(w, frameDt);
-    this.updateCamera(w, frameDt);
+    if (photo) this.photo.place(this.camera, w, this.player);
+    else this.updateCamera(w, frameDt);
     this.gore.update(w, frameDt, this.player, this.objects, this.camera);
     this.above.beginBears();
     for (const obj of this.bearsSeen) {
@@ -170,6 +184,7 @@ export class Renderer {
       this.splash.track(obj, w.arena.surfaceY, true, frameDt);
       this.above.trackBear(obj, this.camera);
     }
+    this.migrants.update(w, frameDt, this.splash, this.player);
     this.splash.update(frameDt, w.arena.surfaceY);
     sharedWater.uTime.value += frameDt;
     this.env?.update(w, frameDt, this.camera);
@@ -179,7 +194,23 @@ export class Renderer {
     if (this.surfaceMat) this.surfaceMat.uniforms.uFogDensity!.value = this.fog.density;
     this.shafts.update(this.camera, (x, z) => w.arena.floor(x, z), w.arena.surfaceY, sharedWater.uTime.value);
     this.snow.update(this.camera);
-    this.renderer.render(this.scene, this.camera);
+    if (photo) this.photo.draw(this.renderer, this.scene, this.camera);
+    else this.renderer.render(this.scene, this.camera);
+  }
+
+  /** Photo mode: open the free camera where the camera is now. */
+  beginPhoto(w: World): void {
+    this.photo.begin(this.camera, w, (x, z) => this.groundAt(w, x, z));
+  }
+
+  /** Photo mode: close it; the play camera takes over again next frame, unchanged. */
+  endPhoto(): void {
+    this.photo.end(this.camera);
+  }
+
+  /** Photo mode: draw the current picture at width × height and read it back (RGBA, top row first). */
+  capturePhoto(width: number, height: number): Uint8ClampedArray<ArrayBuffer> {
+    return this.photo.capture(this.renderer, this.scene, this.camera, width, height);
   }
 
   private lastArena: unknown = null;
@@ -211,6 +242,7 @@ export class Renderer {
       (ring.material as THREE.MeshBasicMaterial).color.setHex(owner === 0 ? 0x8fa04a : owner === -1 ? 0xdfe8dc : 0xd9473a);
     });
   }
+  private waterFeel = new WaterFeel(this.scene);
   private hemi!: THREE.HemisphereLight;
   private sun!: THREE.DirectionalLight;
   private baseFog = new THREE.Color();
@@ -245,6 +277,9 @@ export class Renderer {
       // Deeper water is darker.
       const depth = Math.max(0, w.arena.surfaceY - this.camera.position.y);
       this.fog.color.copy(this.baseFog).multiplyScalar((1 - Math.min(0.55, depth / 45)) * (night ? 0.55 : 1) * dim);
+      // The return in a warm year: cool refuges clearer and bluer, hot shallows hazier; seeps shimmer.
+      this.waterFeel.tint(this.fog, w, frameDt);
+      this.waterFeel.update(w, frameDt);
       (this.scene.background as THREE.Color).copy(this.fog.color);
       return;
     }
@@ -343,6 +378,10 @@ export class Renderer {
     this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
     this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
+    // Other returning sockeye travelling the home river with the player (migrants.ts).
+    const mig = this.migrants.make();
+    this.makeInstanced('migrant', mig.geo, mig.mat, 40);
+    for (const [kind, inst] of this.instanced) if (kind === 'migrant') inst.mesh.renderOrder = 2; // after the surface: see migrants.ts
     this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'pink', { lod: quality.fishDetail }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
 
     if (a.kind === 'gravel') {
@@ -479,6 +518,9 @@ export class Renderer {
         tmpQ.setFromAxisAngle(UP, -e.yaw);
         tmpS.setScalar(0.6 * (0.95 + 0.1 * Math.sin(w.time * 12 + e.id)));
         break;
+      case 'migrant':
+        this.migrants.pose(e, tmpP, tmpQ, tmpS);
+        break;
       case 'pink':
         tmpQ.setFromAxisAngle(UP, -e.yaw);
         tmpS.setScalar(0.72);
@@ -506,6 +548,11 @@ export class Renderer {
         tmpQ.setFromEuler(tmpE.set(w.time * 2 + e.id, w.time * 3, 0));
         break;
       }
+      case 'scent':
+        // Home scent on the return and the lake's home-water plume: size shows how clear the smell is (imprint.ts).
+        if (w.stageId === 'return' || e.state === 'plume') tmpS.setScalar(Math.max(0.3, (e.timer ?? 1) / 9) * SCENT_SCALE * (SCENT_FLOOR + (1 - SCENT_FLOOR) * (e.value ?? 1)));
+        else tmpS.setScalar(Math.max(0.3, (e.timer ?? 1) / 9) * (e.value ?? 1));
+        break;
       default:
         tmpS.setScalar(Math.max(0.3, (e.timer ?? 1) / 9) * (e.value ?? 1));
     }
@@ -804,15 +851,10 @@ export class Renderer {
       case 'ocean':
         return { look: 'ocean', shape: { depth, hump: 0, kype: 0, yolk: 0 } };
       default: {
-        // Silver at sea, a blush once in fresh water, full spawning colours only on the grounds.
-        if (w.stageId === 'return') {
-          const inCreek = w.body.pos.x > (returnLayout(w)?.coast ?? 90);
-          const male = w.fish.sex === 'M' && role !== 'jack';
-          return { look: inCreek ? 'returnBlush' : 'returnSilver', shape: { depth: male && inCreek ? depth * 1.05 : depth, hump: male && inCreek ? 0.3 : 0, kype: male && inCreek ? 0.3 : 0, yolk: 0 } };
-        }
-        if (role === 'female') return { look: 'spawnFemale', shape: { depth: depth * 1.05, hump: 0.15, kype: 0, yolk: 0 } };
-        if (role === 'jack') return { look: 'spawnJack', shape: { depth, hump: 0.3, kype: 0.4, yolk: 0 } };
-        return { look: 'spawnMale', shape: { depth: depth * 1.15, hump: 1, kype: 1, yolk: 0 } };
+        // Silver at sea, a blush once in fresh water that deepens up the river, full spawning colours only on the grounds;
+        // thinner as fat drains (bodyChange.ts).
+        const place = w.stageId === 'spawn' ? 'grounds' : w.body.pos.x > (returnLayout(w)?.coast ?? 90) ? 'river' : 'sea';
+        return bodyLook({ role, bodyDepth: z.bodyDepth, fat: w.progress.fat, place, upstream: returnUpstream(w) });
       }
     }
   }

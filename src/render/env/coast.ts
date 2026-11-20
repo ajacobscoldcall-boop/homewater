@@ -8,9 +8,11 @@
  */
 import * as THREE from 'three';
 import type { Box } from '../../sim/stages';
+import { inFallsZone } from '../../sim/stages/falls';
 import { isRiffle, returnLayout } from '../../sim/stages/return';
 import type { World } from '../../sim/world';
 import { sharedWater } from '../water';
+import { buildFalls, fallsBreaks } from './falls';
 import type { EnvParts } from './index';
 import { addLog, bladeClumpGeometry, byDetail, envMaterial, fbm, gridLines, hangingRoot, instanced, instancedCells, range, rockGeometry, rockLevel, seeded, smoothstep, stoneTint, terrain, TubeBuilder, type Detail, type Placement } from './kit';
 import { LandMask } from './landmask';
@@ -57,6 +59,8 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
     breaksX.push(b.min.x, b.max.x);
     breaksZ.push(b.min.z, b.max.z);
   }
+  // The falls' rock step gets a sharp face (falls.ts).
+  breaksX.push(...fallsBreaks(w));
   const xs = [...gridLines(-25, coast - 8, 1.4 * f), ...gridLines(coast - 8, L + EXTRA, 0.5 * f, breaksX)].filter((v, i, arr) => i === 0 || v - arr[i - 1]! > 1e-4);
   const zs = [...gridLines(-HALF - EXTRA, -HALF - 2, 1.5 * f), ...gridLines(-HALF - 2, HALF + 2, 0.5 * f, breaksZ), ...gridLines(HALF + 2, HALF + EXTRA, 1.5 * f)].filter((v, i, arr) => i === 0 || v - arr[i - 1]! > 1e-4);
 
@@ -81,6 +85,8 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
         if (inHome(z)) {
           const r = isRiffle(x) ? 1 : 0;
           out.lerp(riffle, 0.6 * r).lerp(pool, (1 - r) * smoothstep(3, 4.5, -h) * 0.7);
+          // The falls' rock step and the scoured bedrock around it.
+          if (inFallsZone(x)) out.lerp(rockFace, 0.35 + 0.5 * smoothstep(0.3, 0.75, steep)).multiplyScalar(0.85 + 0.15 * fbm(x * 1.7, z * 1.7, 2, 21));
         }
         out.multiplyScalar((0.8 + 0.35 * fbm(x * 2.6, z * 2.6, 2, 7)) * (0.78 + 0.4 * (fbm(x * 0.08, z * 0.2, 3, 14) + 0.5)));
       }
@@ -130,7 +136,7 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   }
   // Pool boulders, low along the edges of the home river's pools.
   for (let x = coast + 4; x < L; x += range(rand, 3, 7)) {
-    if (isRiffle(x)) continue;
+    if (isRiffle(x) || inFallsZone(x)) continue;
     const side = rand() < 0.5 ? -1 : 1;
     const zc = side * range(rand, lay.riverHalf - 1.6, lay.riverHalf - 0.4);
     if (x > lay.fork && Math.abs(zc) < 1.6) continue;
@@ -214,7 +220,10 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   group.add(...instancedCells(grassGeo, envMaterial({ sway: { amp: 0.12, freq: 1.4, flowX: -0.12 }, caustics: 0.4, side: THREE.DoubleSide }), grass));
 
   group.add(riffleFroth(w, lay, mask, rand, detail));
-  return { group, ground, down: 0.7 };
+  // Rapids, falls, plunge pool and side channel (falls.ts).
+  const falls = buildFalls(w, detail);
+  if (falls) group.add(falls.group);
+  return { group, ground, down: 0.7, ...(falls ? { update: (world: World, dt: number) => falls.update(world, dt) } : {}) };
 }
 
 /** White water over the riffles: bubbles streaming downstream just under the surface. */

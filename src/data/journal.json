@@ -288,6 +288,21 @@
       ]
     },
     {
+      "id": "return.falls",
+      "stage": "return",
+      "title": "Falls and rapids",
+      "text": "Rivers have rapids and falls on the way upstream. Salmon pass rapids by resting in slack water behind rocks between hard dashes, and leap falls from the pool below, often after several tries. Every hard effort burns stored reserves. Bears often wait at the lip of a falls, where leaping fish are easiest to catch. Many fish make the journey at once, and a bear can only take one at a time.",
+      "unlock": [
+        "return.rapids",
+        "return.falls",
+        "return.firstLeap",
+        "return.leapFail",
+        "return.sideChannel",
+        "return.migrants",
+        "return.migrantTaken"
+      ]
+    },
+    {
       "id": "return.wrongRiver",
       "stage": "return",
       "title": "Testing the river",
@@ -302,9 +317,13 @@
       "id": "return.lowWater",
       "stage": "return",
       "title": "Warm, low water",
-      "text": "Rivers vary from year to year. In warm, low-water years, heat stress and low oxygen kill fish before they can spawn. In flood years the danger shifts to the eggs.",
+      "text": "Rivers vary from year to year. In warm, low-water years, heat stress and low oxygen kill fish before they can spawn: warm water holds less oxygen and burns stored energy faster. Deep pools and cold springs seeping up through the gravel stay cooler, and a fish can wait there for the heat to ease, though the wait still costs fat. In flood years the danger shifts to the eggs.",
       "unlock": [
-        "return.heat"
+        "return.heat",
+        "return.coolSeep",
+        "return.coolPool",
+        "return.heatStress",
+        "death.heat"
       ]
     },
     {

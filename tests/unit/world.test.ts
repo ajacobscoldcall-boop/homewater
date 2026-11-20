@@ -5,7 +5,7 @@ import { smoltLosses } from '../../src/sim/stages/smolt';
 import { returnLayout, trackZ } from '../../src/sim/stages/return';
 import type { World } from '../../src/sim/world';
 import { STAGE_IDS } from '../../src/sim/types';
-import { intent, newWorld, params, run, steerTo } from './helpers';
+import { fallsPilot, intent, newWorld, params, run, steerTo } from './helpers';
 
 const SEC = 60;
 
@@ -206,6 +206,8 @@ describe('stage tuning sanity', () => {
   const navigator = (ww: World) => {
     const L = returnLayout(ww);
     if (!L) return intent();
+    const falls = fallsPilot(ww);
+    if (falls) return falls;
     const x = ww.body.pos.x;
     const nextGap = ww
       .live('netGap')

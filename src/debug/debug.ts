@@ -3,6 +3,7 @@
  * Reads state and drives the game without the mouse.
  */
 import type { App } from '../app/App';
+import { returnWaterView, seeps, type ReturnWaterView, type Seep } from '../sim/stages/returnWater';
 
 export interface DebugHandle {
   app: App;
@@ -11,6 +12,8 @@ export interface DebugHandle {
   completeStage(): void;
   click(selector: string): boolean;
   screenText(): string;
+  /** The return's water at the fish, and its spring seeps (empty off the return). */
+  water(): { at: ReturnWaterView | null; seeps: Seep[] };
 }
 
 declare global {
@@ -35,5 +38,6 @@ export function installDebugHandle(app: App): void {
       return true;
     },
     screenText: () => document.getElementById('screen')?.innerText ?? '',
+    water: () => ({ at: app.world ? returnWaterView(app.world) : null, seeps: app.world ? seeps(app.world) : [] }),
   };
 }

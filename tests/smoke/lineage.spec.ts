@@ -43,6 +43,9 @@ test('two generations: the family tree, records and score render', async ({ page
   await expect(tree.locator('li[data-gen="1"] .kid')).toHaveCount(3);
   await expect(page.locator('#lineage-score')).toContainText('Lineage score');
   await expect(page.locator('#records')).toContainText('2 generations');
+  // The river's run: warm-up runs before the line, then one bar per generation.
+  await expect(page.locator('#run-chart .run-bar')).toHaveCount(5);
+  await expect(page.locator('#run-chart .run-bar.now')).toHaveCount(1);
   await page.setViewportSize({ width: 1280, height: 1600 });
   await page.screenshot({ path: `${SHOTS}/20-recap-lineage.png` });
   await page.setViewportSize({ width: 1280, height: 720 });

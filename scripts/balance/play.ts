@@ -3,7 +3,7 @@
  * and lineage API only, the same way src/app/App.ts drives them.
  */
 import paramFile from '../../src/data/params.json';
-import { rollYear } from '../../src/sim/genetics';
+import { randomPopulationYear } from '../../src/sim/population';
 import { advanceGeneration, foundLineage, markExtinct, offerOffspring, recordLife, siblingsFor, strayRescue } from '../../src/sim/lineage';
 import { Params, type Difficulty, type ParamFile } from '../../src/sim/params';
 import { Rng } from '../../src/sim/rng';
@@ -193,7 +193,7 @@ export function playSingleLife(difficulty: Difficulty, skill: SkillName, index: 
   const sex = r.chance(0.5) ? 'F' : 'M';
   const l = foundLineage(p, { preset: 'quick', sex, name: 'Bal', difficulty, seed: r.int(1, 2 ** 31) });
   // Alternate pink-salmon years so both crowded and quiet oceans are sampled.
-  const conditions = rollYear(p, r, 1 + (index % 2));
+  const conditions = randomPopulationYear(p, r, 1 + (index % 2));
   const opts: LifeSetupOpts = { difficulty, skill, fish: l.current, conditions, siblings: siblingsFor(p, l), seed: r.int(1, 2 ** 31) };
   if (onStep) opts.onStep = onStep;
   return playLife(opts).result;
@@ -206,7 +206,7 @@ export function playSpawnRole(difficulty: Difficulty, skill: SkillName, role: 'f
   const r = new Rng(seed);
   for (let tries = 0; tries < 200; tries++) {
     const l = foundLineage(p, { preset: role === 'jack' ? 'jack' : 'quick', sex: role === 'female' ? 'F' : 'M', name: 'Bal', difficulty, seed: r.int(1, 2 ** 31) });
-    const conditions = rollYear(p, r, 1 + (index % 2));
+    const conditions = randomPopulationYear(p, r, 1 + (index % 2));
     const out = playLife({ difficulty, skill, fish: l.current, conditions, siblings: 0, seed: r.int(1, 2 ** 31), startStage: 5 });
     // A quick-start male occasionally matures as a jack; redraw until the role matches.
     if (out.result.role === role) return out.result;

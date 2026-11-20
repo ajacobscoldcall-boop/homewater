@@ -40,6 +40,16 @@ export interface YearConditions {
   temperature: number;
   oceanCrowding: number;
   runSize: number;
+  /**
+   * From the river's population (src/sim/population.ts, saves schema 4).
+   * Optional: a world built without a population plays a typical year.
+   */
+  /** Food per fry in the lake, relative to a typical year. */
+  lakeFood?: number;
+  /** Fry in the lake, relative to a typical cohort. */
+  fryCrowding?: number;
+  /** Share of this year's run the fishery takes. */
+  harvestRate?: number;
 }
 
 /** Things that change over the course of one life. Snapshotted at checkpoints. */
@@ -55,6 +65,8 @@ export interface LifeProgress {
   /** Size at return, in size units (about 1 = typical adult). */
   adultSize: number | null;
   fat: number;
+  /** 0..1, how well the fish learned the smell of home as a young fish (imprint.ts; saves schema 4). */
+  imprint: number;
 }
 
 export type EntityKind =
@@ -88,7 +100,9 @@ export type EntityKind =
   /** Pink salmon competing for food in a crowded ocean year. */
   | 'pink'
   /** Brood-mates hatched in the same redd (egg stage): 'hidden' in the gravel, or 'washed' out by the flow. */
-  | 'brood';
+  | 'brood'
+  /** Other returning sockeye travelling the home river with the player; 'leap' while in the air at the falls. */
+  | 'migrant';
 
 export interface Entity {
   id: number;
@@ -167,7 +181,7 @@ export const NO_INTENT: Intent = {
   risePressed: false,
 };
 
-export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn';
+export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn' | 'heat';
 
 export interface SpawnResult {
   /** Eggs laid (female) or eggs fertilized (male). */

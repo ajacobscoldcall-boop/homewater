@@ -3,11 +3,14 @@
  * schema version and migrations, plus export and import as a .json file.
  * Saves store seeds and trait values, not derived data.
  */
+import paramFile from '../data/params.json';
 import type { Lineage } from '../sim/lineage';
-import type { FishIdentity } from '../sim/types';
+import { Params, type Difficulty, type ParamFile } from '../sim/params';
+import { populationFromConditions, yearFromPopulation } from '../sim/population';
+import type { FishIdentity, YearConditions } from '../sim/types';
 import type { Checkpoint } from '../sim/world';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 5;
 
 export interface LifeSave {
   checkpoint: Checkpoint;
@@ -44,7 +47,44 @@ const migrations: Record<number, Migration> = {
     const archive = Array.isArray(old.archive) ? (old.archive as Record<string, unknown>[]).map((l) => upgradeLineage3(l, null)) : [];
     return { ...old, lineage, archive };
   },
+  // 3 -> 4: lineages carry the river's population; old saves get one rebuilt from their recorded run sizes.
+  3: (old) => {
+    const lineage = old.lineage ? upgradeLineage4(old.lineage as Record<string, unknown>) : old.lineage;
+    const archive = Array.isArray(old.archive) ? (old.archive as Record<string, unknown>[]).map(upgradeLineage4) : [];
+    return { ...old, lineage, archive };
+  },
+  // 4 -> 5: life progress gains the imprint (how well the fish learned home); a life saved before then gets an average one.
+  4: (old) => {
+    const life = old.life as { checkpoint?: { progress?: Record<string, unknown> } } | null | undefined;
+    const progress = life?.checkpoint?.progress;
+    if (!life || !progress || typeof progress.imprint === 'number') return old;
+    return { ...old, life: { ...life, checkpoint: { ...life.checkpoint, progress: { ...progress, imprint: averageImprint() } } } };
+  },
 };
+
+/** Schema 4 lineage: a population rebuilt from the run sizes it has already lived through. */
+function upgradeLineage4(l: Record<string, unknown>): Record<string, unknown> {
+  if (l.population) return l;
+  const difficulty: Difficulty = l.difficulty === 'wild' ? 'wild' : 'fieldGuide';
+  const p = new Params(paramFile as ParamFile, difficulty);
+  const records = Array.isArray(l.records) ? (l.records as { generation: number; conditions: YearConditions }[]) : [];
+  const byGen = new Map<number, YearConditions>();
+  for (const r of records) if (r?.conditions) byGen.set(r.generation, r.conditions);
+  const generation = Number(l.generation) || 1;
+  const current = l.conditions as YearConditions | undefined;
+  if (current) byGen.set(generation, current);
+  const years = [...byGen.entries()].sort((a, b) => a[0] - b[0]).map(([g, conditions]) => ({ generation: g, conditions }));
+  const population = populationFromConditions(p, years);
+  const now = population.history.find((y) => y.generation === generation);
+  return { ...l, population, conditions: current && now ? yearFromPopulation(current, now) : current };
+}
+
+/** The imprint given to lives saved before imprinting (params: imprint.default). */
+function averageImprint(): number {
+  const e = (paramFile as { params: { id: string; value: number }[] }).params.find((x) => x.id === 'imprint.default');
+  if (!e) throw new Error('params.json lacks imprint.default');
+  return e.value;
+}
 
 /** Schema 3 lineage: older records get the new fields with what can be recovered. */
 function upgradeLineage3(l: Record<string, unknown>, pending: FishIdentity[] | null): Record<string, unknown> {

@@ -8,6 +8,7 @@
  * The player swims in a school of other smolts. Predators pick targets from
  * the whole school, so staying in the school dilutes the player's risk.
  */
+import { fillImprint, finishSmoltImprint, stepSmoltImprint } from '../imprint';
 import { currentAt, depthOf, swimStep } from '../swim';
 import type { Entity, Vec3 } from '../types';
 import { lakeGrowth } from './fry';
@@ -367,6 +368,7 @@ export const smoltStage: StageDef = {
     const ss = st(w);
     ss.grace = Math.max(0, ss.grace - dt);
     stepSchool(w, dt);
+    stepSmoltImprint(w, schoolmatesNear(w).length, w.body.burst, dt);
     for (const c of w.live('trout')) {
       stepChar(w, c, dt);
       if (w.status !== 'playing') return;
@@ -383,11 +385,16 @@ export const smoltStage: StageDef = {
     if (w.body.pos.x >= w.arena.max.x - 5) {
       const s = st(w);
       w.emit('caption', 'smolt.salt', { lost: s.lost, total: s.schoolStart });
+      finishSmoltImprint(w);
       w.completeStage();
     }
   },
   debugComplete(w) {
+    fillImprint(w, 'smolt');
     w.completeStage();
+  },
+  fillProgress(w) {
+    fillImprint(w, 'smolt');
   },
 };
 

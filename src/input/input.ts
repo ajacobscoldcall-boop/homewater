@@ -13,7 +13,7 @@ import { pollPad, readPad, type PadState } from './gamepad';
  * Input sends that default code for whichever key the player bound, so a
  * rebound key and a gamepad button both reach the same handler.
  */
-const UI_CODE: Partial<Record<Action, string>> = { view: 'KeyV', details: 'KeyH', sound: 'KeyM', journal: 'KeyJ', guide: 'KeyG', pause: FIXED_PAUSE };
+const UI_CODE: Partial<Record<Action, string>> = { view: 'KeyV', details: 'KeyH', sound: 'KeyM', journal: 'KeyJ', guide: 'KeyG', photo: 'KeyP', pause: FIXED_PAUSE };
 
 export class Input {
   private down = new Set<string>();

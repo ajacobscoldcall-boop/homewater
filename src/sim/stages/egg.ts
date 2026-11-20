@@ -12,6 +12,7 @@
  *   out. The brood-mates in the nest are washed out around the player, so the
  *   heavy loss of eggs and alevin is seen without being the player's fault.
  */
+import { fillImprint, stepAlevinImprint } from '../imprint';
 import type { StageDef } from './index';
 import { v3, wrapAngle } from '../vec';
 import type { Entity } from '../types';
@@ -280,6 +281,7 @@ export const eggStage: StageDef = {
     const surge = s.flood === 'flood' ? p.get('alevin.floodStrength') : s.pulseLeft > 0 ? 1 : 0.15;
     const strength = surge * w.conditions.flow;
     const loose = Math.max(0, misalign - tol) / (Math.PI - tol);
+    stepAlevinImprint(w, misalign <= tol, dt);
     const shelter = 0.5 + 0.5 * s.height;
     let rate = loose > 0 && strength > 0.5 ? p.get('alevin.driftRate') * strength * loose * shelter : 0;
     // In the flood the top of the gravel itself is scoured: only deep down is safe, however well you face.
@@ -313,10 +315,12 @@ export const eggStage: StageDef = {
   },
   debugComplete(w) {
     w.progress.yolk = 0.1;
+    fillImprint(w, 'egg');
     w.completeStage();
   },
   fillProgress(w) {
     w.progress.yolk = 0.1;
+    fillImprint(w, 'egg');
   },
 };
 

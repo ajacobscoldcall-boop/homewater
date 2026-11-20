@@ -1,170 +1,200 @@
 # Homewater narration: recording script
 
-164 lines. Record each as its own file, named exactly as in the File column. See `README.md` in this folder for how to record.
+194 lines. Record each as its own file, named exactly as in the File column. See `README.md` in this folder for how to record.
 
 | # | File | Stage | When it plays | Line |
 |---|---|---|---|---|
-| 1 | `year.warm.mp3` | year | When it happens in play | A warm year. This year favours early-run fish. Late-run fish burn more fat on the way home. |
-| 2 | `year.highWater.mp3` | year | When it happens in play | High water. This year, early-run and deep-bodied fish struggle more against the flow. |
-| 3 | `year.lowWater.mp3` | year | When it happens in play | Low water. This year, deep-bodied fish are easier for bears to reach in the shallows. |
-| 4 | `year.bigRun.mp3` | year | When it happens in play | A big run. More big males crowd the spawning grounds: harder for large males, more fights and openings for jacks. |
-| 5 | `year.smallRun.mp3` | year | When it happens in play | A small run. Fewer rivals on the spawning grounds, which suits large males and leaves jacks fewer openings. |
-| 6 | `year.crowded.mp3` | year | When it happens in play | A crowded ocean. Fish grow less at sea and come home smaller. |
-| 7 | `year.ordinary.mp3` | year | When it happens in play | An ordinary year. No trait has a clear advantage. |
-| 8 | `year.betHedging.mp3` | year | When it happens in play | Every year favours different fish. Over many years, a population that keeps its variety does better than one that bets on a single strategy. |
-| 9 | `lineage.traitDrift.mp3` | lineage | When it happens in play | Each panel shows the inherited part of a trait, averaged over the brood each fish was chosen from. Zero is the home population's average. The offspring you pick, the mates they meet, strays and chance all move it. |
-| 10 | `lineage.extinct.mp3` | lineage | When it happens in play | The whole brood died before any of them could spawn. Nothing of this line returns to the gravel. |
-| 11 | `lineage.strayOffer.mp3` | lineage | When it happens in play | Salmon sometimes stray from the stream they were born in. A stray that has joined this river can start a new line here. |
-| 12 | `year.cool.mp3` | year | When it happens in play | A cool year. This year favours late-run fish, which burn less fat on the way home. |
-| 13 | `egg.intro.mp3` | 1 Egg and alevin | At the start of the stage | An egg in the gravel. There is little an egg can do but wait. Cold water seeps between the stones. |
-| 14 | `egg.hatch.mp3` | 1 Egg and alevin | When it happens in play | Hatched. The alevin lives on its yolk sac, hidden in the gravel. Alevin turn to face into the current: it keeps them upright and keeps oxygen-rich water flowing over their gills. |
-| 15 | `egg.flow.mp3` | 1 Egg and alevin | When it happens in play | The flow is shifting. Turn to face into the current before it surges. |
-| 16 | `egg.loosening.mp3` | 1 Egg and alevin | When it happens in play | The current is working you loose. Face upstream and sink deeper into the gravel. |
-| 17 | `egg.ready.mp3` | 1 Egg and alevin | When it happens in play | The yolk is nearly gone. Swim up toward the light and out of the gravel, ready to feed. |
-| 18 | `egg.emerge.mp3` | 1 Egg and alevin | At the end of the stage | The fry wriggles up out of the stones and into open water. Only about 10 to 20 percent of eggs get this far. |
-| 19 | `egg.floodComing.mp3` | 1 Egg and alevin | When it happens in play | The water is rising and clouding with silt. A flood is coming. Face into the current and get down deep in the gravel. |
-| 20 | `egg.flood.mp3` | 1 Egg and alevin | When it happens in play | The flood. High water tears at the gravel and scours the redd. Stay deep and keep facing upstream. |
-| 21 | `(not recorded: contains a number that changes)` | 1 Egg and alevin | When it happens in play | The flood passes. Of the {total} alevin hatched around you, {lost} were torn out of the gravel. Scouring floods are the main killer of eggs and alevin. |
-| 22 | `egg.tooEarly.mp3` | 1 Egg and alevin | When it happens in play | Not yet. Higher in the gravel the surges hit harder. Rise when the yolk is nearly used. |
-| 23 | `fry.intro.mp3` | 2 Fry in the lake | At the start of the stage | The lake. Most sockeye spend one year here, some two, feeding on zooplankton. |
-| 24 | `fry.controls.mp3` | 2 Fry in the lake | At the start, first life only | Click the water to steer with the mouse. Swim forward, burst, rise and dive. Swim through the glowing plankton to feed. |
-| 25 | `fry.trout.mp3` | 2 Fry in the lake | When it happens in play | A Dolly Varden has seen you. Rings in the water warn of a chase. The weeds at the shallow edge give cover. |
-| 26 | `fry.safeWeeds.mp3` | 2 Fry in the lake | When it happens in play | Hidden in the weeds. The Dolly Varden loses interest. |
-| 27 | `fry.winter.mp3` | 2 Fry in the lake | At the end of the stage | Winter comes. Under the ice the fry grows slowly. Only about 5 to 10 percent of fry survive to leave the lake. |
-| 28 | `fry.lesson.mp3` | 2 Fry in the lake | When it happens in play | Early summer, at the weed edge. Watch for rings spreading through the water: they mean a Dolly Varden is about to chase. When you see them, dart into the weeds. |
-| 29 | `fry.lessonDone.mp3` | 2 Fry in the lake | When it happens in play | Well read. Food in the open is worth having, but only with cover close by. |
-| 30 | `fry.dusk.mp3` | 2 Fry in the lake | When it happens in play | Midsummer evenings. As the light fades, the plankton rises toward the surface. The richest feeding is up high, in open water, where Dolly Varden and trout hunt. |
-| 31 | `fry.winterHint.mp3` | 2 Fry in the lake | When it happens in play | The water is cold and food is scarce. Every burst spends reserves you cannot easily replace. Rest when you can: ease off and take only the food that drifts close. |
-| 32 | `fry.starving.mp3` | 2 Fry in the lake | When it happens in play | The reserves are gone, and the fry is burning its own growth to stay alive. Rest, and find food. |
-| 33 | `fry.iceOut.mp3` | 2 Fry in the lake | When it happens in play | Spring. The ice breaks up. |
-| 34 | `fry.decide.mp3` | 2 Fry in the lake | When it happens in play | About 6 in 10 sockeye leave the lake after one year. Follow the drifting current to the outlet to leave now, or wait in the weeds to stay another year: a bigger fish when it leaves, but another year among the predators. |
-| 35 | `fry.decideGrown.mp3` | 2 Fry in the lake | When it happens in play | This fry grew well this year. |
-| 36 | `fry.decideSmall.mp3` | 2 Fry in the lake | When it happens in play | This fry grew slowly this year. Another year in the lake would make it bigger when it leaves. |
-| 37 | `fry.stay.mp3` | 2 Fry in the lake | When it happens in play | Staying another year. |
-| 38 | `fry.secondSummer.mp3` | 2 Fry in the lake | When it happens in play | A second summer in the lake. |
-| 39 | `fry.second.mp3` | 2 Fry in the lake | When it happens in play | Bigger now, but the predators are still here. Feed at dusk, and keep the weeds close. |
-| 40 | `fry.secondWinter.mp3` | 2 Fry in the lake | When it happens in play | Another winter passes under the ice. |
-| 41 | `fry.leave.mp3` | 2 Fry in the lake | When it happens in play | After one year in the lake, like most sockeye, the young fish follows the current toward the outlet. |
-| 42 | `fry.leaveSecond.mp3` | 2 Fry in the lake | When it happens in play | After two years in the lake, a bigger young fish follows the current toward the outlet. |
-| 43 | `smolt.intro.mp3` | 3 Smolt run | At the start of the stage | Spring. The young fish turns silver and leaves the lake at night, with thousands of others. Going together swamps the predators: they cannot eat everyone. Stay with the school. |
-| 44 | `smolt.char.mp3` | 3 Smolt run | When it happens in play | Char wait at the lake outlet. Rings in the water warn of a lunge. In a school, the char may take another fish instead of you. |
-| 45 | `smolt.bird.mp3` | 3 Smolt run | When it happens in play | A shadow on the surface: a diving bird. Go deep, or hide under the overhanging banks. |
-| 46 | `smolt.merganser.mp3` | 3 Smolt run | When it happens in play | A splash ahead: a merganser diving. It will chase underwater for a few seconds. Burst away. |
-| 47 | `smolt.mouth.mp3` | 3 Smolt run | When it happens in play | The river mouth and the first salt water. Gulls gather overhead and seals hunt the channel. |
-| 48 | `smolt.gulls.mp3` | 3 Smolt run | When it happens in play | Gulls, several at once. Watch every shadow. |
-| 49 | `smolt.seal.mp3` | 3 Smolt run | When it happens in play | Bubbles and a dark shape in the deep water: a seal. It will lunge straight. Swim across its path. |
-| 50 | `smolt.nearMiss.mp3` | 3 Smolt run | When it happens in play | Close. Back into the thick of the school: smolts go together to swamp their predators, which cannot take every fish. |
-| 51 | `smolt.alone.mp3` | 3 Smolt run | When it happens in play | You've left the school. A lone fish is the predators' only choice. |
-| 52 | `(not recorded: contains a number that changes)` | 3 Smolt run | At the end of the stage | The estuary. Of the {total} smolts that left the lake beside you, {lost} were taken. Since it turned silver, its gills and kidneys have been readying it for salt water. |
-| 53 | `ocean.intro.mp3` | 4 Ocean | At the start of the stage | The North Pacific. Sockeye stay in the top 20 to 40 metres and do most of their growing here. Feed where the krill and small fish gather. |
-| 54 | `ocean.orca.mp3` | 4 Ocean | When it happens in play | A dark shape at the edge of sight: an orca. It will charge in a straight line. Swim across its path, not away from it. |
-| 55 | `ocean.orcaGone.mp3` | 4 Ocean | When it happens in play | The orca is gone. |
-| 56 | `ocean.revealJack.mp3` | 4 Ocean | When it happens in play | Something has changed. This male is maturing early, after a single year at sea. He will return small, about 300 millimetres: a jack. Jacks are rare: in a typical Bristol Bay run only 1 or 2 males in 100 do this. |
-| 57 | `ocean.revealLarge--2.mp3` | 4 Ocean | When it happens in play | 2 years at sea in all. This male will return large, with a hooked jaw, big teeth and a hump. |
-| 58 | `ocean.revealLarge--3.mp3` | 4 Ocean | When it happens in play | 3 years at sea in all. This male will return large, with a hooked jaw, big teeth and a hump. |
-| 59 | `ocean.revealFemale--2.mp3` | 4 Ocean | When it happens in play | After 2 years at sea, she turns for home. |
-| 60 | `ocean.revealFemale--3.mp3` | 4 Ocean | When it happens in play | After 3 years at sea, she turns for home. |
-| 61 | `ocean.shark.mp3` | 4 Ocean | When it happens in play | A fast grey shape below: a salmon shark. It will strike in a straight line. Swim across its path. |
-| 62 | `ocean.sharkGone.mp3` | 4 Ocean | When it happens in play | The shark is gone. |
-| 63 | `ocean.yearsAtSea.mp3` | 4 Ocean | When it happens in play | Each extra year at sea brings more growth, and more risk: perhaps half of fish survive each later year. Jacks avoid this by returning early. |
-| 64 | `ocean.crowded.mp3` | 4 Ocean | When it happens in play | A crowded year at sea. Pink salmon are abundant every other year, and sockeye grow less when they compete for food. |
-| 65 | `ocean.skipOrca.mp3` | 4 Ocean | When it happens in play | Weeks later, farther out. Another patch of food, and something large is hunting here too. |
-| 66 | `ocean.skipSeal.mp3` | 4 Ocean | When it happens in play | Feeding near the surface. Seals and sea lions hunt salmon throughout their years at sea. |
-| 67 | `ocean.seal.mp3` | 4 Ocean | When it happens in play | Bubbles and a dark shape: a seal. It lunges at where you are going, so turn hard as it comes. |
-| 68 | `ocean.sealGone.mp3` | 4 Ocean | When it happens in play | The seal is gone. |
-| 69 | `ocean.pinks.mp3` | 4 Ocean | When it happens in play | Pink salmon everywhere, all after the same food. Get to it first. |
-| 70 | `ocean.pinksGone.mp3` | 4 Ocean | When it happens in play | A lean season: less food for every fish. |
-| 71 | `ocean.skipShark.mp3` | 4 Ocean | When it happens in play | Months pass. Deeper water, and something fast below. |
-| 72 | `ocean.autumn.mp3` | 4 Ocean | When it happens in play | The first autumn at sea. |
-| 73 | `ocean.autumnMale.mp3` | 4 Ocean | When it happens in play | For a male, this is thought to be when his path is set. His genes, and how fast he has grown, decide whether he matures early. |
-| 74 | `return.intro.mp3` | 5 The return | At the start of the stage | Coming home from the open sea. Nearing the coast, the salmon stops eating and lives on what it has stored. |
-| 75 | `return.fatHint.mp3` | 5 The return | When it happens in play | The fat bar is all the fuel left for this life. Bursting burns it fast. |
-| 76 | `return.netSlip.mp3` | 5 The return | When it happens in play | Small enough to slip through the mesh. Gillnets catch many returning sockeye, especially the larger males whose heads and teeth tangle, but jacks often slip through. |
-| 77 | `return.pastNets.mp3` | 5 The return | When it happens in play | Past the nets. Find the river mouth that smells like home. |
-| 78 | `return.bear.mp3` | 5 The return | When it happens in play | A shadow and a splash at the bank: a bear. Shallow riffles are where bears fish. Wait in a pool, or cross deep and fast. |
-| 79 | `return.lowFat.mp3` | 5 The return | When it happens in play | Reserves are running low. Rest in the slower water near the banks. |
-| 80 | `return.wrongBranch.mp3` | 5 The return | When it happens in play | The scent is fading. This branch is not home: back out and try the other. |
-| 81 | `return.arrive.mp3` | 5 The return | At the end of the stage | The scent is unmistakable. Home. |
-| 82 | `return.checkpoint.mp3` | 5 The return | When it happens in play | In the home river. |
-| 83 | `return.heat.mp3` | 5 The return | When it happens in play | A warm, low-water year. Heat stress and low oxygen kill fish before they spawn. Rest in the deeper, cooler pools. |
-| 84 | `return.track.mp3` | 5 The return | When it happens in play | At sea, salmon navigate by the Earth's magnetic field. Feel for it: faint shimmering marks appear ahead when you are on the track. If they fade, sweep side to side until you find them again. |
-| 85 | `return.lostTrack.mp3` | 5 The return | When it happens in play | The pull has faded. You've drifted off the track. Sweep across until the shimmer returns. |
-| 86 | `return.overshoot.mp3` | 5 The return | When it happens in play | The coast. This doesn't feel like the right mouth. Overshooting is one of the commonest mistakes; turn back along the shore. |
-| 87 | `return.wrongRiver.mp3` | 5 The return | When it happens in play | This river doesn't smell like home. Salmon test a river and back out when it is wrong. Turn around. |
-| 88 | `return.rightRiver.mp3` | 5 The return | When it happens in play | The smell of home. This is the river. |
-| 89 | `return.angler.mp3` | 5 The return | When it happens in play | A flash in the pool: an angler's lure swinging across the current. Give it a wide berth. |
-| 90 | `return.hooked.mp3` | 5 The return | When it happens in play | Hooked! Burst again and again to tear free before the line wins. |
-| 91 | `return.unhooked.mp3` | 5 The return | When it happens in play | Free. The hook tore loose, but the fight cost precious fat. |
-| 92 | `spawn.intro.mp3` | 6 Spawning | At the start of the stage | The spawning grounds. |
-| 93 | `spawn.female.mp3` | 6 Spawning | When it happens in play | Judge the gravel by its cobble: too coarse is hard to dig, too fine and the eggs get less oxygen. Dig the redd, wait over it for a male, then cover the eggs. Drive off rival females with a burst. |
-| 94 | `spawn.largeMale.mp3` | 6 Spawning | When it happens in play | Stay beside the female. When a rival comes, ram him side-on with a burst before he reaches her. Fights are quick, and size usually wins. |
-| 95 | `spawn.jack.mp3` | 6 Spawning | When it happens in play | You are too small to fight. Settle into a hiding spot under the bank. When the big males clash, dart in beside the female. |
-| 96 | `spawn.digging.mp3` | 6 Spawning | When it happens in play | Digging. Sweeps of the tail lift the gravel and the current carries the fine silt away. |
-| 97 | `spawn.needGravel.mp3` | 6 Spawning | When it happens in play | This spot is no good. Look for gravel of medium cobble. |
-| 98 | `spawn.rivalFemale.mp3` | 6 Spawning | When it happens in play | Another female wants this spot. Charge her with a burst. |
-| 99 | `spawn.rivalMale.mp3` | 6 Spawning | When it happens in play | A rival male is moving in. Ram him side-on with a burst before he reaches her. |
-| 100 | `spawn.chargeWorked.mp3` | 6 Spawning | When it happens in play | Driven off. |
-| 101 | `spawn.reddDisturbed.mp3` | 6 Spawning | When it happens in play | A rival dug into your redd. |
-| 102 | `spawn.maleLost.mp3` | 6 Spawning | When it happens in play | A rival reached the female while you were away. |
-| 103 | `spawn.femaleSpawned.mp3` | 6 Spawning | When it happens in play | The male joins you over the redd. The eggs are laid and fertilized. |
-| 104 | `spawn.maleSpawned.mp3` | 6 Spawning | When it happens in play | The female releases her eggs and you fertilize them. |
-| 105 | `spawn.jackWindow.mp3` | 6 Spawning | When it happens in play | The big males are fighting. Now! |
-| 106 | `spawn.jackSuccess.mp3` | 6 Spawning | When it happens in play | In and out before the guard noticed. Sneakers can fertilize some of the eggs, though usually fewer than a guarding male. |
-| 107 | `spawn.jackChased.mp3` | 6 Spawning | When it happens in play | The guarding male drove you off. Wait for an opening. |
-| 108 | `spawn.cobbleLarge.mp3` | 6 Spawning | When it happens in play | Coarse cobble. It is hard work to dig, and the redd will be poor. |
-| 109 | `spawn.cobbleSmall.mp3` | 6 Spawning | When it happens in play | Fine gravel. Easy to dig, but the eggs will get less oxygen. |
-| 110 | `spawn.fightWonSide.mp3` | 6 Spawning | When it happens in play | Side-on, mouth open: he gave way. Size usually wins, but timing and position helped. |
-| 111 | `spawn.fightWon.mp3` | 6 Spawning | When it happens in play | He gave way. |
-| 112 | `spawn.fightLost.mp3` | 6 Spawning | When it happens in play | He was bigger, and you were driven off. Hit rivals side-on, before they reach her. |
-| 113 | `spawn.bear.mp3` | 6 Spawning | When it happens in play | A bear wades into the shallows. Bears take the biggest males first, then large females, and small jacks last. Watch for its shadow. |
-| 114 | `spawn.bearTookGuard.mp3` | 6 Spawning | When it happens in play | The bear took the guarding male. |
-| 115 | `spawn.jackScarce.mp3` | 6 Spawning | When it happens in play | Too many jacks, too few hiding spots. They fight each other for the cover under the bank. |
-| 116 | `spawn.jackSpotTaken.mp3` | 6 Spawning | When it happens in play | Another jack holds this hiding spot. Charge him out with a burst, or find another. |
-| 117 | `spawn.jackSpotWon.mp3` | 6 Spawning | When it happens in play | You pushed him out of the spot. |
-| 118 | `spawn.jackEvicted.mp3` | 6 Spawning | When it happens in play | Another jack pushed you out of your hiding spot. |
-| 119 | `spawn.jackBeaten.mp3` | 6 Spawning | When it happens in play | Another jack got there first. |
-| 120 | `spawn.habitat.creek.mp3` | 6 Spawning | When it happens in play | A small creek: shallow water and undercut banks. Bears catch fish most easily in creeks, and the bank cover gives jacks places to hide. |
-| 121 | `spawn.habitat.river.mp3` | 6 Spawning | When it happens in play | A river: deeper, faster water over coarse gravel. River sockeye are larger and deeper-bodied than creek fish, and bears find them harder to catch. |
-| 122 | `spawn.habitat.beach.mp3` | 6 Spawning | When it happens in play | A lake beach: still water along the shore. Beach spawners are the largest and deepest-bodied sockeye. Bears catch fish less easily here than in creeks, and there are few places for jacks to hide. |
-| 123 | `spawn.jackBeach.mp3` | 6 Spawning | When it happens in play | You are too small to fight. Hide behind a boulder, the only cover on the beach. When the big males clash, dart in beside the female. |
-| 124 | `spawn.reddReady.mp3` | 6 Spawning | When it happens in play | The redd is dug. Stay over it and wait for a male. |
-| 125 | `spawn.maleArrives.mp3` | 6 Spawning | When it happens in play | A male has joined you. He stays close while you dig. |
-| 126 | `spawn.femaleChoice.mp3` | 6 Spawning | When it happens in play | Two males fight beside your redd. Fights are quick and mostly settled by size, and you will spawn with the winner. |
-| 127 | `spawn.waitMale.mp3` | 6 Spawning | When it happens in play | The redd is ready, but no male is beside it. Wait over it. |
-| 128 | `spawn.bury.mp3` | 6 Spawning | When it happens in play | Now cover the eggs: sweep gravel over them with your tail over the redd. |
-| 129 | `spawn.buried.mp3` | 6 Spawning | When it happens in play | The eggs are covered. Guard the redd against other females for as long as your strength lasts. |
-| 130 | `spawn.superimposed.mp3` | 6 Spawning | When it happens in play | Another female dug into your redd, and some of your eggs were dug up. Drive rivals off with a burst. |
-| 131 | `spawn.senescence.mp3` | 6 Spawning | When it happens in play | Your strength is fading, and here it will not come back. After weeks on the spawning grounds, salmon turn sluggish and ragged. |
-| 132 | `spawn.spentFemale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. You guarded the redd for as long as you could. Females live several weeks after spawning, rarely more than a month. |
-| 133 | `spawn.spentMale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. Like other Pacific salmon, a sockeye dies after spawning. |
-| 134 | `spawn.spentJack.mp3` | 6 Spawning | When it happens in play | Your strength is gone, and the season is over. |
-| 135 | `spawn.femaleReady.mp3` | 6 Spawning | When it happens in play | She is ready to spawn. Get beside her, now. |
-| 136 | `spawn.secondFemale.mp3` | 6 Spawning | When it happens in play | A second female has started to dig farther along the bed. In the game you can go to her or stay with the first; leaving costs strength and draws more bears. |
-| 137 | `spawn.maleLeaves.mp3` | 6 Spawning | When it happens in play | You leave her to look for another female. |
-| 138 | `spawn.maleStays.mp3` | 6 Spawning | When it happens in play | You stay near her. |
-| 139 | `spawn.maleSpawnedAgain.mp3` | 6 Spawning | When it happens in play | The second female releases her eggs and you fertilize them. |
-| 140 | `spawn.secondLost.mp3` | 6 Spawning | When it happens in play | She spawned with another male before you reached her. |
-| 141 | `spawn.jackCommon.mp3` | 6 Spawning | When it happens in play | Many jacks on the grounds this year: in the game, more of them compete for every opening, and each sneak is worth less. |
-| 142 | `spawn.jackRare.mp3` | 6 Spawning | When it happens in play | Few jacks on the grounds this year: in the game, less competition for the openings, and each sneak is worth more. |
-| 143 | `death.yolk.mp3` | Deaths | On the death screen | The yolk ran out before the alevin left the gravel. An alevin has to swim up and start feeding before its stored food is gone. |
-| 144 | `death.scour.mp3` | Deaths | On the death screen | Washed out. A surge of water tore the alevin from the gravel. High flows that scour the gravel kill many eggs and alevin before they ever emerge. |
-| 145 | `death.trout.mp3` | Deaths | On the death screen | Taken by a Dolly Varden. Trout and Dolly Varden are the main predators of fry in the lake. |
-| 146 | `death.bird.mp3` | Deaths | On the death screen | Taken by a diving bird. Smolts near the surface are easy targets for mergansers and gulls. |
-| 147 | `death.orca.mp3` | Deaths | On the death screen | Taken by an orca. |
-| 148 | `death.char.mp3` | Deaths | On the death screen | Taken by a char at the lake outlet. Larger fish gather where the smolts leave the lake. |
-| 149 | `death.merganser.mp3` | Deaths | On the death screen | Taken by a merganser. These diving ducks chase smolts underwater. |
-| 150 | `death.seal.mp3` | Deaths | On the death screen | Taken by a seal. Seals gather at river mouths when the smolts run, and hunt salmon throughout their years at sea. |
-| 151 | `death.gillnet.mp3` | Deaths | On the death screen | Caught in a gillnet. The fish swims in, its head and teeth tangle, and it cannot back out. Larger males are caught most. |
-| 152 | `death.bear.mp3` | Deaths | On the death screen | Taken by a bear. Bears feed most easily in shallow creeks. They take males first, then large females. |
-| 153 | `death.exhaustion.mp3` | Deaths | On the death screen | Exhausted. Returning salmon do not eat, and this one ran out of stored energy before reaching home. |
-| 154 | `death.noSpawn.mp3` | Deaths | On the death screen | Spawning failed. The season ended before this fish could spawn. |
-| 155 | `death.sea.mp3` | Deaths | On the death screen | Lost at sea during a later year: orcas, salmon sharks or seals. Perhaps half of fish survive each extra year. Jacks, returning after one year, skip this risk. |
-| 156 | `death.shark.mp3` | Deaths | On the death screen | Taken by a salmon shark. |
-| 157 | `death.angler.mp3` | Deaths | On the death screen | Landed by an angler. Sport fishing takes returning salmon in the rivers, as the commercial nets do on the approach. |
-| 158 | `end.decay.mp3` | End of life | After spawning, as the life ends | Like other Pacific salmon, a sockeye dies after spawning. |
-| 159 | `end.forest.mp3` | End of life | After spawning, as the life ends | Its body feeds the stream, the insects, the bears and the trees along the bank. |
-| 160 | `end.hatch.mp3` | End of life | After spawning, as the life ends | Under the gravel, the next generation is already growing. |
-| 161 | `end.spentFemale.mp3` | End of life | After spawning, as the life ends | Spent, she guards the redd for as long as she can. Females live several weeks after spawning, rarely more than a month. |
-| 162 | `end.spentMale.mp3` | End of life | After spawning, as the life ends | Spawned out, he grows sluggish and ragged on the grounds. |
-| 163 | `end.carcass.mp3` | End of life | After spawning, as the life ends | The body settles among the stones and slowly breaks down. |
-| 164 | `end.seasons.mp3` | End of life | After spawning, as the life ends | Autumn turns to winter, and winter to spring. |
+| 1 | `imprint.egg.mp3` | imprint | When it happens in play | Water seeps through the gravel, carrying the smell of this place. Young salmon are thought to learn the smell of home water. Facing into the flow, the alevin takes it in. |
+| 2 | `imprint.fry.mp3` | imprint | When it happens in play | Water from home flows into the lake here. Lingering in it, the young fish keeps learning the smell of home. |
+| 3 | `imprint.fryHint.mp3` | imprint | When it happens in play | A faint stream of drifting specks enters the lake near the weeds: water from home. Spend a little time in it to remember home better. |
+| 4 | `imprint.smolt.mp3` | imprint | When it happens in play | Leaving is when the memory of home is thought to set most firmly. Swim calmly with the school, without panicking, and the smell of this river stays with you. |
+| 5 | `year.warm.mp3` | year | When it happens in play | A warm year. This year favours early-run fish. Late-run fish burn more fat on the way home. |
+| 6 | `year.highWater.mp3` | year | When it happens in play | High water. This year, early-run and deep-bodied fish struggle more against the flow. |
+| 7 | `year.lowWater.mp3` | year | When it happens in play | Low water. This year, deep-bodied fish are easier for bears to reach in the shallows. |
+| 8 | `year.bigRun.mp3` | year | When it happens in play | A big run. More big males crowd the spawning grounds: harder for large males, more fights and openings for jacks. |
+| 9 | `year.smallRun.mp3` | year | When it happens in play | A small run. Fewer rivals on the spawning grounds, which suits large males and leaves jacks fewer openings. |
+| 10 | `year.crowded.mp3` | year | When it happens in play | A crowded ocean. Fish grow less at sea and come home smaller. |
+| 11 | `year.ordinary.mp3` | year | When it happens in play | An ordinary year. No trait has a clear advantage. |
+| 12 | `pop.lakeCrowded.mp3` | pop | When it happens in play | Your parents spawned in a big run. Their carcasses fed the lake, but this year it is crowded with fry, and the plankton is shared thinly. |
+| 13 | `pop.lakeRoomy.mp3` | pop | When it happens in play | Your parents' run was small. Fewer carcasses fed the lake, but there are fewer fry to share it, so the plankton goes further. |
+| 14 | `pop.lakeOrdinary.mp3` | pop | When it happens in play | An ordinary number of fry share the lake this year. |
+| 15 | `pop.fisheryHeavy.mp3` | pop | When it happens in play | A big run is coming home. The fishery is managed to let enough fish through to spawn, and takes more of the rest: more nets on the approach. |
+| 16 | `pop.fisheryLight.mp3` | pop | When it happens in play | A small run is coming home. The fishery holds back so enough fish reach the spawning grounds: fewer nets on the approach. |
+| 17 | `pop.fisheryClosed.mp3` | pop | When it happens in play | The run is too small to fish. The fishery stays closed so that enough fish reach the spawning grounds: no nets this year. |
+| 18 | `pop.fisheryOrdinary.mp3` | pop | When it happens in play | The fishery takes what it can spare above the number of fish it lets through to spawn: the usual nets on the approach. |
+| 19 | `pop.runHistory.mp3` | pop | When it happens in play | The river's run rises and falls. Many spawners mean many young, but a crowded lake and gravel give each fewer chances; a few spawners can rebuild a run. One fish's success hardly moves it. |
+| 20 | `year.betHedging.mp3` | year | When it happens in play | Every year favours different fish. Over many years, a population that keeps its variety does better than one that bets on a single strategy. |
+| 21 | `lineage.traitDrift.mp3` | lineage | When it happens in play | Each panel shows the inherited part of a trait, averaged over the brood each fish was chosen from. Zero is the home population's average. The offspring you pick, the mates they meet, strays and chance all move it. |
+| 22 | `lineage.extinct.mp3` | lineage | When it happens in play | The whole brood died before any of them could spawn. Nothing of this line returns to the gravel. |
+| 23 | `lineage.strayOffer.mp3` | lineage | When it happens in play | Salmon sometimes stray from the stream they were born in. A stray that has joined this river can start a new line here. |
+| 24 | `year.cool.mp3` | year | When it happens in play | A cool year. This year favours late-run fish, which burn less fat on the way home. |
+| 25 | `egg.intro.mp3` | 1 Egg and alevin | At the start of the stage | An egg in the gravel. There is little an egg can do but wait. Cold water seeps between the stones. |
+| 26 | `egg.hatch.mp3` | 1 Egg and alevin | When it happens in play | Hatched. The alevin lives on its yolk sac, hidden in the gravel. Alevin turn to face into the current: it keeps them upright and keeps oxygen-rich water flowing over their gills. |
+| 27 | `egg.flow.mp3` | 1 Egg and alevin | When it happens in play | The flow is shifting. Turn to face into the current before it surges. |
+| 28 | `egg.loosening.mp3` | 1 Egg and alevin | When it happens in play | The current is working you loose. Face upstream and sink deeper into the gravel. |
+| 29 | `egg.ready.mp3` | 1 Egg and alevin | When it happens in play | The yolk is nearly gone. Swim up toward the light and out of the gravel, ready to feed. |
+| 30 | `egg.emerge.mp3` | 1 Egg and alevin | At the end of the stage | The fry wriggles up out of the stones and into open water. Only about 10 to 20 percent of eggs get this far. |
+| 31 | `egg.floodComing.mp3` | 1 Egg and alevin | When it happens in play | The water is rising and clouding with silt. A flood is coming. Face into the current and get down deep in the gravel. |
+| 32 | `egg.flood.mp3` | 1 Egg and alevin | When it happens in play | The flood. High water tears at the gravel and scours the redd. Stay deep and keep facing upstream. |
+| 33 | `(not recorded: contains a number that changes)` | 1 Egg and alevin | When it happens in play | The flood passes. Of the {total} alevin hatched around you, {lost} were torn out of the gravel. Scouring floods are the main killer of eggs and alevin. |
+| 34 | `egg.tooEarly.mp3` | 1 Egg and alevin | When it happens in play | Not yet. Higher in the gravel the surges hit harder. Rise when the yolk is nearly used. |
+| 35 | `fry.intro.mp3` | 2 Fry in the lake | At the start of the stage | The lake. Most sockeye spend one year here, some two, feeding on zooplankton. |
+| 36 | `fry.controls.mp3` | 2 Fry in the lake | At the start, first life only | Click the water to steer with the mouse. Swim forward, burst, rise and dive. Swim through the glowing plankton to feed. |
+| 37 | `fry.trout.mp3` | 2 Fry in the lake | When it happens in play | A Dolly Varden has seen you. Rings in the water warn of a chase. The weeds at the shallow edge give cover. |
+| 38 | `fry.safeWeeds.mp3` | 2 Fry in the lake | When it happens in play | Hidden in the weeds. The Dolly Varden loses interest. |
+| 39 | `fry.winter.mp3` | 2 Fry in the lake | At the end of the stage | Winter comes. Under the ice the fry grows slowly. Only about 5 to 10 percent of fry survive to leave the lake. |
+| 40 | `fry.lesson.mp3` | 2 Fry in the lake | When it happens in play | Early summer, at the weed edge. Watch for rings spreading through the water: they mean a Dolly Varden is about to chase. When you see them, dart into the weeds. |
+| 41 | `fry.lessonDone.mp3` | 2 Fry in the lake | When it happens in play | Well read. Food in the open is worth having, but only with cover close by. |
+| 42 | `fry.dusk.mp3` | 2 Fry in the lake | When it happens in play | Midsummer evenings. As the light fades, the plankton rises toward the surface. The richest feeding is up high, in open water, where Dolly Varden and trout hunt. |
+| 43 | `fry.winterHint.mp3` | 2 Fry in the lake | When it happens in play | The water is cold and food is scarce. Every burst spends reserves you cannot easily replace. Rest when you can: ease off and take only the food that drifts close. |
+| 44 | `fry.starving.mp3` | 2 Fry in the lake | When it happens in play | The reserves are gone, and the fry is burning its own growth to stay alive. Rest, and find food. |
+| 45 | `fry.iceOut.mp3` | 2 Fry in the lake | When it happens in play | Spring. The ice breaks up. |
+| 46 | `fry.decide.mp3` | 2 Fry in the lake | When it happens in play | About 6 in 10 sockeye leave the lake after one year. Follow the drifting current to the outlet to leave now, or wait in the weeds to stay another year: a bigger fish when it leaves, but another year among the predators. |
+| 47 | `fry.decideGrown.mp3` | 2 Fry in the lake | When it happens in play | This fry grew well this year. |
+| 48 | `fry.decideSmall.mp3` | 2 Fry in the lake | When it happens in play | This fry grew slowly this year. Another year in the lake would make it bigger when it leaves. |
+| 49 | `fry.stay.mp3` | 2 Fry in the lake | When it happens in play | Staying another year. |
+| 50 | `fry.secondSummer.mp3` | 2 Fry in the lake | When it happens in play | A second summer in the lake. |
+| 51 | `fry.second.mp3` | 2 Fry in the lake | When it happens in play | Bigger now, but the predators are still here. Feed at dusk, and keep the weeds close. |
+| 52 | `fry.secondWinter.mp3` | 2 Fry in the lake | When it happens in play | Another winter passes under the ice. |
+| 53 | `fry.leave.mp3` | 2 Fry in the lake | When it happens in play | After one year in the lake, like most sockeye, the young fish follows the current toward the outlet. |
+| 54 | `fry.leaveSecond.mp3` | 2 Fry in the lake | When it happens in play | After two years in the lake, a bigger young fish follows the current toward the outlet. |
+| 55 | `smolt.intro.mp3` | 3 Smolt run | At the start of the stage | Spring. The young fish turns silver and leaves the lake at night, with thousands of others. Going together swamps the predators: they cannot eat everyone. Stay with the school. |
+| 56 | `smolt.char.mp3` | 3 Smolt run | When it happens in play | Char wait at the lake outlet. Rings in the water warn of a lunge. In a school, the char may take another fish instead of you. |
+| 57 | `smolt.bird.mp3` | 3 Smolt run | When it happens in play | A shadow on the surface: a diving bird. Go deep, or hide under the overhanging banks. |
+| 58 | `smolt.merganser.mp3` | 3 Smolt run | When it happens in play | A splash ahead: a merganser diving. It will chase underwater for a few seconds. Burst away. |
+| 59 | `smolt.mouth.mp3` | 3 Smolt run | When it happens in play | The river mouth and the first salt water. Gulls gather overhead and seals hunt the channel. |
+| 60 | `smolt.gulls.mp3` | 3 Smolt run | When it happens in play | Gulls, several at once. Watch every shadow. |
+| 61 | `smolt.seal.mp3` | 3 Smolt run | When it happens in play | Bubbles and a dark shape in the deep water: a seal. It will lunge straight. Swim across its path. |
+| 62 | `smolt.nearMiss.mp3` | 3 Smolt run | When it happens in play | Close. Back into the thick of the school: smolts go together to swamp their predators, which cannot take every fish. |
+| 63 | `smolt.alone.mp3` | 3 Smolt run | When it happens in play | You've left the school. A lone fish is the predators' only choice. |
+| 64 | `(not recorded: contains a number that changes)` | 3 Smolt run | At the end of the stage | The estuary. Of the {total} smolts that left the lake beside you, {lost} were taken. Since it turned silver, its gills and kidneys have been readying it for salt water. |
+| 65 | `ocean.intro.mp3` | 4 Ocean | At the start of the stage | The North Pacific. Sockeye stay in the top 20 to 40 metres and do most of their growing here. Feed where the krill and small fish gather. |
+| 66 | `ocean.orca.mp3` | 4 Ocean | When it happens in play | A dark shape at the edge of sight: an orca. It will charge in a straight line. Swim across its path, not away from it. |
+| 67 | `ocean.orcaGone.mp3` | 4 Ocean | When it happens in play | The orca is gone. |
+| 68 | `ocean.revealJack.mp3` | 4 Ocean | When it happens in play | Something has changed. This male is maturing early, after a single year at sea. He will return small, about 300 millimetres: a jack. Jacks are rare: in a typical Bristol Bay run only 1 or 2 males in 100 do this. |
+| 69 | `ocean.revealLarge--2.mp3` | 4 Ocean | When it happens in play | 2 years at sea in all. This male will return large, with a hooked jaw, big teeth and a hump. |
+| 70 | `ocean.revealLarge--3.mp3` | 4 Ocean | When it happens in play | 3 years at sea in all. This male will return large, with a hooked jaw, big teeth and a hump. |
+| 71 | `ocean.revealFemale--2.mp3` | 4 Ocean | When it happens in play | After 2 years at sea, she turns for home. |
+| 72 | `ocean.revealFemale--3.mp3` | 4 Ocean | When it happens in play | After 3 years at sea, she turns for home. |
+| 73 | `ocean.shark.mp3` | 4 Ocean | When it happens in play | A fast grey shape below: a salmon shark. It will strike in a straight line. Swim across its path. |
+| 74 | `ocean.sharkGone.mp3` | 4 Ocean | When it happens in play | The shark is gone. |
+| 75 | `ocean.yearsAtSea.mp3` | 4 Ocean | When it happens in play | Each extra year at sea brings more growth, and more risk: perhaps half of fish survive each later year. Jacks avoid this by returning early. |
+| 76 | `ocean.crowded.mp3` | 4 Ocean | When it happens in play | A crowded year at sea. Pink salmon are abundant every other year, and sockeye grow less when they compete for food. |
+| 77 | `ocean.skipOrca.mp3` | 4 Ocean | When it happens in play | Weeks later, farther out. Another patch of food, and something large is hunting here too. |
+| 78 | `ocean.skipSeal.mp3` | 4 Ocean | When it happens in play | Feeding near the surface. Seals and sea lions hunt salmon throughout their years at sea. |
+| 79 | `ocean.seal.mp3` | 4 Ocean | When it happens in play | Bubbles and a dark shape: a seal. It lunges at where you are going, so turn hard as it comes. |
+| 80 | `ocean.sealGone.mp3` | 4 Ocean | When it happens in play | The seal is gone. |
+| 81 | `ocean.pinks.mp3` | 4 Ocean | When it happens in play | Pink salmon everywhere, all after the same food. Get to it first. |
+| 82 | `ocean.pinksGone.mp3` | 4 Ocean | When it happens in play | A lean season: less food for every fish. |
+| 83 | `ocean.skipShark.mp3` | 4 Ocean | When it happens in play | Months pass. Deeper water, and something fast below. |
+| 84 | `ocean.autumn.mp3` | 4 Ocean | When it happens in play | The first autumn at sea. |
+| 85 | `ocean.autumnMale.mp3` | 4 Ocean | When it happens in play | For a male, this is thought to be when his path is set. His genes, and how fast he has grown, decide whether he matures early. |
+| 86 | `return.intro.mp3` | 5 The return | At the start of the stage | Coming home from the open sea. Nearing the coast, the salmon stops eating and lives on what it has stored. |
+| 87 | `return.fatHint.mp3` | 5 The return | When it happens in play | The fat bar is all the fuel left for this life. Bursting burns it fast. |
+| 88 | `return.netSlip.mp3` | 5 The return | When it happens in play | Small enough to slip through the mesh. Gillnets catch many returning sockeye, especially the larger males whose heads and teeth tangle, but jacks often slip through. |
+| 89 | `return.pastNets.mp3` | 5 The return | When it happens in play | Past the nets. Find the river mouth that smells like home. |
+| 90 | `return.bear.mp3` | 5 The return | When it happens in play | A shadow and a splash at the bank: a bear. Shallow riffles are where bears fish. Wait in a pool, or cross deep and fast. |
+| 91 | `return.lowFat.mp3` | 5 The return | When it happens in play | Reserves are running low. Rest in the slower water near the banks. |
+| 92 | `return.wrongBranch.mp3` | 5 The return | When it happens in play | The scent is fading. This branch is not home: back out and try the other. |
+| 93 | `return.arrive.mp3` | 5 The return | At the end of the stage | The scent is unmistakable. Home. |
+| 94 | `return.checkpoint.mp3` | 5 The return | When it happens in play | In the home river. |
+| 95 | `return.heat.mp3` | 5 The return | When it happens in play | A warm, low-water year. Heat stress and low oxygen kill fish before they spawn. Rest in the deeper, cooler pools. |
+| 96 | `return.coolSeep.mp3` | 5 The return | When it happens in play | Cold water, seeping up through the gravel. In a warm year, cool pockets like this let a salmon wait out the heat. Rest here and the strain eases, but every minute still burns fat. |
+| 97 | `return.coolPool.mp3` | 5 The return | When it happens in play | Cooler water in the deep pool. Rest near the bottom and let the heat stress ease, then push on before the fat runs low. |
+| 98 | `return.heatStress.mp3` | 5 The return | When it happens in play | The water is too warm and short of oxygen. Heat stress is building. Find deeper, cooler water and rest. |
+| 99 | `return.track.mp3` | 5 The return | When it happens in play | At sea, salmon navigate by the Earth's magnetic field. Feel for it: faint shimmering marks appear ahead when you are on the track. If they fade, sweep side to side until you find them again. |
+| 100 | `return.lostTrack.mp3` | 5 The return | When it happens in play | The pull has faded. You've drifted off the track. Sweep across until the shimmer returns. |
+| 101 | `return.overshoot.mp3` | 5 The return | When it happens in play | The coast. This doesn't feel like the right mouth. Overshooting is one of the commonest mistakes; turn back along the shore. |
+| 102 | `return.wrongRiver.mp3` | 5 The return | When it happens in play | This river doesn't smell like home. Salmon test a river and back out when it is wrong. Turn around. |
+| 103 | `return.rightRiver.mp3` | 5 The return | When it happens in play | The smell of home. This is the river. |
+| 104 | `return.scent.strong.mp3` | 5 The return | When it happens in play | Fresh water ahead. The smell of home comes through clearly and steadily: this fish learned it well. |
+| 105 | `return.scent.fair.mp3` | 5 The return | When it happens in play | Fresh water ahead. Somewhere in it is the smell of home, faint but there. |
+| 106 | `return.scent.weak.mp3` | 5 The return | When it happens in play | Fresh water ahead. The smell of home is faint and patchy: this fish learned it poorly, and other rivers smell much the same. |
+| 107 | `return.strayScent.mp3` | 5 The return | When it happens in play | This river smells almost like home. A fish that learned home poorly can easily stray into the wrong one. |
+| 108 | `return.strayScentClear.mp3` | 5 The return | When it happens in play | This river smells of fresh water, but not of home. The smell fades quickly up the channel. |
+| 109 | `return.angler.mp3` | 5 The return | When it happens in play | A flash in the pool: an angler's lure swinging across the current. Give it a wide berth. |
+| 110 | `return.hooked.mp3` | 5 The return | When it happens in play | Hooked! Burst again and again to tear free before the line wins. |
+| 111 | `return.unhooked.mp3` | 5 The return | When it happens in play | Free. The hook tore loose, but the fight cost precious fat. |
+| 112 | `return.migrants.mp3` | 5 The return | When it happens in play | Other sockeye from this river are coming home too. They travel with you, hold in the pools and try the falls alongside you. |
+| 113 | `return.migrantTaken.mp3` | 5 The return | When it happens in play | The bear took one of the others. In company, each fish is a little safer. |
+| 114 | `return.rapids.mp3` | 5 The return | When it happens in play | Rapids. The current is strong and uneven. Dash from rock to rock: the slack water behind each boulder is a place to rest. |
+| 115 | `return.eddy.mp3` | 5 The return | When it happens in play | Slack water behind the boulder. Rest here to get your breath back before the next dash. |
+| 116 | `return.falls.mp3` | 5 The return | When it happens in play | A falls. Salmon leap them from the pool below. Build up speed, then burst and rise together just under the surface. Launch from the standing wave, below the low step where the water pours thickest. |
+| 117 | `return.firstLeap.mp3` | 5 The return | When it happens in play | Over the falls! Salmon can clear falls like this by leaping from the pool below, but every hard effort burns reserves they cannot replace. |
+| 118 | `return.leapFail.mp3` | 5 The return | When it happens in play | Not enough. The falling water knocks the fish back into the pool. Rest, then build more speed, and launch from the standing wave below the low step. |
+| 119 | `return.sideChannel.mp3` | 5 The return | When it happens in play | A lower side channel along the bank is open now. It is a longer climb up small steps against fast water, and it costs fat, but it gets past the falls. |
+| 120 | `return.chuteUp.mp3` | 5 The return | When it happens in play | Up the side channel and past the falls, at a cost in fat. |
+| 121 | `spawn.intro.mp3` | 6 Spawning | At the start of the stage | The spawning grounds. |
+| 122 | `spawn.female.mp3` | 6 Spawning | When it happens in play | Judge the gravel by its cobble: too coarse is hard to dig, too fine and the eggs get less oxygen. Dig the redd, wait over it for a male, then cover the eggs. Drive off rival females with a burst. |
+| 123 | `spawn.largeMale.mp3` | 6 Spawning | When it happens in play | Stay beside the female. When a rival comes, ram him side-on with a burst before he reaches her. Fights are quick, and size usually wins. |
+| 124 | `spawn.jack.mp3` | 6 Spawning | When it happens in play | You are too small to fight. Settle into a hiding spot under the bank. When the big males clash, dart in beside the female. |
+| 125 | `spawn.digging.mp3` | 6 Spawning | When it happens in play | Digging. Sweeps of the tail lift the gravel and the current carries the fine silt away. |
+| 126 | `spawn.needGravel.mp3` | 6 Spawning | When it happens in play | This spot is no good. Look for gravel of medium cobble. |
+| 127 | `spawn.rivalFemale.mp3` | 6 Spawning | When it happens in play | Another female wants this spot. Charge her with a burst. |
+| 128 | `spawn.rivalMale.mp3` | 6 Spawning | When it happens in play | A rival male is moving in. Ram him side-on with a burst before he reaches her. |
+| 129 | `spawn.chargeWorked.mp3` | 6 Spawning | When it happens in play | Driven off. |
+| 130 | `spawn.reddDisturbed.mp3` | 6 Spawning | When it happens in play | A rival dug into your redd. |
+| 131 | `spawn.maleLost.mp3` | 6 Spawning | When it happens in play | A rival reached the female while you were away. |
+| 132 | `spawn.femaleSpawned.mp3` | 6 Spawning | When it happens in play | The male joins you over the redd. The eggs are laid and fertilized. |
+| 133 | `spawn.maleSpawned.mp3` | 6 Spawning | When it happens in play | The female releases her eggs and you fertilize them. |
+| 134 | `spawn.jackWindow.mp3` | 6 Spawning | When it happens in play | The big males are fighting. Now! |
+| 135 | `spawn.jackSuccess.mp3` | 6 Spawning | When it happens in play | In and out before the guard noticed. Sneakers can fertilize some of the eggs, though usually fewer than a guarding male. |
+| 136 | `spawn.jackChased.mp3` | 6 Spawning | When it happens in play | The guarding male drove you off. Wait for an opening. |
+| 137 | `spawn.cobbleLarge.mp3` | 6 Spawning | When it happens in play | Coarse cobble. It is hard work to dig, and the redd will be poor. |
+| 138 | `spawn.cobbleSmall.mp3` | 6 Spawning | When it happens in play | Fine gravel. Easy to dig, but the eggs will get less oxygen. |
+| 139 | `spawn.fightWonSide.mp3` | 6 Spawning | When it happens in play | Side-on, mouth open: he gave way. Size usually wins, but timing and position helped. |
+| 140 | `spawn.fightWon.mp3` | 6 Spawning | When it happens in play | He gave way. |
+| 141 | `spawn.fightLost.mp3` | 6 Spawning | When it happens in play | He was bigger, and you were driven off. Hit rivals side-on, before they reach her. |
+| 142 | `spawn.bear.mp3` | 6 Spawning | When it happens in play | A bear wades into the shallows. Bears take the biggest males first, then large females, and small jacks last. Watch for its shadow. |
+| 143 | `spawn.bearTookGuard.mp3` | 6 Spawning | When it happens in play | The bear took the guarding male. |
+| 144 | `spawn.jackScarce.mp3` | 6 Spawning | When it happens in play | Too many jacks, too few hiding spots. They fight each other for the cover under the bank. |
+| 145 | `spawn.jackSpotTaken.mp3` | 6 Spawning | When it happens in play | Another jack holds this hiding spot. Charge him out with a burst, or find another. |
+| 146 | `spawn.jackSpotWon.mp3` | 6 Spawning | When it happens in play | You pushed him out of the spot. |
+| 147 | `spawn.jackEvicted.mp3` | 6 Spawning | When it happens in play | Another jack pushed you out of your hiding spot. |
+| 148 | `spawn.jackBeaten.mp3` | 6 Spawning | When it happens in play | Another jack got there first. |
+| 149 | `spawn.habitat.creek.mp3` | 6 Spawning | When it happens in play | A small creek: shallow water and undercut banks. Bears catch fish most easily in creeks, and the bank cover gives jacks places to hide. |
+| 150 | `spawn.habitat.river.mp3` | 6 Spawning | When it happens in play | A river: deeper, faster water over coarse gravel. River sockeye are larger and deeper-bodied than creek fish, and bears find them harder to catch. |
+| 151 | `spawn.habitat.beach.mp3` | 6 Spawning | When it happens in play | A lake beach: still water along the shore. Beach spawners are the largest and deepest-bodied sockeye. Bears catch fish less easily here than in creeks, and there are few places for jacks to hide. |
+| 152 | `spawn.jackBeach.mp3` | 6 Spawning | When it happens in play | You are too small to fight. Hide behind a boulder, the only cover on the beach. When the big males clash, dart in beside the female. |
+| 153 | `spawn.reddReady.mp3` | 6 Spawning | When it happens in play | The redd is dug. Stay over it and wait for a male. |
+| 154 | `spawn.maleArrives.mp3` | 6 Spawning | When it happens in play | A male has joined you. He stays close while you dig. |
+| 155 | `spawn.femaleChoice.mp3` | 6 Spawning | When it happens in play | Two males fight beside your redd. Fights are quick and mostly settled by size, and you will spawn with the winner. |
+| 156 | `spawn.waitMale.mp3` | 6 Spawning | When it happens in play | The redd is ready, but no male is beside it. Wait over it. |
+| 157 | `spawn.bury.mp3` | 6 Spawning | When it happens in play | Now cover the eggs: sweep gravel over them with your tail over the redd. |
+| 158 | `spawn.buried.mp3` | 6 Spawning | When it happens in play | The eggs are covered. Guard the redd against other females for as long as your strength lasts. |
+| 159 | `spawn.superimposed.mp3` | 6 Spawning | When it happens in play | Another female dug into your redd, and some of your eggs were dug up. Drive rivals off with a burst. |
+| 160 | `spawn.senescence.mp3` | 6 Spawning | When it happens in play | Your strength is fading, and here it will not come back. After weeks on the spawning grounds, salmon turn sluggish and ragged. |
+| 161 | `spawn.spentFemale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. You guarded the redd for as long as you could. Females live several weeks after spawning, rarely more than a month. |
+| 162 | `spawn.spentMale.mp3` | 6 Spawning | When it happens in play | Your strength is gone. Like other Pacific salmon, a sockeye dies after spawning. |
+| 163 | `spawn.spentJack.mp3` | 6 Spawning | When it happens in play | Your strength is gone, and the season is over. |
+| 164 | `spawn.femaleReady.mp3` | 6 Spawning | When it happens in play | She is ready to spawn. Get beside her, now. |
+| 165 | `spawn.secondFemale.mp3` | 6 Spawning | When it happens in play | A second female has started to dig farther along the bed. In the game you can go to her or stay with the first; leaving costs strength and draws more bears. |
+| 166 | `spawn.maleLeaves.mp3` | 6 Spawning | When it happens in play | You leave her to look for another female. |
+| 167 | `spawn.maleStays.mp3` | 6 Spawning | When it happens in play | You stay near her. |
+| 168 | `spawn.maleSpawnedAgain.mp3` | 6 Spawning | When it happens in play | The second female releases her eggs and you fertilize them. |
+| 169 | `spawn.secondLost.mp3` | 6 Spawning | When it happens in play | She spawned with another male before you reached her. |
+| 170 | `spawn.jackCommon.mp3` | 6 Spawning | When it happens in play | Many jacks on the grounds this year: in the game, more of them compete for every opening, and each sneak is worth less. |
+| 171 | `spawn.jackRare.mp3` | 6 Spawning | When it happens in play | Few jacks on the grounds this year: in the game, less competition for the openings, and each sneak is worth more. |
+| 172 | `death.yolk.mp3` | Deaths | On the death screen | The yolk ran out before the alevin left the gravel. An alevin has to swim up and start feeding before its stored food is gone. |
+| 173 | `death.scour.mp3` | Deaths | On the death screen | Washed out. A surge of water tore the alevin from the gravel. High flows that scour the gravel kill many eggs and alevin before they ever emerge. |
+| 174 | `death.trout.mp3` | Deaths | On the death screen | Taken by a Dolly Varden. Trout and Dolly Varden are the main predators of fry in the lake. |
+| 175 | `death.bird.mp3` | Deaths | On the death screen | Taken by a diving bird. Smolts near the surface are easy targets for mergansers and gulls. |
+| 176 | `death.orca.mp3` | Deaths | On the death screen | Taken by an orca. |
+| 177 | `death.char.mp3` | Deaths | On the death screen | Taken by a char at the lake outlet. Larger fish gather where the smolts leave the lake. |
+| 178 | `death.merganser.mp3` | Deaths | On the death screen | Taken by a merganser. These diving ducks chase smolts underwater. |
+| 179 | `death.seal.mp3` | Deaths | On the death screen | Taken by a seal. Seals gather at river mouths when the smolts run, and hunt salmon throughout their years at sea. |
+| 180 | `death.gillnet.mp3` | Deaths | On the death screen | Caught in a gillnet. The fish swims in, its head and teeth tangle, and it cannot back out. Larger males are caught most. |
+| 181 | `death.bear.mp3` | Deaths | On the death screen | Taken by a bear. Bears feed most easily in shallow creeks. They take males first, then large females. |
+| 182 | `death.exhaustion.mp3` | Deaths | On the death screen | Exhausted. Returning salmon do not eat, and this one ran out of stored energy before reaching home. |
+| 183 | `death.noSpawn.mp3` | Deaths | On the death screen | Spawning failed. The season ended before this fish could spawn. |
+| 184 | `death.sea.mp3` | Deaths | On the death screen | Lost at sea during a later year: orcas, salmon sharks or seals. Perhaps half of fish survive each extra year. Jacks, returning after one year, skip this risk. |
+| 185 | `death.shark.mp3` | Deaths | On the death screen | Taken by a salmon shark. |
+| 186 | `death.heat.mp3` | Deaths | On the death screen | Killed by heat stress. Warm, low water holds less oxygen, and salmon that spend too long in it die before they spawn. |
+| 187 | `death.angler.mp3` | Deaths | On the death screen | Landed by an angler. Sport fishing takes returning salmon in the rivers, as the commercial nets do on the approach. |
+| 188 | `end.decay.mp3` | End of life | After spawning, as the life ends | Like other Pacific salmon, a sockeye dies after spawning. |
+| 189 | `end.forest.mp3` | End of life | After spawning, as the life ends | Its body feeds the stream, the insects, the bears and the trees along the bank. |
+| 190 | `end.hatch.mp3` | End of life | After spawning, as the life ends | Under the gravel, the next generation is already growing. |
+| 191 | `end.spentFemale.mp3` | End of life | After spawning, as the life ends | Spent, she guards the redd for as long as she can. Females live several weeks after spawning, rarely more than a month. |
+| 192 | `end.spentMale.mp3` | End of life | After spawning, as the life ends | Spawned out, he grows sluggish and ragged on the grounds. |
+| 193 | `end.carcass.mp3` | End of life | After spawning, as the life ends | The body settles among the stones and slowly breaks down. |
+| 194 | `end.seasons.mp3` | End of life | After spawning, as the life ends | Autumn turns to winter, and winter to spring. |

@@ -1,0 +1,31 @@
+/* Photo mode (src/ui/photoMode.ts): the game's HUD, captions and effects hide; a small panel and hint sit over the picture. */
+body.photo-mode #hud,
+body.photo-mode #vignette,
+body.photo-mode #flash,
+body.photo-mode #debug,
+body.photo-mode #cinema-bars,
+body.photo-mode #journal-toasts,
+body.photo-mode #guide,
+body.photo-mode #screen { display: none !important; }
+body.photo-mode #view { cursor: grab; }
+body.photo-mode #view:active { cursor: grabbing; }
+
+#photo { position: absolute; inset: 0; pointer-events: none; }
+#photo-panel { pointer-events: auto; position: absolute; top: 16px; right: 16px; width: min(360px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; background: rgba(10, 32, 38, 0.9); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; display: grid; gap: 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); }
+#photo-panel h2 { font-family: var(--f-display); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+.photo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.photo-group { display: grid; gap: 6px; }
+.photo-row { display: flex; flex-wrap: wrap; gap: 6px; }
+#photo-panel button { font-size: 13px; padding: 6px 10px; }
+#photo-panel button[aria-pressed='true'] { border-color: var(--kype); background: rgba(143, 160, 74, 0.25); }
+#photo-panel button:disabled { opacity: 0.45; cursor: not-allowed; }
+.photo-slider { align-items: center; flex-wrap: nowrap; }
+.photo-slider input { flex: 1; accent-color: var(--kype); }
+.photo-value { font-family: var(--f-mono); font-size: 12px; min-width: 4ch; text-align: right; }
+.photo-note { font-size: 12px; }
+.photo-actions { border-top: 1px solid var(--rule); padding-top: 12px; }
+#photo-status { font-size: 13px; min-height: 1.4em; overflow-wrap: anywhere; }
+#photo-status a { color: var(--fg); }
+#photo-hint { position: absolute; left: 16px; bottom: 16px; font-family: var(--f-mono); font-size: 12px; line-height: 1.6; color: var(--fg); background: rgba(8, 26, 30, 0.6); padding: 8px 12px; border-radius: 4px; text-shadow: 0 1px 2px #000; transition: opacity 0.8s; max-width: calc(100% - 32px); }
+#photo-hint.fade { opacity: 0; }
+#photo-mark { position: absolute; font-family: var(--f-display); font-weight: 600; color: #e6efec; text-shadow: 0 0 6px rgba(0, 0, 0, 0.6); letter-spacing: -0.01em; line-height: 1; }

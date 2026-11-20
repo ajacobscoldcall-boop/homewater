@@ -2,7 +2,8 @@
  * The bloodline across lives: founding fish, records of each life,
  * offspring choice and extinction. Pure data so it can be saved.
  */
-import { habitatOffset, makeFish, makeOffspring, populationBv, rollYear } from './genetics';
+import { habitatOffset, makeFish, makeOffspring, populationBv } from './genetics';
+import { nextYear, seedPopulation, type Population } from './population';
 import type { Difficulty, Params } from './params';
 import { Rng } from './rng';
 import { HABITATS, TRAIT_IDS, type DeathCause, type Habitat, type FishIdentity, type Sex, type SpawnResult, type StageId, type TraitValues, type YearConditions } from './types';
@@ -62,6 +63,8 @@ export interface Lineage {
   usedNames: string[];
   /** A line founded by a stray after another line died out in the same river (schema 3). */
   ancestor: { id: string; name: string } | null;
+  /** The river's run, carried from generation to generation (schema 4). */
+  population: Population;
 }
 
 /** A lineage is known by its founder's name. */
@@ -95,6 +98,8 @@ export function foundLineage(p: Params, o: FoundOptions): Lineage {
   const lockedJack = o.preset === 'jack';
   if (lockedJack) bv.jack = p.get('genetics.jackStartBreedingValue');
   const fish = makeFish(p, rng, { sex: lockedJack ? 'M' : o.sex, name: o.name, generation: 1, bv, lockedJack, habitat });
+  const population = seedPopulation(p, rng);
+  const conditions = nextYear(p, rng, population, 1);
   return {
     id: `L${o.seed.toString(36)}`,
     createdAt: new Date().toISOString(),
@@ -103,11 +108,12 @@ export function foundLineage(p: Params, o: FoundOptions): Lineage {
     rngState: rng.state,
     generation: 1,
     current: fish,
-    conditions: rollYear(p, rng, 1),
+    conditions,
     records: [],
     extinct: false,
     usedNames: [o.name],
     ancestor: null,
+    population,
   };
 }
 
@@ -152,7 +158,7 @@ export function advanceGeneration(p: Params, l: Lineage, chosen: FishIdentity, n
   chosen.name = name;
   l.current = chosen;
   l.generation = chosen.generation;
-  l.conditions = rollYear(p, rng, chosen.generation);
+  l.conditions = nextYear(p, rng, l.population, chosen.generation);
   l.usedNames.push(name);
   l.rngState = rng.state;
 }
@@ -165,7 +171,8 @@ export function strayRescue(p: Params, l: Lineage, name: string): void {
   const habitat = rng.pick(HABITATS);
   l.current = makeFish(p, rng, { sex, name, generation: l.generation + 1, bv: populationBv(p, rng, habitat), isStray: true, habitat });
   l.generation += 1;
-  l.conditions = rollYear(p, rng, l.generation);
+  // The stray joins this river's run, so the population carries on.
+  l.conditions = nextYear(p, rng, l.population, l.generation);
   l.usedNames.push(name);
   l.rngState = rng.state;
 }
@@ -179,6 +186,10 @@ export function foundFromStray(p: Params, extinct: Lineage, seed: number, name: 
   const origin = rng.pick(HABITATS);
   const sex: Sex = rng.chance(0.5) ? 'F' : 'M';
   const fish = makeFish(p, rng, { sex, name, generation: 1, bv: populationBv(p, rng, origin), isStray: true, habitat: extinct.current.habitat });
+  // Same river: the run's history carries on from the line that died out, renumbered so this line's first generation is 1.
+  const last = extinct.population.history.at(-1)?.generation ?? 0;
+  const population: Population = { history: extinct.population.history.map((y) => ({ ...y, generation: y.generation - last })) };
+  const conditions = nextYear(p, rng, population, 1);
   return {
     id: `L${seed.toString(36)}`,
     createdAt: new Date().toISOString(),
@@ -187,11 +198,12 @@ export function foundFromStray(p: Params, extinct: Lineage, seed: number, name: 
     rngState: rng.state,
     generation: 1,
     current: fish,
-    conditions: rollYear(p, rng, 1),
+    conditions,
     records: [],
     extinct: false,
     usedNames: [name],
     ancestor: { id: extinct.id, name: lineageName(extinct) },
+    population,
   };
 }
 

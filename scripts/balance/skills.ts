@@ -48,6 +48,12 @@ export interface Skill {
   sealDodge: 'across' | 'speed';
   /** Return: chance of taking the wrong branch at the fork first. */
   forkMistake: number;
+  /** Return falls: how far across the river (units) the chosen launch spot is from the low step. */
+  fallsAim: number;
+  /** Return falls: how far (units) the moment of the leap wanders from the standing wave. */
+  leapTiming: number;
+  /** Return falls: energy waited for in the plunge pool before a run at the falls. */
+  fallsRest: number;
   /** Return: bursts to hurry upstream whenever energy allows. */
   riverBurst: boolean;
   /** Return: depth kept in the river (y; bears reach about 2 below the surface). */
@@ -84,6 +90,9 @@ export const SKILLS: Record<SkillName, Skill> = {
     sealSprint: false,
     sealDodge: 'across',
     forkMistake: 0.35,
+    fallsAim: 3.5,
+    leapTiming: 1.4,
+    fallsRest: 0.55,
     riverBurst: true,
     riverDepth: -1.5,
     bankSwim: false,
@@ -112,6 +121,9 @@ export const SKILLS: Record<SkillName, Skill> = {
     sealSprint: false,
     sealDodge: 'across',
     forkMistake: 0.1,
+    fallsAim: 1.4,
+    leapTiming: 0.7,
+    fallsRest: 0.75,
     riverBurst: false,
     riverDepth: -3,
     bankSwim: false,
@@ -140,6 +152,9 @@ export const SKILLS: Record<SkillName, Skill> = {
     sealSprint: true,
     sealDodge: 'speed',
     forkMistake: 0,
+    fallsAim: 0.4,
+    leapTiming: 0.3,
+    fallsRest: 0.9,
     riverBurst: true,
     riverDepth: -4.5,
     bankSwim: true,

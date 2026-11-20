@@ -8,7 +8,7 @@
 import type { Action } from './bindings';
 
 /** Button indices of the standard mapping. */
-export const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, back: 8, start: 9, up: 12, down: 13, left: 14, right: 15 } as const;
+export const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, back: 8, start: 9, l3: 10, r3: 11, up: 12, down: 13, left: 14, right: 15 } as const;
 
 /** Stick and trigger thresholds. Input feel, not simulation. */
 export const STICK_DEADZONE = 0.2;
@@ -26,6 +26,7 @@ export const PAD_LAYOUT: { action: Action | 'steer'; pad: string }[] = [
   { action: 'act', pad: 'X / □' },
   { action: 'view', pad: 'Y / △' },
   { action: 'details', pad: 'Back / Share' },
+  { action: 'photo', pad: 'Right stick press (R3)' },
   { action: 'pause', pad: 'Start / Options' },
 ];
 
@@ -71,6 +72,7 @@ export function readPad(s: PadSnapshot): PadState {
   if (btn(s, PAD.x)) held.add('act');
   if (btn(s, PAD.y)) held.add('view');
   if (btn(s, PAD.back)) held.add('details');
+  if (btn(s, PAD.r3)) held.add('photo');
   if (btn(s, PAD.start)) held.add('pause');
   return { turn, forward, held };
 }

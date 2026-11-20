@@ -153,10 +153,14 @@ describe('guide progression', () => {
     expect(st.index).toBe(3);
   });
 
-  it('return: a sibling resuming in the home river goes straight to the last step', () => {
+  it('return: a sibling resuming in the home river goes straight to the falls, or past them to the last step', () => {
     const s = snap({ stage: 'return', coast: 90, x: 140 });
-    const st = advanceGuide(start(s), s, 0.1);
+    let st = advanceGuide(start(s), s, 0.1);
     expect(st.index).toBe(3);
+    st = advanceGuide(countGuideEvents(st, [ev('caption', 'return.firstLeap')]), s, 0.1);
+    expect(st.index).toBe(4);
+    const above = snap({ stage: 'return', coast: 90, x: 165 });
+    expect(advanceGuide(start(above), above, 0.1).index).toBe(4);
     const atSea = snap({ stage: 'return', coast: 90, x: 10 });
     expect(advanceGuide(start(atSea), atSea, 0.1).index).toBe(0);
     expect(advanceGuide(start(atSea), snap({ stage: 'return', coast: 90, x: 50 }), 0.1).index).toBe(1);

@@ -3,6 +3,8 @@
  * one life to the next. The simulation lives in src/sim; drawing in src/render.
  */
 import { AUDIO } from '../audio/config';
+// Photo mode (src/ui/photoMode.ts, src/render/photoRig.ts): openPhoto / closePhoto below.
+import { PhotoMode } from '../ui/photoMode';
 import { AudioEngine } from '../audio/engine';
 import type { Phase } from '../audio/mood';
 import paramFile from '../data/params.json';
@@ -25,9 +27,12 @@ import {
   type StartPreset,
 } from '../sim/lineage';
 import { yearFavours } from '../sim/genetics';
+import { returnWaterView } from '../sim/stages/returnWater';
+import { waterBars } from '../ui/waterHud';
 import { Params, type Difficulty, type ParamFile } from '../sim/params';
 import { alevinView } from '../sim/stages/egg';
 import { fryGrowth } from '../sim/stages/fry';
+import { imprintOf } from '../sim/imprint';
 import { TRAIT_IDS, type FishIdentity, type Habitat, type SimEvent, type Sex, type StageId, type TraitValues } from '../sim/types';
 import { World } from '../sim/world';
 import { addToArchive, clearSave, exportSave, importSave, readSave, requestPersistence, writeSave, SCHEMA_VERSION, type LifeSave, type SaveFile } from '../save/save';
@@ -41,6 +46,7 @@ import { FieldJournal, journalPanel, showJournalToast } from '../ui/journal';
 import { Guide } from '../ui/tutorial';
 // Lineage depth: drawn family tree, records, extinction screen, Lineages page (see the section of the same name below).
 import { extinctionPanel, familyTree, lineagesPanel, recapLineage } from '../ui/lineageView';
+import { populationCardLine, populationRecapLine } from '../ui/populationView';
 // Controls and readability: see the section of the same name below.
 import { k } from '../input/bindings';
 import { accessPanel, applyAccess, gameSpeed } from '../ui/accessibility';
@@ -51,7 +57,7 @@ import { playDeathBeat, playEndSequence } from '../ui/endSequence';
 
 const FILE = paramFile as ParamFile;
 
-type Mode = 'menu' | 'playing' | 'paused';
+type Mode = 'menu' | 'playing' | 'paused' | 'photo';
 
 interface Settings {
   gore: 'unflinching' | 'documentary';
@@ -130,6 +136,7 @@ export class App {
       this.refreshGraphicsControls();
     };
     this.input = new Input(canvas);
+    this.photo = new PhotoMode({ renderer: this.renderer, stageId: () => this.world?.stageId ?? 'photo', leave: () => this.closePhoto() });
     this.input.onKey = (code) => this.onKey(code);
     this.renderer.gore.mode = this.settings.gore;
     canvas.addEventListener('click', () => {
@@ -152,6 +159,9 @@ export class App {
   }
 
   private wasLocked = false;
+  /** Photo mode's panel and controls; the mode it was opened from comes back on leaving. */
+  readonly photo: PhotoMode;
+  private photoFrom: 'playing' | 'paused' = 'playing';
 
   async boot(): Promise<void> {
     void requestPersistence();
@@ -188,6 +198,7 @@ export class App {
     } else {
       this.acc = 0;
     }
+    if (this.mode === 'photo') this.photo.frame(frameDt);
     if (w) {
       this.renderer.cinematics.running = this.mode === 'playing'; // cinematic shots hold while paused
       this.renderer.render(w, frameDt);
@@ -201,7 +212,7 @@ export class App {
   /** Advance the simulation by n steps (tests and playtest tools). */
   stepSim(n: number): void {
     const w = this.world;
-    if (!w) return;
+    if (!w || this.mode === 'photo') return; // nothing in the sim changes in photo mode
     for (let i = 0; i < n && w.status === 'playing'; i++) w.step(this.input.consume());
     this.handleEvents(w.drainEvents());
     this.afterStatus(w);
@@ -301,8 +312,13 @@ export class App {
       else rows.push(['energy', w.body.energy]);
       if (w.stageId === 'fry') rows.push(['growth', fryGrowth(w)]);
       if (w.stageId === 'return') rows.push(['fat', w.progress.fat]);
+      // Imprinting (src/sim/imprint.ts): how well the fish has learned the smell of home.
+      if (w.stageId !== 'ocean' && w.stageId !== 'spawn') rows.push(['home scent', imprintOf(w.p, w.progress)]);
       if (!alevin) rows.push(['depth', Math.min(1, (w.arena.surfaceY - w.body.pos.y) / 8)]);
-      hud.bars('hud-bars', rows.map(([name, value]) => ({ name, value, low: value < 0.25 && name !== 'depth' && name !== 'daylight' })));
+      const bars = rows.map(([name, value]) => ({ name, value, low: value < 0.25 && name !== 'depth' && name !== 'daylight' }));
+      const water = returnWaterView(w);
+      if (water) bars.push(...waterBars(w.p, water));
+      hud.bars('hud-bars', bars);
     }
   }
 
@@ -348,6 +364,8 @@ export class App {
   }
 
   private onKey(code: string): void {
+    if (this.mode === 'photo') return this.photoKey(code);
+    if (code === 'KeyP' && this.mode === 'playing') return this.openPhoto();
     if (this.journalKey(code)) return;
     if (code === 'Escape' && this.mode === 'playing') this.pause();
     else if (code === 'Escape' && this.mode === 'paused') this.resume();
@@ -361,7 +379,7 @@ export class App {
   private audioPhase(): Phase {
     if (this.ending) return 'end';
     if (this.atTitle) return 'title';
-    return this.mode === 'playing' ? 'playing' : this.mode === 'paused' ? 'paused' : 'menu';
+    return this.mode === 'playing' ? 'playing' : this.mode === 'paused' || this.mode === 'photo' ? 'paused' : 'menu';
   }
 
   private applySound(): void {
@@ -707,6 +725,7 @@ export class App {
         h('h2', {}, STAGE_TITLES[w.stageId]),
         h('p', {}, stageCardLine(w.stageId, w.progress.oceanYears)),
         w.stageIndex === 0 && l ? h('p', { class: 'muted' }, yearLine(l.conditions)) : null,
+        populationCardLine(this.params, w.stageId, w.conditions),
         h('p', { class: 'muted' }, OBJECTIVES[w.stageId]),
         h('div', { class: 'row' }, h('button', { class: 'primary', id: 'btn-play', onclick: () => this.play() }, w.stageIndex === 0 ? 'Begin' : 'Continue')),
       ),
@@ -749,6 +768,7 @@ export class App {
           h('button', { class: 'primary', onclick: () => this.resume() }, 'Resume'),
           h('button', { onclick: () => (this.renderer.cameraMode = this.renderer.cameraMode === 'third' ? 'first' : 'third') }, `Switch view (${k('view')})`),
           h('button', { onclick: () => (this.hudDetailed = !this.hudDetailed) }, `Detailed HUD (${k('details')})`),
+          h('button', { id: 'btn-photo', onclick: () => this.openPhoto() }, `Photo mode (${k('photo')})`),
           h('button', { id: 'btn-pause-journal', onclick: () => this.openJournal(() => this.showPauseMenu()) }, `Field journal (${k('journal')})`),
           w && this.guided(w) ? h('button', { onclick: () => (this.skipGuide(), this.showPauseMenu()) }, `Skip guidance (${k('guide')})`) : null,
           ...this.optionButtons(() => this.showPauseMenu()),
@@ -769,6 +789,46 @@ export class App {
     this.input.clear();
     this.last = performance.now();
     if (this.world?.stageId !== 'egg') this.input.requestLock();
+  }
+
+  // ---------- Photo mode ----------
+
+  /**
+   * Open photo mode from play or the pause menu: the simulation stops (no
+   * steps run), the HUD hides, cinematic shots end, and a free camera takes
+   * over. Not from cards, death beats or the end sequence (mode 'menu').
+   */
+  openPhoto(): void {
+    const w = this.world;
+    if (!w || w.status !== 'playing' || (this.mode !== 'playing' && this.mode !== 'paused') || this.ending || this.journalBack) return;
+    this.photoFrom = this.mode;
+    this.mode = 'photo'; // before the lock goes, so losing it doesn't pause
+    this.renderer.cinematics.stop();
+    this.input.releaseLock();
+    this.input.clear();
+    this.clearScreen();
+    document.body.classList.add('photo-mode');
+    this.renderer.beginPhoto(w);
+    this.photo.show();
+  }
+
+  /** Leave photo mode: the camera, HUD and the playing or paused state come back as they were. */
+  closePhoto(): void {
+    if (this.mode !== 'photo') return;
+    this.photo.hide();
+    this.renderer.endPhoto();
+    document.body.classList.remove('photo-mode');
+    this.input.clear();
+    this.mode = this.photoFrom;
+    if (this.mode === 'paused') return this.showPauseMenu();
+    this.last = performance.now();
+    if (this.world?.stageId !== 'egg') this.input.requestLock();
+  }
+
+  private photoKey(code: string): void {
+    if (code === 'Escape' || code === 'KeyP') this.closePhoto();
+    else if (code === 'KeyH') this.photo.toggleUi();
+    else if (code === 'KeyM') this.toggleMute();
   }
 
   private onStageComplete(w: World): void {
@@ -932,6 +992,7 @@ export class App {
           stat('Notes', r?.detail ?? ''),
         ),
         h('p', { class: 'muted' }, yearLine(rec.conditions)),
+        populationRecapLine(this.params, rec.conditions),
         h('p', { class: 'muted' }, caption('year.betHedging') ?? ''),
         recapLineage(this.params, l, this.archive),
         h('p', { class: 'label' }, 'Choose the next generation'),

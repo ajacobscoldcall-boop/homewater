@@ -31,7 +31,7 @@ describe('save migrations', () => {
     const archived = { ...l, id: 'Lold', records: [oldRec] };
     const v2 = { schemaVersion: 2, savedAt: '', game: 'homewater', lineage: l, life: null, pendingOffspring: kids, archive: [archived] };
     const s = migrate(JSON.parse(JSON.stringify(v2)));
-    expect(s.schemaVersion).toBe(3);
+    expect(s.schemaVersion).toBe(SCHEMA_VERSION);
     const r = s.lineage.records[0]!;
     expect(r.bv).toBeNull();
     expect(r.habitat).toBe('creek');
@@ -41,6 +41,35 @@ describe('save migrations', () => {
     expect(s.archive[0]!.records[0]!.offspring).toEqual([]);
     expect(s.archive[0]!.ancestor).toBeNull();
     expect(s.pendingOffspring).toHaveLength(kids.length);
+  });
+
+  it('upgrades a version 3 save: the lineage and archive get a population rebuilt from their recorded run sizes', () => {
+    const l = lineage() as unknown as Record<string, unknown>;
+    delete l.population;
+    const plain = { flow: 1, temperature: 1, oceanCrowding: 1 };
+    l.conditions = { ...plain, runSize: 0.6 };
+    l.generation = 3;
+    const rec = (generation: number, runSize: number) => ({ fishId: `f${generation}`, name: 'Alder', sex: 'F', generation, isJack: null, oceanYears: 2, adultSize: 1, conditions: { ...plain, runSize }, deaths: [], spawned: true, result: null, isStray: false, lockedJack: false, bv: null, habitat: 'creek', offspring: [], chosenId: null });
+    l.records = [rec(1, 1.8), rec(2, 1)];
+    const archived = { ...l, id: 'Lold', difficulty: 'wild', records: [rec(1, 0.5)], generation: 1, conditions: { ...plain, runSize: 0.5 } };
+    const v3 = { schemaVersion: 3, savedAt: '', game: 'homewater', lineage: l, life: null, pendingOffspring: null, archive: [archived] };
+    const s = migrate(JSON.parse(JSON.stringify(v3)));
+    expect(s.schemaVersion).toBe(SCHEMA_VERSION);
+    const hist = s.lineage.population.history;
+    expect(hist.map((y) => y.generation)).toEqual([1, 2, 3]);
+    expect(hist.map((y) => y.run)).toEqual([1.8, 1, 0.6]);
+    // The big first run left more spawners, so generation 2's lake was crowded with fry.
+    expect(hist[1]!.fry).toBeGreaterThan(1);
+    expect(hist[1]!.parentSpawners).toBeCloseTo(hist[0]!.spawners, 9);
+    // The current year now carries the lake and the fishery.
+    expect(s.lineage.conditions.runSize).toBe(0.6);
+    expect(s.lineage.conditions.lakeFood).toBeCloseTo(hist[2]!.lakeFood, 9);
+    expect(s.lineage.conditions.harvestRate).toBeGreaterThanOrEqual(0);
+    expect(s.archive[0]!.population.history).toHaveLength(1);
+    // A current save is left alone.
+    const now = lineage();
+    const again = migrate(JSON.parse(JSON.stringify({ schemaVersion: SCHEMA_VERSION, savedAt: '', game: 'homewater', lineage: now, life: null, pendingOffspring: null, archive: [] })));
+    expect(again.lineage.population).toEqual(now.population);
   });
 
   it('imports a version 1 lineage file through to the current schema', async () => {
@@ -66,6 +95,23 @@ describe('save migrations', () => {
     expect(again).toHaveLength(ARCHIVE_LIMIT);
     expect(again[0]).toBe(a[5]);
     expect(new Set(again.map((l) => l.id)).size).toBe(ARCHIVE_LIMIT);
+  });
+
+  it('upgrades a version 3 save: a life in progress gets an average imprint, a newer one keeps its own', () => {
+    const progress = { yolk: 0.2, fryBites: 10, fryRichBites: 5, oceanBites: 0, growthPerf: 0.5, isJack: null, oceanYears: null, adultSize: null, fat: 1 };
+    const life = { checkpoint: { stageIndex: 2, marker: 0, progress }, siblingsLeft: 3, firstLife: false, seed: 9, deaths: [] };
+    const v3 = { schemaVersion: 3, savedAt: '', game: 'homewater', lineage: lineage(), life, pendingOffspring: null, archive: [] };
+    const s = migrate(JSON.parse(JSON.stringify(v3)));
+    expect(s.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(s.life?.checkpoint.progress.imprint).toBe(params().get('imprint.default'));
+    expect(s.life?.checkpoint.progress.fryBites).toBe(10);
+    expect(s.life?.checkpoint.stageIndex).toBe(2);
+    // No life in progress: nothing to upgrade.
+    const noLife = migrate(JSON.parse(JSON.stringify({ ...v3, life: null })));
+    expect(noLife.life).toBeNull();
+    // A checkpoint that already has an imprint keeps it.
+    const kept = migrate(JSON.parse(JSON.stringify({ ...v3, life: { ...life, checkpoint: { ...life.checkpoint, progress: { ...progress, imprint: 0.9 } } } })));
+    expect(kept.life?.checkpoint.progress.imprint).toBe(0.9);
   });
 
   it('refuses saves from a newer version and non-saves', () => {

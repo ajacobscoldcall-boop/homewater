@@ -92,19 +92,22 @@ const CHUNKS = 4;
 
 /** Recorded from the code before the performance work (one hash per quarter of the run). */
 const EXPECTED: Record<string, string[]> = {
-  // Re-recorded with the egg-stage flood and brood-mates and the smolt run's strike dilution and near-miss grace.
-  // Every case starts its world at the egg stage, whose brood now draws more random numbers at init, so the
-  // later stages' dice shift too. Checked when re-recording: with the egg init's old draw count, fry, ocean,
-  // return and all spawn cases hashed exactly as before, so only the egg and smolt simulations changed.
-  egg: ['d440531c', '29d5d300', '4983bb7e', '22329ec7'],
-  fry: ['dce75a57', 'b0a3b8e7', '1130f779', '6e5ef035'],
-  smolt: ['deff3a8e', 'a11e2f51', '8c16e091', '72d484a5'],
-  ocean: ['cd83d01c', '234f3d3d', '801f6e9d', 'cd5fa0a0'],
-  return: ['6dd2f658', 'c43d3044', 'bb61dc4e', '002fa99b'], // updated: past the fork, bears fish only the home branch
-  'spawn female': ['a6768838', '8510ba56', 'e82f75b8', '262536ce'],
-  'spawn male': ['902334f4', '91f7f224', '3c148d30', '86061c98'],
-  'spawn jack': ['a354110a', '58313fd7', 'a0d75a16', '6ddaa745'], // earlier update: a jack's charge for a hiding spot rolls once per press
-  'spawn wild': ['6452ad8f', 'ee1e8aab', '0305fcf5', 'f8e62fa1'],
+  // Re-recorded for imprinting (src/sim/imprint.ts, saves schema 4). LifeProgress gained `imprint`, which is part of every
+  // snapshot, so every hash moved. Checked when re-recording: with `imprint` (and the stage's `imprintGain` scratch) left out
+  // of the snapshot, ocean and all four spawn cases hashed exactly as before, so their simulations are unchanged. Egg and
+  // smolt changed only by the imprint they learn and its captions; fry adds the home-water plume (new entities and dice);
+  // the return's home scent now depends on imprint and wrong rivers carry their own smell (more dice).
+  // Earlier: the egg-stage flood and brood-mates, the smolt run's strike dilution and near-miss grace, return bears fishing
+  // only the home branch past the fork, and a jack's charge for a hiding spot rolling once per press.
+  egg: ['7e8be5f1', 'c423faf7', '2ca63897', 'd766c633'],
+  fry: ['1bd48af9', '2632dfad', 'bbd01c82', '51ba0a71'],
+  smolt: ['dfc37040', '9ba40c76', '626fb7bb', 'c97a45a6'],
+  ocean: ['089fadfe', 'bdd2df47', '1e0aab4b', '3438a078'],
+  return: ['210fc0f7', '14a48c2e', 'bed7bebc', '70f87a75'], // updated: falls, rapids and fellow migrants on the return, with water temperature and oxygen
+  'spawn female': ['41d6ba78', 'a17b2cf0', '9b4bca5a', '49a73ca6'],
+  'spawn male': ['7ff3d46e', '6cdb9854', '82c4c5d8', 'd39c21dc'],
+  'spawn jack': ['de517d66', '1e5eb093', '65e7ab92', 'c501b4c5'],
+  'spawn wild': ['5d21506f', '5864299d', '76e00405', '69617ba5'],
 };
 
 describe('simulation determinism', () => {

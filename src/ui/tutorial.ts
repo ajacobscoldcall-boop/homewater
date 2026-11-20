@@ -9,6 +9,7 @@
  */
 import { alevinView } from '../sim/stages/egg';
 import { fryGrowth, fryView, type FryPhase } from '../sim/stages/fry';
+import { LIP_END } from '../sim/stages/falls';
 import { returnLayout } from '../sim/stages/return';
 import { smoltSection, type SmoltSection } from '../sim/stages/smolt';
 import { spawnState, type SpawnRole } from '../sim/stages/spawn';
@@ -155,7 +156,12 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           done: (_s, c) => n(c, 'return.rightRiver') > 0,
           skipIf: (s) => pastCoast(s, HOME_RIVER_PAST_COAST),
         },
-        { text: 'Upstream, bears fish the shallow riffles. Wait in a pool, then cross deep and fast. At the fork, follow the scent.', done: never },
+        {
+          text: 'Rapids, then a falls. Rest behind boulders between dashes. Below the falls, build speed and burst and rise together {key:burst} {key:rise} to leap, from the standing wave under the low step.',
+          done: (_s, c) => n(c, 'return.firstLeap') + n(c, 'return.chuteUp') > 0,
+          skipIf: (s) => s.coast !== null && s.x > LIP_END + 1,
+        },
+        { text: 'Bears fish the shallow riffles and the lip of the falls. Stay among the other fish, wait in a pool, then cross deep and fast. At the fork, follow the scent.', done: never },
       ];
     }
     case 'spawn':

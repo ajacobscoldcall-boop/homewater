@@ -13,6 +13,7 @@
  */
 import { Rng } from '../../src/sim/rng';
 import { alevinView } from '../../src/sim/stages/egg';
+import { fallsView } from '../../src/sim/stages/falls';
 import { returnLayout } from '../../src/sim/stages/return';
 import { spawnState } from '../../src/sim/stages/spawn';
 import { NO_INTENT, type Entity, type Intent, type Vec3 } from '../../src/sim/types';
@@ -24,6 +25,8 @@ import type { Skill } from './skills';
 const MOUTHS = [-26, 0, 26];
 /** How far scent and other cues can be seen, in world units. */
 const SCENT_SIGHT = 15;
+/** Scent specks fainter than this (entity value) are too faint to make out. */
+const SCENT_FAINT = 0.15;
 
 const intent = (over: Partial<Intent> = {}): Intent => ({ ...NO_INTENT, ...over });
 
@@ -504,8 +507,12 @@ export class Bot {
     const L0 = w.p.get('return.length');
 
     // Bears: after a swipe the bear rests; that is the moment to dash past it.
+    const fv = fallsView(w);
+    const belowFalls = !!fv && !fv.passed && fish.x < fv.face;
     for (const bear of w.live('bear')) {
       if ((bear.state !== 'strike' && bear.state !== 'rest') || fish.x > bear.pos.x + 5 || fish.x < bear.pos.x - 16) continue;
+      // There is no dashing past the bear at the falls' lip: the falls must be leapt (falls() below).
+      if (belowFalls && fv && bear.pos.x > fv.face - 1) continue;
       if (m.backout || m.forkBack || !this.notice(w, bear, 'resting')) continue;
       m.evading = undefined;
       // Cross the shallows along the far bank (or up the chosen branch), where the current is slower.
@@ -515,8 +522,12 @@ export class Bot {
       return this.steer3(w, { x: fish.x + 10, y: s.riverDepth, z: tz }, { burst: this.canBurst(w, true) });
     }
     // Bears: the swipe lands where the shadow fell. Get clear of it.
+    // Deep in the plunge pool the bear at the lip can't reach: no need to dodge. Just above the lip there is no dropping back.
+    const deepInPool = !!fv && fish.x > fv.poolStart && fish.x < fv.face && w.arena.surfaceY - fish.y > w.p.get('return.bearReachDepth') + 0.6;
+    const aboveLip = !!fv && fish.x > fv.face && fish.x < fv.lipEnd + 3;
     for (const bear of w.live('bear')) {
       if (bear.state !== 'warn' || !bear.home || !this.notice(w, bear)) continue;
+      if (deepInPool) continue;
       const radius = w.p.get('return.bearStrikeRadius') * (0.75 + 0.35 * (w.progress.adultSize ?? 1));
       const atStrike = { x: fish.x + b.vel.x * bear.timer, y: 0, z: fish.z + b.vel.z * bear.timer };
       const evading = m.evading === bear.id;
@@ -529,7 +540,7 @@ export class Bot {
       const cruise = w.p.get('swim.thrust') / w.p.get('swim.drag');
       const canPush = this.canBurst(w, true) && w.body.energy > 0.35;
       const options = [
-        { dx: -1, dz: 0, v: cruise + cur },
+        { dx: -1, dz: 0, v: aboveLip ? 0 : cruise + cur },
         { dx: 1, dz: 0, v: m.backout || m.forkBack ? 0 : canPush ? cruise * w.p.get('swim.burstMultiplier') - cur : Math.max(0, cruise - cur), burst: canPush },
         { dx: 0.3, dz: 1, v: cruise },
         { dx: 0.3, dz: -1, v: cruise },
@@ -552,7 +563,20 @@ export class Bot {
       return this.steer3(w, { x: fish.x + pick.dx * 10, y: s.riverDepth, z: clamp(fish.z + pick.dz * 10, cz - 6, cz + 6) }, { burst });
     }
 
-    const scents = w.live('scent').filter((sc) => dist(sc.pos, fish) < SCENT_SIGHT);
+    // Rapids and falls: dash between boulders, rest, then run at the falls and leap.
+    // The falls are only on the home river: above them there is no backing out to try another mouth.
+    if (fv && fish.x > fv.face && m.backout) m.backout = false;
+    // Waiting in the plunge pool is not being lost: don't let it look like a dead end.
+    if (fv && !m.backout && fish.x > fv.rapidsStart - 3 && fish.x < fv.lipEnd + 4) {
+      m.stuckX = fish.x;
+      m.stuckAt = now;
+      m.noScentSince = undefined;
+    }
+    const falls = m.backout || m.forkBack ? null : this.falls(w);
+    if (falls) return falls;
+
+    // Specks too faint to make out (a wrong river's fading smell, an unclear home scent) are not seen as scent.
+    const scents = w.live('scent').filter((sc) => dist(sc.pos, fish) < SCENT_SIGHT && (sc.value ?? 1) > SCENT_FAINT);
 
     // Open water: follow the magnetic track's shimmer; sweep when it fades.
     if (fish.x < L.coast - 12) {
@@ -603,7 +627,9 @@ export class Bot {
       if (m.backout && m.mouth !== undefined) m.tried.push(m.mouth);
       m.backout = false;
       const untried = MOUTHS.filter((z) => !m.tried?.includes(z));
-      const cue = scents.length ? scents.reduce((a, sc) => a + sc.pos.z, 0) / scents.length : (m.trackZ ?? fish.z);
+      // Stronger-looking specks count for more, as they would to a player.
+      const wsum = scents.reduce((a, sc) => a + (sc.value ?? 1) ** 2, 0);
+      const cue = scents.length ? scents.reduce((a, sc) => a + sc.pos.z * (sc.value ?? 1) ** 2, 0) / wsum : (m.trackZ ?? fish.z);
       m.mouth = (untried.length ? untried : MOUTHS).sort((a, c) => Math.abs(a - cue) - Math.abs(c - cue))[0] ?? 0;
       m.noScentSince = undefined;
       m.stuckAt = undefined;
@@ -623,7 +649,8 @@ export class Bot {
     }
     const stuck = now - (m.stuckAt ?? now) > 2.5;
     const beforeFork = fish.x < L.fork - 2;
-    if (beforeFork && (stuck || now - (m.noScentSince ?? now) > 3)) {
+    // Above the falls this is surely the home river (the falls are only there).
+    if (beforeFork && !(fv && fish.x > fv.face) && (stuck || now - (m.noScentSince ?? now) > 3)) {
       m.backout = true;
       return this.steer(w, L.coast - 8, mouth);
     }
@@ -658,6 +685,71 @@ export class Bot {
     const bearAhead = w.live('bear').some((br) => br.pos.x > fish.x - 4 && br.pos.x - fish.x < 22);
     const burst = s.riverBurst && w.body.energy > (s.burstReserve > 0 && bearAhead ? 0.95 : 0.6);
     return this.steer3(w, { x: Math.min(L0, fish.x + 10), y: s.riverDepth, z: tz }, { burst });
+  }
+
+  /**
+   * The rapids and falls (null elsewhere): burst up the rapids aiming for the
+   * slack water behind the next boulder, rest at the foot of the plunge pool,
+   * then sprint and leap where this player judges the spot to be. Up the side
+   * channel once it opens.
+   */
+  private falls(w: World): Intent | null {
+    const v = fallsView(w);
+    const s = this.skill;
+    if (!v || v.passed) return null;
+    const b = w.body;
+    const x = b.pos.x;
+    if (x < v.rapidsStart - 3 || x > v.lipEnd) return null;
+    if (v.leapT !== null) return intent();
+    type FallsMem = { run?: boolean; leaps?: number; aimZ?: number; leapX?: number; poolSince?: number };
+    const m = ((this.m.falls as FallsMem | undefined) ?? (this.m.falls = {})) as FallsMem;
+    const noRise = { rise: false };
+    if (v.sideOpen) {
+      const cz = (v.chute[0] + v.chute[1]) / 2;
+      return this.steer3(w, { x: x + 6, y: -1.2, z: cz }, { burst: this.canBurst(w), ...noRise });
+    }
+    if (x < v.poolStart) {
+      // The next boulder upstream with water behind it.
+      const rock = v.rocks.filter((r) => r.x - r.r > x + 0.3).sort((a, c) => a.x - c.x)[0];
+      const tz = rock ? rock.z : v.notchZ;
+      const tx = rock ? rock.x - rock.r - 0.6 : x + 8;
+      const resting = rock && Math.abs(b.pos.z - tz) < rock.r * 0.8 && tx - x < 1.2;
+      if (resting && b.energy < 0.6) return this.steer3(w, { x: x + 3, y: -1.4, z: tz }, { forward: 0.3, ...noRise });
+      return this.steer3(w, { x: Math.max(tx, x + 3), y: -1.4, z: tz }, { burst: this.canBurst(w), ...noRise });
+    }
+    if (m.leaps !== v.leaps || m.aimZ === undefined) {
+      // A fresh try: where this player thinks the best spot is.
+      m.leaps = v.leaps;
+      m.run = false;
+      m.aimZ = v.notchZ + this.rng.normal() * s.fallsAim;
+      m.leapX = v.waveX + this.rng.normal() * s.leapTiming;
+    }
+    if (x < v.poolStart - 1 || x > v.face - 0.6) m.run = false;
+    const aimZ = clamp(m.aimZ, returnLayout(w)!.homeMouth - 6, returnLayout(w)!.homeMouth + 6);
+    if (!m.run) {
+      const sx = v.poolStart + 0.8;
+      m.poolSince ??= w.stageTime;
+      // A careful player waits for the bear at the lip to swipe and rest before running at the falls,
+      // but not for ever; once it rests, a rough line and some energy will do.
+      const lipBear = w.live('bear').find((br) => br.pos.x > v.face - 1 && br.pos.x < v.lipEnd + 3);
+      const resting = !!lipBear && (lipBear.state === 'rest' || lipBear.state === 'strike');
+      const impatient = w.stageTime - m.poolSince > 12;
+      const bearReady = !lipBear || this.skill.burstReserve === 0 || resting || impatient;
+      const tol = resting ? 2 : 1;
+      const need = resting || impatient ? Math.min(s.fallsRest, 0.6) : s.fallsRest;
+      // Wait deep in the plunge pool, out of the bear's reach (careless players wait near the top).
+      const waitY = s.riverDepth;
+      if (Math.abs(x - sx) > tol || Math.abs(b.pos.z - aimZ) > 0.9 * tol) return this.steer3(w, { x: sx + 3, y: waitY, z: aimZ }, { forward: x > sx + 1 ? 0 : 0.7, ...noRise });
+      if (b.energy < need || !bearReady) return this.steer3(w, { x: x + 5, y: waitY, z: aimZ }, { forward: 0.35, ...noRise });
+      m.run = true;
+      m.poolSince = undefined;
+    }
+    // From deep in the pool, climb toward the surface first (rising without bursting starts no leap).
+    if (w.arena.surfaceY - b.pos.y > w.p.get('return.leapDepth') - 0.3 && x < (m.leapX ?? v.waveX) - 0.4) {
+      return this.steer3(w, { x: x + 2, y: -0.5, z: aimZ }, { forward: 0.5, rise: true, dive: false });
+    }
+    const rise = x > (m.leapX ?? v.waveX) - 0.4;
+    return this.steer3(w, { x: v.face, y: -0.5, z: aimZ }, { burst: true, rise, dive: false });
   }
 
   // ---------------------------------------------------------------- spawn

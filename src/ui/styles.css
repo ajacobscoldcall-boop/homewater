@@ -32,7 +32,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 #hud-who b { color: var(--fg); font-weight: 500; }
 #hud-objective { font-size: 14px; max-width: 42ch; text-align: right; color: var(--fg); text-shadow: 0 1px 3px #000; }
 #hud-bars { position: absolute; left: 16px; bottom: 16px; display: grid; gap: 6px; font-family: var(--f-mono); font-size: 12px; }
-.bar { display: grid; grid-template-columns: 70px 140px; align-items: center; gap: 8px; text-shadow: 0 1px 2px #000; }
+.bar { display: grid; grid-template-columns: 92px 140px; align-items: center; gap: 8px; text-shadow: 0 1px 2px #000; }
 .bar i { display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
 .bar i b { display: block; height: 100%; background: var(--silver); }
 .bar.low i b { background: var(--sockeye); }
@@ -202,6 +202,24 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 .lost .mark { box-shadow: 0 0 0 1px var(--bg); }
 .lost-n { font: 400 11px var(--f-mono); color: var(--muted); margin-left: 2px; }
 .years, .trait-chart, .ftree, .recap-lineage, .line-list { min-width: 0; }
+/* The river's run (src/ui/populationView.ts). */
+.run-chart { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.run-chart figcaption { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; }
+.run-chart figcaption span { font: 400 11px var(--f-mono); color: var(--muted); }
+.run-chart .axis { display: flex; justify-content: space-between; gap: 8px; font: 400 10px var(--f-mono); color: var(--muted); }
+.run-chart .key i { display: inline-block; width: 8px; height: 8px; margin: 0 3px 0 6px; vertical-align: -1px; border-radius: 1px; }
+.run-chart .k-spawners { background: var(--silver); }
+.run-chart .k-catch { background: var(--warn); opacity: 0.7; }
+.run-chart .k-goal, .run-chart .k-typical { width: 14px !important; height: 0 !important; border-top: 2px dashed var(--kype); vertical-align: 3px !important; }
+.run-chart .k-typical { border-top-color: var(--rule); }
+.run-spark { height: 96px; }
+.run-spark .spawners { fill: var(--silver); }
+.run-spark .catch { fill: var(--warn); fill-opacity: 0.6; }
+.run-spark .before { opacity: 0.45; }
+.run-spark .now .spawners { fill: var(--sockeye); }
+.run-spark .goal { stroke: var(--kype); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.run-spark .hit { fill: transparent; }
+.run-spark .hit:hover { fill: rgba(195, 209, 213, 0.18); }
 /* Controls and readability (src/ui/controls.ts, src/ui/accessibility.ts). Options apply as attributes on <html>. */
 :root { --threat-warn: var(--warn); --threat-hot: var(--sockeye); --threat-open: var(--kype); --flash-warn: 240, 179, 90; --flash-open: 143, 160, 74; }
 .threat { color: var(--threat-warn); }

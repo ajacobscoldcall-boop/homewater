@@ -7,13 +7,16 @@
  *   gallery=1 | all      everything
  *   gallery=salmon       the salmon life stages
  *   gallery=animals      predators and other species
+ *   gallery=return       the return as a sequence: sea, river mouth, up the river, grounds (rows: male, female, jack)
  *   gallery=<item id>    one item, large (e.g. gallery=spawnMale)
  *   spin=<rad/s>         turning speed (default 0.25; 0 holds still)
  *   angle=<rad>          starting angle (0 = side view, head to the right)
  *   tilt=<rad>           camera elevation (default 0.12)
+ *   cols=<n>             columns in the grid (default: fitted to the window; 6 for the return sequence)
  */
 import * as THREE from 'three';
 import { ANIMALS, fishAnimal, type Animal, type AnimalPose } from './animals';
+import { bodyLook, type BodyRole, type BodyState } from './bodyChange';
 import type { FishLook, FishShape } from './fishMesh';
 import { krillGeometry, squidGeometry } from './krill';
 
@@ -21,7 +24,7 @@ interface Item {
   id: string;
   label: string;
   note: string;
-  group: 'salmon' | 'animals';
+  group: 'salmon' | 'animals' | 'return';
   make: () => Animal;
   pose?: (t: number) => AnimalPose;
 }
@@ -33,6 +36,30 @@ const fish = (id: string, look: FishLook, shape: Partial<FishShape>, label: stri
   group: 'salmon',
   make: () => fishAnimal(id, look, { depth: 1, hump: 0, kype: 0, yolk: 0, ...shape }),
 });
+
+/** The return, step by step (bodyChange.ts): where the fish is and how much fat it has left. */
+const RETURN_STEPS: { id: string; label: string; place: BodyState['place']; upstream: number; fat: number }[] = [
+  { id: 'Sea', label: 'at sea', place: 'sea', upstream: 0, fat: 1 },
+  { id: 'Mouth', label: 'river mouth', place: 'river', upstream: 0, fat: 0.85 },
+  { id: 'Lower', label: 'lower river', place: 'river', upstream: 0.35, fat: 0.7 },
+  { id: 'Upper', label: 'upper river', place: 'river', upstream: 0.7, fat: 0.55 },
+  { id: 'Top', label: 'top of the river', place: 'river', upstream: 1, fat: 0.45 },
+  { id: 'Grounds', label: 'on the grounds', place: 'grounds', upstream: 1, fat: 0.45 },
+];
+const RETURN_ROLES: { role: BodyRole; name: string }[] = [
+  { role: 'largeMale', name: 'Male' },
+  { role: 'female', name: 'Female' },
+  { role: 'jack', name: 'Jack' },
+];
+const returnItems = (): Item[] =>
+  RETURN_ROLES.flatMap(({ role, name }) =>
+    RETURN_STEPS.map((st) => {
+      const { look, shape } = bodyLook({ role, bodyDepth: 0, fat: st.fat, place: st.place, upstream: st.upstream });
+      const id = `return${name}${st.id}`;
+      const note = `fat ${Math.round(st.fat * 100)}%${shape.dress ? `, dress ${Math.round(shape.dress * 100)}%` : ''}${role === 'jack' ? ' (drawn enlarged)' : ''}`;
+      return { id, label: `${name}: ${st.label}`, note, group: 'return' as const, make: () => fishAnimal(id, look, shape) };
+    }),
+  );
 
 /** A static prey model (krill, squid) wrapped as a gallery animal. */
 function preyModel(kind: string, geo: THREE.BufferGeometry, opacity: number): Animal {
@@ -67,6 +94,7 @@ const ITEMS: Item[] = [
   fish('spawnJack', 'spawnJack', { depth: 1, hump: 0.3, kype: 0.4 }, 'Jack', '~300 mm in life; drawn enlarged here'),
   fish('pink', 'pink', { depth: 0.95 }, 'Pink salmon (at sea)', 'large oval spots on back and both tail lobes'),
   fish('herring', 'herring', { depth: 0.9 }, 'Small forage fish', 'slim, forked tail, blue-green back, no adipose fin'),
+  ...returnItems(),
   { id: 'krill', label: 'Krill', note: 'main food at sea; drawn larger than life in play', group: 'animals', make: () => preyModel('krill', krillGeometry(), 0.78) },
   { id: 'squid', label: 'Small squid', note: 'occasional food at sea', group: 'animals', make: () => preyModel('squid', squidGeometry(), 0.85) },
   { id: 'char', label: 'Dolly Varden (char)', note: 'pale spots on dark, white fin edges', group: 'animals', make: ANIMALS.char! },
@@ -109,7 +137,8 @@ export function startGallery(canvas: HTMLCanvasElement, which: string, params: U
     const el = document.getElementById(id);
     if (el) el.hidden = true;
   }
-  const items = ITEMS.filter((it) => which === '1' || which === 'all' || which === '' || it.group === which || it.id === which);
+  // The return sequence is its own view (?gallery=return); "all" stays the one-of-each overview.
+  const items = ITEMS.filter((it) => ((which === '1' || which === 'all' || which === '') && it.group !== 'return') || it.group === which || it.id === which);
   const list = items.length ? items : ITEMS;
   // URL options (read through a helper: these are not game parameters).
   const opt = (key: string, fallback: number) => Number(params.get(key) ?? fallback);
@@ -132,7 +161,7 @@ export function startGallery(canvas: HTMLCanvasElement, which: string, params: U
 
   const n = list.length;
   const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-  const cols = Math.max(1, Math.round(Math.sqrt(n * aspect * 0.75)));
+  const cols = Math.max(1, Math.min(n, opt('cols', which === 'return' ? RETURN_STEPS.length : Math.round(Math.sqrt(n * aspect * 0.75)))));
   const rows = Math.ceil(n / cols);
   const cellW = 2.2;
   const cellH = 1.55;

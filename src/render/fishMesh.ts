@@ -41,6 +41,10 @@ export interface FishShape {
   kype: number;
   /** Yolk sac size (alevin). */
   yolk: number;
+  /** Return in fresh water: 0..1 of the way from the first blush (`returnBlush`) toward `dressTo` (bodyChange.ts). */
+  dress?: number;
+  /** The spawning look a returning fish is changing into. */
+  dressTo?: FishLook;
 }
 
 interface Palette {
@@ -151,6 +155,12 @@ interface Plan {
   /** Gape of the lower jaw, radians. */
   gape: number;
   lod: 'high' | 'low';
+  /** Blended values for a fish part way into spawning dress (otherwise read from the look's tables). */
+  teeth?: number;
+  eye?: number;
+  fork?: number;
+  /** How strongly the head takes the head colour (blush 0.55, spawning 0.95). */
+  headMix?: number;
 }
 
 const XT = -0.4;
@@ -222,7 +232,7 @@ function bodyColor(p: Plan, xo: number, s: number, side: number, out: THREE.Colo
   const pal = p.pal;
   backSideBelly(p, s, out);
   // Spawning and blush: the head behind the snout turns olive green.
-  if (pal.head && xo > opercle(s) - 0.004) out.lerp(pal.head, p.look === 'returnBlush' ? 0.55 : 0.95);
+  if (pal.head && xo > opercle(s) - 0.004) out.lerp(pal.head, p.headMix ?? (p.look === 'returnBlush' ? 0.55 : 0.95));
   if (pal.snout && xo > 0.41 && s > -0.4) out.lerp(pal.snout, smooth(0.41, 0.46, xo));
   // Gill cover line.
   const op = opercle(s);
@@ -269,14 +279,14 @@ function finColor(p: Plan, which: 'dorsal' | 'adipose' | 'caudal' | 'anal' | 'pe
 
 /** The eye's centre (x, y, |z|) and radius, for the carcass's sunken eye (goreShader.ts). */
 function eyeCentre(p: Plan): number[] {
-  const eye = EYE[p.look] ?? 1;
+  const eye = p.eye ?? EYE[p.look] ?? 1;
   const r = bodyRing(p, 0.425 - 0.012 * (eye - 1));
   const s = 0.3;
   return [r.x, r.y + r.top * s, r.width * Math.sqrt(1 - s * s), 0.0105 * eye * (p.look === 'alevin' ? 1.1 : 1)];
 }
 
 function addEye(b: GeoBuilder, p: Plan, side: number): void {
-  const eye = EYE[p.look] ?? 1;
+  const eye = p.eye ?? EYE[p.look] ?? 1;
   const xo = 0.425 - 0.012 * (eye - 1);
   const r = bodyRing(p, xo);
   const re = 0.0105 * eye * (p.look === 'alevin' ? 1.1 : 1);
@@ -349,7 +359,7 @@ function addJaws(b: GeoBuilder, p: Plan, along: number, around: number): void {
     { caps: true },
   );
   // Teeth on the lower jaw, pointing up.
-  const teeth = TEETH[p.look] ?? 0;
+  const teeth = p.teeth ?? TEETH[p.look] ?? 0;
   const tc = col(0xf1ead8);
   const nTeeth = p.lod === 'low' ? 0 : Math.round(3 + 5 * Math.min(1, teeth));
   if (teeth > 0) {
@@ -500,7 +510,7 @@ function addFins(b: GeoBuilder, p: Plan): void {
     );
   }
   // Caudal fin: forked by stage (advisor).
-  const fork = FORK[look] ?? 0.04;
+  const fork = p.fork ?? FORK[look] ?? 0.04;
   const span = (juvenile ? 0.065 : 0.105) * Math.sqrt(depth);
   const lobe = juvenile ? 0.08 : 0.12;
   const root = bodyRing(p, XT + 0.012);
@@ -562,17 +572,53 @@ function addSpots(b: GeoBuilder, p: Plan): void {
   }
 }
 
+const cornerOf = (look: FishLook): number => (look === 'spawnMale' ? 0.355 : look === 'spawnJack' ? 0.37 : look === 'char' || look === 'trout' ? 0.37 : 0.39);
+const gapeOf = (look: FishLook, kype: number): number => (look === 'spawnMale' ? 0.07 + 0.13 * kype : look === 'spawnJack' ? 0.07 : look === 'char' ? 0.04 : 0.015);
+
+/** Colours part way from one palette to another; a colour only the target has starts from what the first shows there. */
+function blendPalette(a: Palette, b: Palette, t: number): Palette {
+  const mix = (x: THREE.Color | undefined, y: THREE.Color | undefined, fallback: THREE.Color): THREE.Color | undefined => {
+    if (!x && !y) return undefined;
+    return (x ?? fallback).clone().lerp(y ?? x ?? fallback, t);
+  };
+  return {
+    back: a.back.clone().lerp(b.back, t),
+    side: a.side.clone().lerp(b.side, t),
+    belly: a.belly.clone().lerp(b.belly, t),
+    head: mix(a.head, b.head, a.back),
+    snout: mix(a.snout, b.snout, a.head ?? a.back),
+    jaw: mix(a.jaw, b.jaw, a.belly),
+    fin: a.fin.clone().lerp(b.fin, t),
+    caudal: mix(a.caudal, b.caudal, a.fin),
+    lowerFin: mix(a.lowerFin, b.lowerFin, a.fin),
+    iris: a.iris.clone().lerp(b.iris, t),
+    line: (a.line ?? 0.35) + ((b.line ?? 0.35) - (a.line ?? 0.35)) * t,
+  };
+}
+
 export function buildFishGeometry(shape: FishShape, look: FishLook, opts: { lod?: 'high' | 'low' } = {}): THREE.BufferGeometry {
   const lod = opts.lod ?? 'high';
-  const male = look === 'spawnMale';
   const plan: Plan = {
     look,
     shape,
     pal: PALETTES[look],
-    corner: male ? 0.355 : look === 'spawnJack' ? 0.37 : look === 'char' || look === 'trout' ? 0.37 : 0.39,
-    gape: male ? 0.07 + 0.13 * shape.kype : look === 'spawnJack' ? 0.07 : look === 'char' ? 0.04 : 0.015,
+    corner: cornerOf(look),
+    gape: gapeOf(look, shape.kype),
     lod,
   };
+  // A returning fish part way into spawning dress: colours, teeth, eye, tail fork and jaw follow the dress.
+  const t = shape.dress ?? 0;
+  if (look === 'returnBlush' && shape.dressTo && t > 0) {
+    const to = shape.dressTo;
+    const mixN = (x: number, y: number) => x + (y - x) * t;
+    plan.pal = blendPalette(PALETTES.returnBlush, PALETTES[to], t);
+    plan.corner = mixN(cornerOf(look), cornerOf(to));
+    plan.gape = mixN(gapeOf(look, shape.kype), gapeOf(to, shape.kype));
+    plan.teeth = mixN(TEETH[look] ?? 0, TEETH[to] ?? 0);
+    plan.eye = mixN(EYE[look] ?? 1, EYE[to] ?? 1);
+    plan.fork = mixN(FORK[look] ?? 0.04, FORK[to] ?? 0.04);
+    plan.headMix = mixN(0.55, 0.95);
+  }
   const b = new GeoBuilder();
   const along = lod === 'low' ? 26 : 64;
   const around = lod === 'low' ? 12 : 24;
@@ -650,6 +696,6 @@ export function createFish(shape: FishShape, look: FishLook, opts: { transparent
   return mesh;
 }
 
-export const shapeKey = (s: FishShape): string => [s.depth, s.hump, s.kype, s.yolk].map((n) => n.toFixed(2)).join(',');
+export const shapeKey = (s: FishShape): string => [s.depth, s.hump, s.kype, s.yolk].map((n) => n.toFixed(2)).join(',') + (s.dress ? `,${s.dress.toFixed(3)}>${s.dressTo ?? ''}` : '');
 
 export const DEFAULT_SHAPE: FishShape = { depth: 1, hump: 0, kype: 0, yolk: 0 };

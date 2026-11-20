@@ -72,6 +72,7 @@ export const DEATH_TITLES: Record<DeathCause, string> = {
   bear: 'Taken by a bear',
   exhaustion: 'Exhausted',
   noSpawn: 'No spawn',
+  heat: 'Heat stress',
 };
 
 export function traitLines(fish: FishIdentity, z: TraitValues = fish.z): string[] {

@@ -101,11 +101,12 @@ The advisor said navigation is the most interesting challenge. Salmon follow the
 | | Now | Full game |
 |---|---|---|
 | **Verb** | Follow a faint magnetic track across open water to the coast, then pick the right river mouth and swim upstream following the scent | Same, longer, with a lake crossing |
-| **Decision** | **At sea:** stay on the track. It only shows when you are near it, so sweep to find it again. **At the nets:** find a gap; small fish slip through. **At the coast:** which mouth? Wrong rivers dead-end, so back out. **Upstream:** spend fat to burst, or rest in slack water. **At the fork:** test a branch and back out if the scent fades. | Same, plus timing against tides and fishery openings |
-| **Threats** | **Gillnets** across the approach. **Bears** at the riffles (a shadow and a splash first). **Anglers' lures** swinging across the pools: if hooked, burst repeatedly to tear free. **Fat** running out, faster in warm, low-water years. | Plus eagles, heat stress |
+| **Decision** | **At sea:** stay on the track. It only shows when you are near it, so sweep to find it again. **At the nets:** find a gap; small fish slip through. **At the coast:** which mouth? Wrong rivers dead-end, so back out. **Upstream:** spend fat to burst, or rest in slack water. **In the rapids:** dash from boulder to boulder and rest in the slack water behind each. **At the falls:** rest in the plunge pool, then build speed and leap (burst and rise together near the surface) from the standing wave under the low step; a failed leap costs energy and a little fat and drops the fish back. After several failures a side channel opens: a longer climb that costs fat. **At the fork:** test a branch and back out if the scent fades. | Same, plus timing against tides and fishery openings |
+| **Threats** | **Gillnets** across the approach. **Bears** at the riffles and on the lip of the falls (a shadow and a splash first). **Anglers' lures** swinging across the pools: if hooked, burst repeatedly to tear free. **Fat** running out, faster in warm, low-water years. | Plus eagles, heat stress |
+| **Company** | About a dozen other sockeye join at the home river's mouth and travel with the player: they hold in pools, jostle, try the falls (some fail), and split at the fork. A bear's swipe among them takes only one fish, and a bear may go for one of them instead of the player. | Same |
 | **Failure** | Caught in a net, taken by a bear, landed by an angler, or exhausted | Same |
-| **Checkpoint** | Inside the home river | After each encounter |
-| **Length** | About 80-120 s | 7 min |
+| **Checkpoint** | Inside the home river; above the falls | After each encounter |
+| **Length** | About 90-130 s (the rapids and falls add about 10-20 s for a careful player) | 7 min |
 
 ## 6. Spawning and death
 

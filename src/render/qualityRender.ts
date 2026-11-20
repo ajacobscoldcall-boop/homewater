@@ -31,7 +31,7 @@ export function pixelRatioFor(q: Quality, devicePixelRatio: number): number {
 }
 
 /** Instanced kinds that are only scenery around the player: drawing fewer changes nothing in the simulation. */
-const SCHOOL_KINDS = new Set(['herring', 'smolt', 'pink']);
+const SCHOOL_KINDS = new Set(['herring', 'smolt', 'pink', 'migrant']);
 
 /**
  * Whether to leave this school fish out of the drawing. Chosen by entity id,

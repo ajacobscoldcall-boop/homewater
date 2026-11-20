@@ -8,6 +8,10 @@ export interface SwimOptions {
   thrustScale?: number;
   /** Disable vertical movement (gravel stage). */
   fixed?: boolean;
+  /** Multiplier on the burst's extra speed (e.g. low oxygen on the return). */
+  burstScale?: number;
+  /** Multiplier on energy recovery (e.g. warm water on the return). */
+  regenScale?: number;
 }
 
 export interface SwimResult {
@@ -36,7 +40,7 @@ export function swimStep(w: World, intent: Intent, dt: number, opts: SwimOptions
   const burst = intent.burst && forward > 0 && !exhausted;
   const sizeBonus = 1 + p.get('swim.sizeSpeedBonus') * (b.scale - 0.6);
   const thrustMag =
-    p.get('swim.thrust') * sizeBonus * forward * (burst ? p.get('swim.burstMultiplier') : 1) * (exhausted ? 0.5 : 1) * (opts.thrustScale ?? 1);
+    p.get('swim.thrust') * sizeBonus * forward * (burst ? 1 + (p.get('swim.burstMultiplier') - 1) * (opts.burstScale ?? 1) : 1) * (exhausted ? 0.5 : 1) * (opts.thrustScale ?? 1);
 
   const h = headingVec(b.yaw, b.pitch);
   const drag = p.get('swim.drag');
@@ -65,7 +69,7 @@ export function swimStep(w: World, intent: Intent, dt: number, opts: SwimOptions
 
   // Energy: swimming costs a little, bursting a lot; rest recovers.
   if (burst) b.energy -= p.get('energy.burstCost') * dt;
-  else b.energy += p.get('energy.regen') * (1 - 0.4 * forward) * dt;
+  else b.energy += p.get('energy.regen') * (opts.regenScale ?? 1) * (1 - 0.4 * forward) * dt;
   b.energy -= p.get('energy.swimCost') * forward * dt;
   b.energy = clamp(b.energy, 0, 1);
 

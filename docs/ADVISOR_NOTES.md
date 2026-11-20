@@ -179,3 +179,44 @@ Game choices made without advisor input, marked placeholder in params.json.
 - **Net marks:** the notes say a tangled fish cannot back out. The game lets fish in the mesh's slip band squeeze through, and draws rubbed marks on them. Do fish survive net encounters with marks like that?
 - **Spawned-out fish:** the game shows pale patches spreading over the skin and frayed fins. The notes only say "sluggish and ragged". Is that a fair picture?
 - **Predator marks:** orca rakes drawn as parallel tooth marks, seal and shark bites as arcs. Anything to correct?
+
+## Open questions from the population stream
+
+The lineage now lives in a river whose run carries over from generation to generation (`src/sim/population.ts`, parameters `population.*`, all biology values marked placeholder). Game choices made without advisor input:
+
+- **Stock and recruitment:** the run that comes home is a Ricker curve of the spawners that reached the grounds a generation earlier (`population.rickerProductivity` 1.6 as ln recruits per spawner), with lognormal year-to-year noise (`population.recruitSd` 0.4). **Open:** is a Ricker curve with these values a fair simple picture for a Bristol Bay-type sockeye stock? Is the noise about right?
+- **Escapement goal:** the fishery lets about 45% of a typical run through to spawn (`population.escapementGoal`), takes the rest up to 65% of a big run (`population.maxHarvestRate`), and closes when the run is below the goal. The goal also sets the Ricker capacity, so a run fished to the goal replaces itself. **Open:** are these shares reasonable? Is "the fishery closes in small runs" fair to say?
+- **Crowded lake:** food per fry falls with the size of the cohort (food ∝ fry^−0.5, `population.fryDensity`), bounded to 0.6-1.4× a typical year. **Open:** how strong is density-dependent growth in sockeye nursery lakes?
+- **Carcass nutrients:** a big spawning run enriches the lake for the cohort that rears there (+15% food per extra typical cohort of spawners, `population.carcassEnrichment`), always weaker than the crowding. **Open:** is a modest effect of this size fair, and is the young of that same run the cohort that benefits?
+- **Pink years and returns:** fewer of a cohort come home from a crowded (pink) ocean (`population.crowdingSurvival`). **Open:** is there support for that, or only for smaller size?
+- **Nets follow the fishery:** the number of gillnet lines on the approach follows the fishing effort implied by the year's harvest share (none in a closed year, up to four in a heavy one). This is a game mechanic.
+## Open questions from scent imprinting and body change
+
+Game choices made without advisor input, marked placeholder in params.json (`imprint.*`).
+
+- **When imprinting happens:** the game lets a fish learn the smell of home a little as an alevin (facing into the flow in the gravel), some as a fry (time in a plume of home water where it enters the lake), and most on the smolt run (swimming with the school without panicking), plus a share for reaching the sea. **Open:** is it fair to show imprinting at all three stages, with the smolt stage most important? Do lake-rearing sockeye imprint on their natal stream or beach, on the lake, on the outlet, or on all of them in turn?
+- **Calm versus panic:** the smolt only learns while not bursting. This is a game device to reward calm schooling. **Open:** is there any basis for stress or speed affecting imprinting, or should we drop this link?
+- **Imprinting and straying:** a poorly imprinted fish gets a weaker, patchier home scent and finds wrong rivers smelling almost like home, so it strays into dead ends more easily; a well imprinted fish can tell a wrong river at once. **Open:** is weaker imprinting a reasonable cause of straying in sockeye, alongside the inherited homing tendency? How strong should the effect be?
+- **Beach spawners:** for lake-beach fish the "home water" plume in the lake is a stand-in. **Open:** what do beach spawners imprint on?
+- **Body change on the return:** colours deepen and (in males) the hump and hooked jaw grow gradually up the river, reaching full spawning dress only on the grounds; fish visibly thin as fat runs down; females darken less and jacks change less. This is render only. **Open:** is a gradual change up the river right, or do sockeye change mostly in the last days before spawning? How much do females and jacks change by the time they reach the grounds?
+
+## Open questions from temperature and oxygen on the return
+
+The notes say low water kills through heat stress and low oxygen. The return now has water temperature and dissolved oxygen that vary along the home river (`src/sim/stages/returnWater.ts`, params `return.water.*`). Everything below is a game choice, marked placeholder, except the textbook fact that warmer water holds less oxygen at saturation.
+
+- **Where the cool water is:** in a warm, low-water year the game makes the lower river warmer than the upper river, shallow riffles warmer, deep pools cooler (cooler near the bottom), and puts a cold spring seep in each pool. Spring water stays at 10 °C in any year. **Open:** is this a fair picture of where returning sockeye find cool refuges? Are cold tributary mouths a better example than seeps?
+- **Oxygen in seeps:** the game gives seeps more oxygen only because they are colder. Groundwater can be low in oxygen. **Open:** should a seep be cooler but not better oxygenated?
+- **Numbers:** the river runs at 13 °C in an ordinary year and can reach about 23-26 °C in riffles in an extreme warm, low-water year. Above 15 °C fat burns faster and energy recovers more slowly; above 19 °C heat stress builds; below 8 mg/L of oxygen the burst weakens and stress builds. **Open:** are these thresholds sensible for migrating sockeye? What temperatures are dangerous, and for how long?
+- **Through the day:** in a warm year the water warms by about 2 °C from dawn to afternoon. **Open:** is a daily swing of that size reasonable for a salmon river in late summer?
+- **Recovery:** resting in cold water lets heat stress ease, in tens of seconds of game time. **Open:** do migrating salmon recover from heat stress by holding in cool water, or is the damage lasting?
+- **Heat as a cause of death:** a fish whose heat stress builds to the limit dies (`heat`), with the caption "Killed by heat stress". **Open:** is it fair to show this as a direct death on the migration, rather than as fish that reach the grounds and die before spawning?
+## Open questions from the falls and fellow migrants
+
+Game choices made without advisor input, marked placeholder in params.json where they are numbers.
+
+- **Leaping falls:** the home river now has rapids and a falls. A leap clears it when launch speed plus the spot (under a lower step in the crest, from the standing wave below the falls) is good enough (`return.leapNeed`, `leapNotchBonus`, `leapWaveBonus`). **Open:** is it fair to say salmon pick a lower step and use the standing wave? How many tries is typical?
+- **The cost of a failed leap:** energy and a little stored fat (`return.leapFailFat`). **Open:** is the cost to reserves of failed attempts worth showing, and how big is it?
+- **The side channel:** after several failed leaps a lower, longer side channel opens, at a cost in fat (`return.chuteFatCost`). This is a game fallback so nobody is stuck. **Open:** do sockeye use side channels or easier routes round falls?
+- **Resting behind boulders:** the game gives extra recovery in the slack water behind rapids boulders (`return.eddyRegen`). **Open:** is resting in eddies between bursts a fair picture of how salmon pass rapids?
+- **Fellow migrants and bears:** other returning sockeye travel with the player; a bear may take one of them instead, and a swipe among them takes only one fish (`return.migrantShield`, `return.migrantDilution`). **Open:** does travelling in a group dilute bear risk for adults the way it does for smolts? Do bears at falls favour leaping fish?
+- **Jostling:** fish in the school bump the player a little. **Open:** is that a fair picture of a crowded run, or do adults keep more space?

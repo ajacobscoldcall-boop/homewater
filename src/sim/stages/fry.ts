@@ -14,7 +14,9 @@
  * progress.fryRichBites (net plain-bite equivalents; see lakeGrowth). The
  * ocean stage turns it into growthPerf in decideMaturation.
  */
+import { fillImprint, stepFryImprint } from '../imprint';
 import { swimStep } from '../swim';
+import { patchSizeFor } from '../population';
 import type { Entity, LifeProgress } from '../types';
 import type { Params } from '../params';
 import { clamp, dist, lerp, norm, sub, v3 } from '../vec';
@@ -100,7 +102,8 @@ function addGrowth(w: World, g: number, rich = false): void {
 function spawnPatch(w: World, rich: boolean): void {
   const cx = rich ? w.rng.range(-6, 24) : w.rng.range(-18, -10);
   const cz = w.rng.range(-20, 20);
-  const n = 12;
+  // Food per fry this year: fewer plankton per patch when the lake is crowded with fry (population.ts).
+  const n = patchSizeFor(w.p, w.conditions);
   for (let i = 0; i < n; i++) {
     // home.y is the offset from the patch's depth, which changes through the evening.
     const home = v3(cx + w.rng.range(-2.5, 2.5), w.rng.range(-1.5, 1.5), cz + w.rng.range(-2.5, 2.5));
@@ -423,6 +426,7 @@ export const fryStage: StageDef = {
     }
     feed(w);
     setScale(w);
+    if (s.phase === 'lesson' || s.phase === 'dusk' || s.phase === 'second') stepFryImprint(w, dt);
 
     const speedScale = winter ? p.get('fry.winterPredatorSpeed') : 1;
     for (const t of w.live('trout')) {
@@ -483,11 +487,13 @@ export const fryStage: StageDef = {
   debugComplete(w) {
     w.progress.fryBites = 10;
     w.progress.fryRichBites = 5;
+    fillImprint(w, 'fry');
     w.completeStage();
   },
   fillProgress(w) {
     w.progress.fryBites = 10;
     w.progress.fryRichBites = 5;
+    fillImprint(w, 'fry');
   },
 };
 

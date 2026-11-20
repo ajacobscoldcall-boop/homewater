@@ -8,6 +8,8 @@
  *   npx vite-node scripts/balance/probe.ts -- smolt 300 smolt.strikeDilution=0.4 fieldGuide:smolt.nearMissGrace=1
  *
  * For the egg stage it also prints the mean hold lost (drift) during the flood.
+ * PROBE_YEAR=flow,temperature fixes the year's conditions instead of rolling them, e.g.
+ *   PROBE_YEAR=0.75,1.25 npx vite-node scripts/balance/probe.ts -- return 200
  */
 import { foundLineage } from '../../src/sim/lineage';
 import { rollYear } from '../../src/sim/genetics';
@@ -33,6 +35,7 @@ for (const a of args.slice(2)) {
 }
 setOverrides({ values, mults });
 const index = STAGE_IDS.indexOf(stage);
+const fixedYear = process.env.PROBE_YEAR?.split(',').map(Number);
 for (const d of ['fieldGuide', 'wild'] as Difficulty[]) {
   for (const skill of SKILL_NAMES) {
     const causes = new Map<string, number>();
@@ -44,7 +47,7 @@ for (const d of ['fieldGuide', 'wild'] as Difficulty[]) {
       const r = new Rng(7919 * i + 13 + skill.length * 101 + (d === 'wild' ? 50000 : 0));
       const sex = r.chance(0.5) ? 'F' : 'M';
       const l = foundLineage(p, { preset: 'quick', sex, name: 'P', difficulty: d, seed: r.int(1, 2 ** 31) });
-      const w = new World(p, { fish: l.current, conditions: rollYear(p, r, 1 + (i % 2)), difficulty: d, siblings: 0, seed: r.int(1, 2 ** 31), firstLife: false });
+      const w = new World(p, { fish: l.current, conditions: fixedYear ? { ...rollYear(p, r, 1 + (i % 2)), flow: fixedYear[0] ?? 1, temperature: fixedYear[1] ?? 1 } : rollYear(p, r, 1 + (i % 2)), difficulty: d, siblings: 0, seed: r.int(1, 2 ** 31), firstLife: false });
       if (index > 0) w.debugJumpTo(index);
       const bot = new Bot(SKILLS[skill], r.int(1, 2 ** 31));
       bot.begin();

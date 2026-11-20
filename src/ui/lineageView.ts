@@ -3,6 +3,7 @@
  * lineage score line, the trait-drift chart, the extinction screen and the
  * Lineages page. Pure DOM and inline SVG; reads saved lineages only.
  */
+import { runSection } from './populationView';
 import { yearFavours } from '../sim/genetics';
 import { lineageName, type LifeRecord, type Lineage } from '../sim/lineage';
 import type { Params } from '../sim/params';
@@ -261,6 +262,7 @@ function lineSections(p: Params, l: Lineage): Node[] {
     traitChart(l),
     h('p', { class: 'label' }, 'The years'),
     yearsStrip(l),
+    ...runSection(p, l),
     h('p', { class: 'label' }, 'Family tree'),
     familyTree(l),
   ];
@@ -342,5 +344,5 @@ export function lineagesPanel(p: Params, current: Lineage | null, archive: reado
 
 /** The recap's lineage block: score line and the records this save holds. */
 export function recapLineage(p: Params, l: Lineage, archive: readonly Lineage[]): HTMLElement {
-  return h('div', { class: 'recap-lineage' }, scoreLine(p, l), h('p', { class: 'label' }, 'Records'), recordsBlock(p, [l, ...archive], l.id));
+  return h('div', { class: 'recap-lineage' }, scoreLine(p, l), ...runSection(p, l), h('p', { class: 'label' }, 'Records'), recordsBlock(p, [l, ...archive], l.id));
 }

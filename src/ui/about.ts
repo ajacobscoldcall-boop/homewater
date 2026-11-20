@@ -16,7 +16,7 @@ function keys(): [string, string][] {
     [k('burst'), 'Burst: fast, but burns energy (and fat on the return)'],
     [k('act'), 'Act: dig or cover the redd, or dart in as a jack'],
     [k('view'), 'Switch between third- and first-person'],
-    [k('details'), 'Show details: energy, fat, growth and depth'],
+    [k('details'), 'Show details: energy, fat, growth and depth, and on the return the water temperature, oxygen and heat stress'],
     [k('sound'), 'Sound on or off'],
     [k('pause'), `Pause (${k('journal')} opens the field journal while paused)`],
     [k('guide'), 'Skip the step-by-step guide on a first life'],
