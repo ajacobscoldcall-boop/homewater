@@ -99,7 +99,7 @@ const EXPECTED: Record<string, string[]> = {
   return: ['f3781035', 'd2701c0d', '6cc063e2', '6104ecf0'],
   'spawn female': ['1647f38f', '0eb3e886', '67083792', 'c32285b1'],
   'spawn male': ['01cf95f0', 'b7eb5338', '78be6385', 'a593f25b'],
-  'spawn jack': ['ccd8b2c5', 'ecc8827b', '7076211a', 'd0db5d0d'],
+  'spawn jack': ['c8b46c2f', 'b810ddab', '040c82da', 'cf3354e9'], // updated: a jack's charge for a hiding spot now rolls once per press
   'spawn wild': ['23c00598', '5f0d0306', '908f4866', 'fc24deaa'],
 };
 

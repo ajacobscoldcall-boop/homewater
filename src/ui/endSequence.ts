@@ -9,25 +9,40 @@ import { h, show } from './dom';
 import { caption } from './text';
 import './endSequence.css';
 
-/** Wait, or stop early on any key or click. Resolves true if skipped. */
+/** Keys held down right now, so a key the player was already holding (to swim, burst or dig) never counts as a skip. */
+const held = new Set<string>();
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => held.add(e.code), true);
+  window.addEventListener('keyup', (e) => held.delete(e.code), true);
+  window.addEventListener('blur', () => held.clear());
+}
+
+/** Wait, or stop early on a fresh key press or a click. Resolves true if skipped. */
 function skippableWait(ms: number, signal: { skipped: boolean }): Promise<boolean> {
   return new Promise((resolve) => {
     if (signal.skipped) return resolve(true);
+    // Keys already down when the wait began (and their auto-repeat) are not a skip.
+    const heldAtStart = new Set(held);
     let timer = 0;
     const done = (skipped: boolean) => {
       window.clearTimeout(timer);
       window.removeEventListener('keydown', onSkip, true);
+      window.removeEventListener('keyup', onRelease, true);
       window.removeEventListener('click', onSkip, true);
       if (skipped) signal.skipped = true;
       resolve(skipped);
     };
     // Click, not pointerdown: the click is over before the next screen is drawn, so it cannot land on it.
     const onSkip = (e: Event) => {
+      if (e instanceof KeyboardEvent && (e.repeat || heldAtStart.has(e.code))) return;
       e.stopPropagation();
       done(true);
     };
+    // Once a held key is let go, pressing it again is a real skip.
+    const onRelease = (e: KeyboardEvent) => heldAtStart.delete(e.code);
     timer = window.setTimeout(() => done(false), ms);
     window.addEventListener('keydown', onSkip, true);
+    window.addEventListener('keyup', onRelease, true);
     window.addEventListener('click', onSkip, true);
   });
 }

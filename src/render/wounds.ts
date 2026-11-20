@@ -233,7 +233,8 @@ export function senescence(w: World): number {
   const s = spawnState(w);
   if (!s) return 0;
   const c = GORE.wear;
-  const t = clamp01(w.stageTime / w.p.get('spawn.duration'));
+  // Wear follows the strength the sim drains on the grounds (it ends the stage), not the clock.
+  const t = clamp01((1 - s.vigour) / Math.max(0.01, 1 - w.p.get('spawn.senescenceEnd')));
   let wear = c.arrive + (c.byEnd - c.arrive) * t;
   if (s.spawned && s.spawnedAt >= 0) wear += c.afterSpawn * clamp01((w.stageTime - s.spawnedAt) / c.afterSpawnSeconds);
   return clamp01(wear);

@@ -138,3 +138,28 @@ test('a reload at the offspring choice reopens the choice, not the parent', asyn
   expect((s?.fish as { generation: number }).generation).toBe(2);
   expect(errors).toEqual([]);
 });
+
+test('a reload on the death screen keeps the death: the same screen comes back', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('./');
+  await page.click('#btn-new');
+  await page.click('[data-preset="jack"]');
+  await page.click('#btn-setup-next');
+  await page.click('#btn-accept-name');
+  await page.click('#btn-play');
+  // An alevin that never reacts dies; reload on the death screen, before naming a sibling.
+  await page.evaluate(() => window.__hw?.step(60 * 90));
+  await expect(page.locator('#screen')).toContainText('A sibling carries on');
+  await page.evaluate(async () => {
+    await window.__hw?.app.save();
+  });
+  await page.reload();
+  await page.click('#btn-continue');
+  await expect(page.locator('#screen')).toContainText('A sibling carries on');
+  await page.click('#btn-accept-name');
+  await expect(page.locator('#btn-play')).toBeVisible();
+  const s = await state(page);
+  expect(s?.siblingsLeft).toBe(4);
+  expect(errors).toEqual([]);
+});

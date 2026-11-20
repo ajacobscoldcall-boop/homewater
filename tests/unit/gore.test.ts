@@ -18,11 +18,12 @@ describe('senescence', () => {
     }
   });
 
-  it('rises with time on the grounds, and faster after spawning', () => {
+  it('rises as strength fades on the grounds, and faster after spawning', () => {
     const { w } = newWorld({ startStage: 5, sex: 'F' });
     const arrive = senescence(w);
     expect(arrive).toBeGreaterThan(0);
-    // Time on the grounds, read without playing it out (an idle fish may meet a bear).
+    // Strength drained on the grounds, read without playing it out (an idle fish may meet a bear).
+    (w.stage as unknown as { vigour: number }).vigour = 0.6;
     w.stageTime = 20;
     const later = senescence(w);
     expect(later).toBeGreaterThan(arrive);

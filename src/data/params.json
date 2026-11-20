@@ -123,6 +123,7 @@
     {"id": "spawn.coverSpots.river", "value": 2, "units": "count", "min": 1, "max": 8, "source": "Fewer undercut banks than a small creek (advisor: more cover lets more jacks spawn)", "placeholder": true},
     {"id": "spawn.coverSpots.beach", "value": 1, "units": "count", "min": 1, "max": 8, "source": "Little cover on an open lake beach", "placeholder": true},
     {"id": "spawn.rivalJacks", "value": 3, "units": "count", "min": 0, "max": 8, "source": "tuning", "placeholder": false},
+    {"id": "spawn.jackSpotRetry", "value": 1.2, "units": "s", "min": 0, "max": 5, "source": "tuning: pause after a failed charge for a hiding spot", "placeholder": false},
     {"id": "spawn.jackSpotWin", "value": 0.55, "units": "chance", "min": 0, "max": 1, "source": "tuning", "placeholder": false},
     {"id": "spawn.jackContestTime", "value": 2.5, "units": "s", "min": 0.5, "max": 10, "source": "tuning", "placeholder": false},
     {"id": "spawn.jackAISpeed", "value": 4.5, "units": "u/s", "min": 1, "max": 12, "source": "tuning", "placeholder": false},

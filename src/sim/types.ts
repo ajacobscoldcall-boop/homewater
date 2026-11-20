@@ -147,6 +147,8 @@ export interface Intent {
   /** Edge flags: true only on the step the key went down. */
   actionPressed: boolean;
   risePressed: boolean;
+  /** Burst key went down this step (also in toggle mode, where `burst` can turn off on a press). */
+  burstPressed?: boolean;
 }
 
 export const NO_INTENT: Intent = {

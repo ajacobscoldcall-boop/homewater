@@ -63,6 +63,29 @@ describe('spawning playthroughs', () => {
   });
 });
 
+describe('jack charges for a hiding spot', () => {
+  it('holding burst rolls once, not every step', () => {
+    let wins = 0;
+    const trials = 40;
+    for (let seed = 1; seed <= trials; seed++) {
+      const { w } = newWorld({ sex: 'M', preset: 'jack', seed, startStage: 5, habitat: 'beach' });
+      // Let the other jacks take every spot, then sit on one and hold burst for a second.
+      run(w, 12 * SEC, () => intent({ hold: true }));
+      const s = spawnState(w);
+      const spot = s?.spots[0];
+      if (!s || !spot || (s.owners[0] ?? -1) <= 0) continue;
+      for (const b of w.live('bear')) b.alive = false;
+      w.body.pos = { ...spot };
+      w.body.vel = { x: 0, y: 0, z: 0 };
+      run(w, SEC, () => intent({ hold: true, burst: true }));
+      if (spawnState(w)?.owners[0] === 0) wins++;
+    }
+    // One roll at spawn.jackSpotWin (0.55) per press: far from the near-certain win of a roll every step.
+    expect(wins / trials).toBeLessThan(0.85);
+    expect(wins).toBeGreaterThan(0);
+  });
+});
+
 describe('spawning habitats', () => {
   for (const habitat of ['river', 'beach'] as const) {
     it(`each role can spawn in a ${habitat}`, () => {

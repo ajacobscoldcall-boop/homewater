@@ -125,6 +125,7 @@ export class Input {
       action: this.held('act'),
       actionPressed: this.pressed.has('act'),
       risePressed: this.pressed.has('rise'),
+      burstPressed: this.pressed.has('burst'),
     };
     this.mouseX = 0;
     this.mouseY = 0;

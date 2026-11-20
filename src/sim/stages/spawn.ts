@@ -35,6 +35,11 @@ const NEAR = 4;
 
 interface SpawnState {
   role: SpawnRole;
+  /** A male was at the redd last step (so his loss starts the replacement wait). */
+  hadMale?: boolean;
+  /** Jack role: burst still held from the last charge, and the wait before another charge. */
+  chargeLatch?: boolean;
+  chargeWait?: number;
   dig: number;
   quality: number;
   /** Rival females that dug into the redd before the eggs were laid. */
@@ -348,6 +353,9 @@ function stepCover(w: World, intent: Intent, dt: number): boolean {
   const p = w.p;
   const s = st(w);
   const fish = w.body.pos;
+  s.chargeWait = Math.max(0, (s.chargeWait ?? 0) - dt);
+  const latch = s.chargeLatch;
+  s.chargeLatch = intent.burst;
   // The player claims a free spot by settling into it.
   const mine = s.owners.indexOf(0);
   if (mine < 0) {
@@ -357,15 +365,17 @@ function stepCover(w: World, intent: Intent, dt: number): boolean {
       // A spot whose jack is gone is free.
       if (owner !== undefined && owner > 0 && !w.entities.some((e) => e.id === owner && e.alive)) s.owners[i] = -1;
       if (s.owners[i] === -1) s.owners[i] = 0;
-      else if (intent.burst || intent.actionPressed) {
-        // Charge the jack out of its spot.
-        const holder = w.entities.find((e) => e.id === s.owners[i]);
-        if (holder && w.rng.chance(p.get('spawn.jackSpotWin'))) {
-          holder.state = 'seek';
-          s.owners[i] = 0;
-          w.emit('caption', 'spawn.jackSpotWon');
+      else if ((intent.burst && !latch) || intent.actionPressed) {
+        // Charge the jack out of its spot: one roll per fresh press, and a pause to recover after a failed charge.
+        if ((s.chargeWait ?? 0) <= 0) {
+          const holder = w.entities.find((e) => e.id === s.owners[i]);
+          if (holder && w.rng.chance(p.get('spawn.jackSpotWin'))) {
+            holder.state = 'seek';
+            s.owners[i] = 0;
+            w.emit('caption', 'spawn.jackSpotWon');
+          } else s.chargeWait = p.get('spawn.jackSpotRetry');
         }
-      } else w.emitOnce('caption', 'spawn.jackSpotTaken');
+      } else if (!intent.burst) w.emitOnce('caption', 'spawn.jackSpotTaken');
     }
   } else {
     const spot = s.spots[mine];
@@ -610,6 +620,9 @@ function stepFemale(w: World, intent: Intent, dt: number, spent: boolean): void 
   const males = w.live('guardMale');
   if (redd && s.dig >= p.get('spawn.maleArriveDig') && !s.spawned) {
     s.maleTimer -= dt;
+    // Her male was lost (to a bear): the next one takes a while to arrive.
+    if (males.length === 0 && s.hadMale) s.maleTimer = p.get('spawn.maleReplaceTime');
+    s.hadMale = males.length > 0;
     if (males.length === 0 && s.maleTimer <= 0) {
       w.spawn('guardMale', v3(redd.pos.x > 20 ? 2 : 38, -1.6, redd.pos.z + 1), { radius: 0.8, state: 'court', value: rivalSize(w) });
       w.emitOnce('caption', 'spawn.maleArrives');

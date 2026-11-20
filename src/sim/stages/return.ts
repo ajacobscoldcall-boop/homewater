@@ -119,7 +119,7 @@ function crossNet(w: World, lineX: number): void {
  * Anglers' lures swing across the pools. A fish that touches one is hooked
  * and must burst repeatedly (Shift) to break free before it is landed.
  */
-function stepLures(w: World, intent: { burst: boolean; actionPressed: boolean }, dt: number): void {
+function stepLures(w: World, intent: { burst: boolean; actionPressed: boolean; burstPressed?: boolean }, dt: number): void {
   const p = w.p;
   const fish = w.body.pos;
   const s = st(w);
@@ -143,7 +143,7 @@ function stepLures(w: World, intent: { burst: boolean; actionPressed: boolean },
       lure.timer -= dt;
       lure.pos = v3(fish.x + 0.4, fish.y, fish.z);
       // Each fresh burst is a pull against the line.
-      const pulling = intent.burst && !s.wasBursting;
+      const pulling = (intent.burst && !s.wasBursting) || !!intent.burstPressed;
       s.wasBursting = intent.burst;
       if (pulling || intent.actionPressed) s.hookPulls = (s.hookPulls ?? 0) + 1;
       w.progress.fat = Math.max(0, w.progress.fat - p.get('return.hookFatCost') * dt);

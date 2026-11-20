@@ -459,6 +459,10 @@ export class App {
         const s = await importSave(file);
         if (save && save.lineage.id !== s.lineage.id && save.lineage.records.length) s.archive = addToArchive(s.archive, save.lineage);
         await writeSave(s);
+        // The imported line replaces whatever was loaded here, so a New lineage archives it, not a stale one.
+        this.lineage = null;
+        this.world = null;
+        this.archive = s.archive ?? [];
         this.showTitle(s);
       } catch (e) {
         alertBox(this, `Couldn't import that file: ${(e as Error).message}`, () => this.showTitle(save));
@@ -483,7 +487,12 @@ export class App {
               h('button', { class: 'primary', id: 'btn-continue', onclick: () => this.continueSave(save) }, !save.life && save.pendingOffspring?.length ? `Continue: choose ${save.lineage.current.name}’s offspring` : `Continue: ${save.lineage.current.name}, generation ${save.lineage.generation}`),
               h('button', { id: 'btn-new', onclick: () => this.showSetup() }, 'New lineage'),
             )
-          : h('div', { class: 'row' }, h('button', { class: 'primary', id: 'btn-new', onclick: () => this.showSetup() }, 'New lineage')),
+          : h(
+              'div',
+              { class: 'row' },
+              save?.lineage.extinct ? h('button', { class: 'primary', id: 'btn-stray-title', onclick: () => this.strayFromTitle(save) }, 'A stray from this river') : null,
+              h('button', { class: save?.lineage.extinct ? '' : 'primary', id: 'btn-new', onclick: () => this.showSetup() }, 'New lineage'),
+            ),
         h(
           'div',
           { class: 'row' },
@@ -664,6 +673,16 @@ export class App {
       w.drainEvents();
       w.restore(resume.checkpoint);
       w.siblingsLeft = resume.siblingsLeft;
+      // The saved fish had just died (the save was made on its death screen): reopen that screen.
+      const last = resume.deaths.at(-1);
+      if (last && last.name === l.current.name) {
+        this.world = w;
+        w.die(last.cause);
+        w.drainEvents();
+        this.pending = [];
+        this.showDeath(w);
+        return;
+      }
     }
     this.world = w;
     this.clearCaptions();
@@ -765,6 +784,9 @@ export class App {
     this.mode = 'menu';
     this.input.releaseLock();
     $('hud').hidden = true;
+    // Record the death and save at once, so a reload on the death screen (or during the beat) cannot undo it.
+    this.deaths.push({ name: w.fish.name, stage: w.stageId, cause: w.deathCause ?? 'exhaustion' });
+    void this.save();
     // Gore: a short, skippable death beat before the death screen, when a predator, a net or a line took the fish.
     const beat = deathBeatPlan(w.deathCause, this.settings.gore);
     if (!beat) return this.showDeath(w);
@@ -777,7 +799,6 @@ export class App {
   private showDeath(w: World): void {
     const cause = w.deathCause ?? 'exhaustion';
     this.noteJournal([`death.${cause}`]);
-    this.deaths.push({ name: w.fish.name, stage: w.stageId, cause });
     const science = caption(`death.${cause}`) ?? '';
     narrate(`death.${cause}`);
     const l = this.lineage;
@@ -868,6 +889,13 @@ export class App {
     $('hud').hidden = true;
     const l = this.lineage;
     if (!l) return;
+    // Record the life and save the offspring on offer first, so a reload during the sequence reopens the choice.
+    const rec = this.lifeRecord(w, true);
+    recordLife(l, rec);
+    this.deaths = [];
+    const kids = offerOffspring(this.params, l, w.fish);
+    this.pendingKids = kids;
+    void this.save();
     // Gore: the post-spawn sequence, a series of fades (skippable); the renderer shows the spent fish and its carcass.
     await playEndSequence($('screen'), endCards(w.fish.sex, this.settings.gore), {
       fast: this.debug || navigator.webdriver,
@@ -876,12 +904,6 @@ export class App {
         this.renderer.gore.setEnding(w, card.scene);
       },
     });
-    const rec = this.lifeRecord(w, true);
-    recordLife(l, rec);
-    this.deaths = [];
-    const kids = offerOffspring(this.params, l, w.fish);
-    this.pendingKids = kids;
-    void this.save();
     this.showOffspringChoice(rec, kids);
   }
 
@@ -1011,6 +1033,20 @@ export class App {
   private retireLineage(): void {
     const old = this.lineage ?? this.titleSave?.lineage ?? null;
     if (old && old.records.length) this.archive = addToArchive(this.archive, old);
+  }
+
+  /** After a reload, an extinct line can still be carried on by a stray into the same river. */
+  private strayFromTitle(save: SaveFile): void {
+    const l = save.lineage;
+    this.params = new Params(FILE, l.difficulty);
+    this.archive = save.archive ?? [];
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    this.showNaming(seed, [], (name) => {
+      this.lineage = foundFromStray(this.params, l, seed, name);
+      this.deaths = [];
+      this.pendingKids = null;
+      this.startLife(null);
+    });
   }
 
   private showLineages(save: SaveFile | null): void {
