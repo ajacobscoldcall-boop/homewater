@@ -7,6 +7,7 @@ import { dist, norm, scale, sub, v3 } from '../../vec';
 import type { World } from '../../world';
 import type { Params } from '../../params';
 import type { BearPreyKind } from '../../bearFeeding';
+import type { CrowdState } from './crowd';
 
 export type SpawnRole = 'female' | 'largeMale' | 'jack';
 
@@ -77,6 +78,13 @@ export interface SpawnState {
   owners: number[];
   contest: number;
   jacksBeat: number;
+  /** Female: share of her eggs char and gulls took while they lay uncovered (eggThieves.ts), and seconds they lay uncovered. */
+  eggsTaken: number;
+  exposedFor: number;
+  /** A gull has come to the redd (once per stage). */
+  gullCame?: boolean;
+  /** The other spawners on the grounds (crowd.ts). */
+  crowd?: CrowdState;
 }
 
 export const st = (w: World) => w.stage as unknown as SpawnState;
@@ -93,9 +101,10 @@ export function senescenceRate(p: Params, bursting: boolean): number {
   return p.get('spawn.senescenceRate') + (bursting ? p.get('spawn.senescenceBurstCost') : 0);
 }
 
-export function spawnRival(w: World, towards: Entity | undefined, size: number): void {
+/** A rival comes for `towards`: from the edge of the grounds, or (`from`) out of the crowd. */
+export function spawnRival(w: World, towards: Entity | undefined, size: number, from?: Vec3): void {
   const fromLeft = w.rng.chance(0.5);
-  const pos = v3(fromLeft ? 1 : 39, -1.4, w.rng.range(-4, 3));
+  const pos = from ? v3(from.x, -1.4, from.z) : v3(fromLeft ? 1 : 39, -1.4, w.rng.range(-4, 3));
   w.spawn('rival', pos, { radius: 0.6, state: 'approach', value: size, home: towards ? { ...towards.pos } : v3(20, -1.5, 0) });
   w.emit('warning', 'rival');
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bodyLook, fatDepth, riverStage, type BodyRole } from '../../src/render/bodyChange';
+import { bodyLook, fatDepth, journey, riverStage, type BodyRole } from '../../src/render/bodyChange';
 import { BODY_CHANGE } from '../../src/render/bodyConfig';
 import { buildFishGeometry, shapeKey } from '../../src/render/fishMesh';
 
@@ -54,5 +54,18 @@ describe('body change on the return', () => {
     expect(g.getAttribute('position').count).toBeGreaterThan(100);
     const col = g.getAttribute('color').array as Float32Array;
     expect([...col].every((c) => Number.isFinite(c))).toBe(true);
+  });
+
+  it('colours keep deepening across the lake: the top of the river is part way, the end of the lake is the river-only top', () => {
+    const lake = (u: number, ripe: number) => bodyLook({ role: 'largeMale', bodyDepth: 0, fat: 0.6, place: 'river', upstream: u, lake: ripe }).shape;
+    const top = lake(1, 0);
+    const half = lake(1, 0.5);
+    const ready = lake(1, 1);
+    expect(top.dress!).toBeLessThan(half.dress!);
+    expect(half.dress!).toBeLessThan(ready.dress!);
+    expect(ready.dress!).toBeCloseTo(river('largeMale', 1).shape.dress!, 9);
+    expect(ready.dress!).toBeLessThan(1);
+    expect(journey(1, 0)).toBeCloseTo(BODY_CHANGE.riverShare, 9);
+    expect(journey(0.5)).toBe(0.5);
   });
 });

@@ -10,6 +10,8 @@ export const SCAVENGERS = {
   lateFull: 0.8,
   /** Gulls and drifting dead fish per environment detail level (Low, Medium, High). */
   gulls: [2, 3, 5] as const,
+  /** How many of the crowd's washed-up carcasses (spawn/crowd.ts) the gulls and eagle may come to, by scenery detail. */
+  crowdTargets: [2, 3, 4] as const,
   drifters: [1, 2, 3] as const,
   /** Bear leftovers: wear (1 = spent; more = decaying), extra wear for how much was eaten, bites at most. */
   carcassWear: 1.2,

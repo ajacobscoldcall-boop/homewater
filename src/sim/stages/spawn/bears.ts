@@ -9,6 +9,7 @@ import type { Entity, Vec3 } from '../../types';
 import { distXZ, v3 } from '../../vec';
 import type { World } from '../../world';
 import { byId, st } from './shared';
+import { crowdInBearView, crowdRel, crowdRole, releaseCrowdFish } from './crowd';
 
 /** Bear preference by kind of fish: males, then large females, jacks last. */
 export function bearWeight(p: Params, kind: 'male' | 'female' | 'jack'): number {
@@ -59,15 +60,20 @@ export function walkBear(w: World, bear: Entity, x: number, side: number, speed:
 export function chooseBearTarget(w: World, playerHidden: boolean, exposure: number): { id: number } | null {
   const p = w.p;
   const s = st(w);
-  const run = w.conditions.runSize;
+  const run = crowdRel(w);
   const role = s.role;
   const playerKind: BearPreyKind = role === 'largeMale' ? 'male' : role === 'female' ? 'female' : 'jack';
   const candidates: { id: number; weight: number }[] = [];
   if (!playerHidden) candidates.push({ id: 0, weight: bearTargetWeight(p, playerKind, w.body.scale, run) * exposure });
+  const bear = w.live('bear')[0];
   for (const e of w.entities) {
     if (!e.alive) continue;
     const kind = preyKind(w, e);
-    if (kind) candidates.push({ id: e.id, weight: bearTargetWeight(p, kind, e.value ?? 1, run) });
+    if (!kind) continue;
+    // The crowd shields the player: the bear also considers the crowd fish near it on its side of the stream.
+    if (crowdRole(e.kind)) {
+      if (bear && crowdInBearView(w, e, bear, s.bearSide)) candidates.push({ id: e.id, weight: bearTargetWeight(p, kind, e.value ?? 1, run) * p.get('spawn.crowd.bearAttention') });
+    } else candidates.push({ id: e.id, weight: bearTargetWeight(p, kind, e.value ?? 1, run) });
   }
   const total = candidates.reduce((sum, c) => sum + c.weight, 0);
   if (total <= 0) return null;
@@ -77,6 +83,8 @@ export function chooseBearTarget(w: World, playerHidden: boolean, exposure: numb
 
 /** What kind of fish an entity is to a bear, or null if the bear can't take it. */
 export function preyKind(w: World, e: Entity): BearPreyKind | null {
+  const crowd = crowdRole(e.kind);
+  if (crowd) return crowd === 'F' ? 'female' : crowd === 'M' ? 'male' : 'jack';
   if (e.kind === 'guardMale' || (e.kind === 'rival' && st(w).role !== 'female')) return 'male';
   if (e.kind === 'rival') return 'female';
   if (e.kind === 'jackAI' && e.state !== 'hidden') return 'jack';
@@ -89,7 +97,7 @@ export function startleNear(w: World, at: Vec3): void {
   const s = st(w);
   const r = p.get('spawn.startleRadius');
   for (const e of w.entities) {
-    if (!e.alive || (e.kind !== 'rival' && e.kind !== 'guardMale' && e.kind !== 'jackAI') || e.state === 'hidden') continue;
+    if (!e.alive || (e.kind !== 'rival' && e.kind !== 'guardMale' && e.kind !== 'jackAI' && !crowdRole(e.kind)) || e.state === 'hidden') continue;
     const dx = e.pos.x - at.x;
     const dz = e.pos.z - at.z;
     const d = Math.hypot(dx, dz);
@@ -131,7 +139,8 @@ export function stepBears(w: World, dt: number, playerHidden: boolean, exposure 
   stepStartle(w, dt);
   const bear = w.live('bear')[0] ?? addBear(w);
   bear.timer -= dt;
-  const run = w.conditions.runSize;
+  // Crowded grounds draw the bear back more often (and it is choosier, and eats less of each fish).
+  const run = crowdRel(w);
   switch (bear.state) {
     case 'patrol': {
       // A slow walk up and down the bank, looking into the water.
@@ -158,6 +167,8 @@ export function stepBears(w: World, dt: number, playerHidden: boolean, exposure 
       // Lost its fish (taken, or the player slipped under cover): back to the patrol until its next try.
       if ((bear.value && !target) || (!bear.value && playerHidden)) {
         bear.state = 'patrol';
+        // A fish it was after that vanished (taken, gone off to the player's redd, dead): it soon picks another.
+        if (bear.value && !target) s.bearTimer = Math.min(s.bearTimer, p.get('spawn.bearRetarget'));
         break;
       }
       const tp = target ? target.pos : w.body.pos;
@@ -210,6 +221,7 @@ export function stepBears(w: World, dt: number, playerHidden: boolean, exposure 
         if (caught) {
           s.bearMeal = preyKind(w, caught) ?? 'male';
           s.bearMealSize = caught.value ?? 1;
+          if (crowdRole(caught.kind)) releaseCrowdFish(w, caught);
           caught.alive = false;
           if (caught.kind === 'guardMale') w.emit('caption', 'spawn.bearTookGuard');
           // A jack taken while darting gives up its hiding spot.

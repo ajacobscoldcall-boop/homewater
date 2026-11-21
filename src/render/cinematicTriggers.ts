@@ -43,6 +43,8 @@ export function momentFor(ev: SimEvent, ctx: EventContext): MomentId | null {
       return ctx.marker === 0 ? 'lakeFirstLook' : null;
     case 'smolt.intro':
       return 'smoltNight';
+    case 'estuary.enter':
+      return 'estuaryDawn';
     case 'ocean.intro':
       return ctx.marker === 0 ? 'sea' : null;
     case 'return.rightRiver':

@@ -42,7 +42,10 @@ const REAL: Record<string, [number, number]> = {
   smoltBig: [0.08, 0.13],
   smoltMate: [0.07, 0.12],
   charSmolt: [0.25, 0.6],
+  // Adult Dolly Varden in spawning streams, where they feed on loose salmon eggs: about 30-60 cm.
+  charGrounds: [0.3, 0.6],
   merganser: [0.54, 0.71],
+  merganserFry: [0.54, 0.71],
   gullPlunge: [1.2, 1.5],
   sealSmolt: [1.4, 1.9],
   ocean: [0.45, 0.7],

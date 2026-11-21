@@ -1,6 +1,7 @@
 import paramFile from '../../src/data/params.json';
 import { foundLineage } from '../../src/sim/lineage';
 import { fallsView } from '../../src/sim/stages/falls';
+import { lakeView, siteWater } from '../../src/sim/stages/returnLake';
 import { Params, type Difficulty, type ParamFile } from '../../src/sim/params';
 import { NO_INTENT, type Habitat, type Intent, type Sex } from '../../src/sim/types';
 import { World } from '../../src/sim/world';
@@ -86,4 +87,30 @@ export function fallsPilot(w: World): Intent | null {
   }
   const rise = x > v.waveX - 0.4 && Math.abs(b.pos.z - v.notchZ) < 1.2;
   return steer3(w, v.face, -0.8, v.notchZ, { burst: true, rise });
+}
+
+/**
+ * Cross the lake (null before it): out of the river's trough, then wait deep
+ * off home until the colours have come on, then go in. Knows where home is
+ * (a test pilot, not a player).
+ */
+export function lakePilot(w: World): Intent | null {
+  const v = lakeView(w);
+  if (!v) return null;
+  const lay = v.layout;
+  const b = w.body.pos;
+  if (b.x < lay.start - 2) return null;
+  const inlet = (lay.inletZ0 + lay.inletZ1) / 2;
+  // Down into the cool water as soon as the trough is deep enough.
+  if (b.x < lay.start + 22) return steer3(w, lay.start + 30, -5, inlet + (0 - inlet) * 0.3, { dive: b.x > lay.start + 6 && b.y > -4.5 });
+  const q = lay.sites[lay.home]!;
+  const water = siteWater(q);
+  if (v.ripe < 1) {
+    const hx = q.kind === 'inflow' ? water.x - 16 : water.x;
+    const hz = q.kind === 'inflow' ? water.z : water.z - q.side * 12;
+    const d = Math.hypot(hx - b.x, hz - b.z);
+    return steer3(w, hx, -6.5, hz, { forward: d > 3 ? 1 : 0.15, dive: b.y > -6 });
+  }
+  if (q.kind === 'inflow') return steer3(w, b.x < lay.end - 3 ? lay.end + 8 : lay.end + 10, -1.4, q.z);
+  return steer3(w, q.x, -0.9, q.z + q.side * 3);
 }

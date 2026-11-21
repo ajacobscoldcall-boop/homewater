@@ -122,9 +122,29 @@ export class ScavengerLayer {
     this.drifters.forEach((d, i) => {
       if (d.mesh.visible && !d.taken) targets.push({ pos: d.mesh.position, onBank: false, key: `d${i}`, drifter: i });
     });
+    // The crowd's dead washed up along the edges (spawn/crowd.ts): the gulls work them from the water.
+    this.crowdTargets(w, opts.ground, targets);
     if (opts.ending) targets.push({ pos: opts.ending, onBank: false, key: 'player' });
     this.updateGulls(w, dt, targets, late, surface);
     this.updateEagle(w, dt, targets, late, surface, opts.ground);
+  }
+
+  private readonly crowdSpots = new Map<number, THREE.Vector3>();
+
+  /** Up to C.crowdTargets of the crowd's carcasses lodged at the edges, oldest first. */
+  private crowdTargets(w: World, ground: Ground, out: Target[]): void {
+    const edge = w.p.get('spawn.crowd.carcassEdge') - 0.3;
+    const lodged = w.entities.filter((e) => e.alive && e.kind === 'crowdCarcass' && (w.fish.habitat === 'beach' ? e.pos.z : Math.abs(e.pos.z)) >= edge);
+    lodged.sort((a, b) => a.id - b.id);
+    const keep = new Set<number>();
+    for (const e of lodged.slice(0, C.crowdTargets[quality.envDetail])) {
+      keep.add(e.id);
+      let v = this.crowdSpots.get(e.id);
+      if (!v) this.crowdSpots.set(e.id, (v = new THREE.Vector3()));
+      v.set(e.pos.x, ground(e.pos.x, e.pos.z), e.pos.z);
+      out.push({ pos: v, onBank: false, key: `k${e.id}` });
+    }
+    for (const id of this.crowdSpots.keys()) if (!keep.has(id)) this.crowdSpots.delete(id);
   }
 
   private reset(): void {

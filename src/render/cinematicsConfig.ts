@@ -9,7 +9,7 @@
  * scale). `side` is the fish's right, `ahead` its heading, `up` is world up.
  */
 
-export type MomentId = 'hatch' | 'lakeFirstLook' | 'smoltNight' | 'sea' | 'maturation' | 'homeRiver' | 'spawning';
+export type MomentId = 'hatch' | 'lakeFirstLook' | 'smoltNight' | 'estuaryDawn' | 'sea' | 'maturation' | 'homeRiver' | 'spawning';
 
 export interface ShotTiming {
   /** Whole shot, real seconds (1.5..3). */
@@ -43,6 +43,8 @@ export const CINEMATICS = {
     lakeFirstLook: { duration: 3, easeIn: 0.5, easeOut: 0.7 },
     /** The smolt school leaving the lake at night, a wide shot from the side. */
     smoltNight: { duration: 3, easeIn: 0.7, easeOut: 0.7 },
+    /** First light over the estuary: from below and behind, the fish against the brightening surface, looking seaward. */
+    estuaryDawn: { duration: 2.8, easeIn: 0.7, easeOut: 0.7 },
     /** Reaching the sea: from below, the fish against the bright surface. */
     sea: { duration: 2.6, easeIn: 0.6, easeOut: 0.6 },
     /** The autumn maturation reveal: a slow half-orbit, side-on. */
@@ -56,6 +58,7 @@ export const CINEMATICS = {
     hatch: { side: 0.5, ahead: 0.32, up: 0.1, dollyFrom: 1.25, dollyTo: 0.9 },
     lakeFirstLook: { behindFrom: 0.5, behindTo: 1.2, upFrom: -0.12, upTo: 0.25, sideTo: 0.3, lookAhead: 6, lookUpFrom: 0.6, lookUpTo: -0.1 },
     smoltNight: { side: 9, up: 0.6, trackFrom: -2.5, trackTo: 2.5, schoolRadius: 12 },
+    estuaryDawn: { behind: 2.4, side: 1.2, belowFrom: 0.6, belowTo: 1.4, lookAhead: 7, lookUp: 1.4 },
     sea: { ahead: 2.6, below: 2.2, side: 1.0, dollyFrom: 1.15, dollyTo: 0.9 },
     maturation: { radius: 1.3, radiusPerScale: 1.1, up: 0.15, angleFrom: 0.35, angleTo: 1.35 },
     homeRiver: { behindFrom: 1.4, behindTo: 2.6, upFrom: 0.2, upTo: 0.7, lookAhead: 6, lookUp: -0.1 },

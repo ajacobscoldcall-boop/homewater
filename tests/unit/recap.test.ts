@@ -9,7 +9,7 @@ import { buildSave, lifeRecord } from '../../src/app/saving';
 import { h2, habitatOffset } from '../../src/sim/genetics';
 import { STAGE_IDS, TRAIT_IDS, type FishIdentity, type Habitat, type TraitValues, type YearConditions } from '../../src/sim/types';
 import { fitFor, suggestOffspring, traitScore } from '../../src/ui/offspringFit';
-import { layoutLifeMap, mapFromLife, mapFromRecord, MAP_H, MAP_W, type MapInput } from '../../src/ui/lifeMap';
+import { LAKE, layoutLifeMap, mapFromLife, mapFromRecord, MAP_H, MAP_W, type MapInput } from '../../src/ui/lifeMap';
 import captions from '../../src/data/captions.json';
 import { newWorld, params } from './helpers';
 
@@ -169,6 +169,23 @@ describe('life route map layout', () => {
     expect(m.marks.some((k) => k.label.startsWith('Spawned'))).toBe(false);
   });
 
+  it('the return crosses the nursery lake, and a death on the crossing is marked in the lake', () => {
+    const inLake = (q: { x: number; y: number }) => ((q.x - LAKE.cx) / LAKE.rx) ** 2 + ((q.y - LAKE.cy) / LAKE.ry) ** 2 < 1;
+    for (const habitat of ['creek', 'river', 'beach'] as const) {
+      const deaths = [
+        { name: 'Rill', stage: 'return' as const, cause: 'bear' as const },
+        { name: 'Tern', stage: 'return' as const, cause: 'bear' as const, where: 'lake' as const },
+      ];
+      const m = layoutLifeMap(life({ habitat, stage: 'return', state: 'died', deaths }));
+      const [a, b] = m.spans.return;
+      expect(m.route.slice(a, b + 1).filter(inLake).length).toBeGreaterThan(3);
+      const marks = m.marks.filter((k) => k.kind === 'death');
+      expect(inLake(marks[0]!.at)).toBe(false);
+      expect(inLake(marks[1]!.at)).toBe(true);
+    }
+    expect(layoutLifeMap(life()).marks.some((k) => k.label === 'Home across the lake')).toBe(true);
+  });
+
   it('builds its input from a saved record and from a world in play', () => {
     const { w } = newWorld({ seed: 5, startStage: 2 });
     const live = mapFromLife(w, [], null);
@@ -198,7 +215,7 @@ describe('saves schema 6: lake years', () => {
     l.records.push(rec as unknown as LifeRecord);
     const v5 = { schemaVersion: 5, savedAt: '', game: 'homewater', lineage: l, life: { checkpoint: w.checkpoint, siblingsLeft: 3, firstLife: true, seed: 1, deaths: [] }, pendingOffspring: null, archive: [l] };
     const s = migrate(JSON.parse(JSON.stringify(v5)));
-    expect(s.schemaVersion).toBe(6);
+    expect(s.schemaVersion).toBe(SCHEMA_VERSION);
     expect(s.lineage.records[0]!.lakeYears).toBeNull();
     expect(s.archive[0]!.records[0]!.lakeYears).toBeNull();
     expect(s.life?.lakeYears).toBeNull();

@@ -13,6 +13,7 @@ import type { Entity, Vec3 } from '../types';
 import { clamp, distXZ, v3 } from '../vec';
 import type { World } from '../world';
 import { arcAt, arcVel, FACE, LIP_END, makeLeap, pushOut, type Leap } from './falls';
+import { lakeMigrant } from './returnLake';
 
 interface MigrantSlot {
   dx: number;
@@ -102,6 +103,8 @@ export function stepMigrants(w: World, dt: number, fork: number, coast: number):
     }
     const slot = s.slots[m.id];
     if (!slot) continue;
+    // Into the lake: each heads for a stream or beach of its own (returnLake.ts).
+    if (lakeMigrant(w, m, dt)) continue;
     // Left far behind: it is no longer with the player.
     if (fish.x - m.pos.x > 45) {
       m.alive = false;

@@ -100,14 +100,19 @@ const EXPECTED: Record<string, string[]> = {
   // Earlier: the egg-stage flood and brood-mates, the smolt run's strike dilution and near-miss grace, return bears fishing
   // only the home branch past the fork, and a jack's charge for a hiding spot rolling once per press.
   egg: ['7e8be5f1', 'c423faf7', '2ca63897', 'd766c633'],
-  fry: ['1bd48af9', '2632dfad', 'bbd01c82', '51ba0a71'],
-  smolt: ['cd6f9c49', 'dca5f297', 'c8a93ea8', 'f6d79bac'], // updated: behaviour stream (flocking school, predator personalities) and feel pass (Field guide char warning 1.6x)
+  fry: ['a22d3271', '4b2ec372', '14cb01b4', '0f20e1b1'], // updated: fry day cycle and birds (lake days with light, plankton, warm water and char sight; mergansers from above). Only fry moved: no other case plays the lake.
+  // Re-recorded for the estuary (src/sim/stages/estuary.ts): the run is longer, bank cover stops at the estuary (fewer cover
+  // dice at init), the stage scratch gained `salt` (readiness and salinity) and the arena's current and floor change seaward.
+  // Only the smolt case starts in this stage; every other case hashed exactly as before.
+  smolt: ['94ad2640', '44be812d', '3f64edcc', '70942aab'],
   ocean: ['2a3b9f1d', '995cf30e', '60487b49', '6a396648'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
-  return: ['210fc0f7', '14a48c2e', 'bed7bebc', '70f87a75'], // updated: falls, rapids and fellow migrants on the return, with water temperature and oxygen
-  'spawn female': ['2ed99a77', '77ad8b65', '8f51c77e', '8036f9fb'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
-  'spawn male': ['02642362', 'cdfd2bd7', 'aad4c737', '2c887abc'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
-  'spawn jack': ['6a6207bc', 'c3128a9d', 'dc2b2dec', '8851beb5'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
-  'spawn wild': ['07b63431', 'cb248bd1', 'f0f23baf', '5ed3e597'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
+  // Re-recorded for the lake crossing (returnLake.ts): the return's init now lays out the lake and its bears (more dice), the
+  // arena reaches past the river's end and the stage ends across the lake. Only the return moved; every other hash is as before.
+  return: ['9de1f3e0', 'fbf606e5', 'bf4c8231', '377c24ec'], // updated: home through the lake (earlier: falls, rapids, migrants, water)
+  'spawn female': ['6629c7c2', '926fddd8', 'fdeece5c', '1fa6d4e6'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
+  'spawn male': ['889a1cae', '1384cfac', '8d70bd24', '8c7121f0'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
+  'spawn jack': ['fc0fe3b6', 'cba8f12b', '92718c68', 'e24dee11'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
+  'spawn wild': ['22758110', 'b899eb22', '8c9c27b0', '0eed52a5'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
 };
 
 describe('simulation determinism', () => {

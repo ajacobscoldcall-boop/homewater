@@ -10,21 +10,26 @@ import type { World } from '../../world';
 import { stepBears } from './bears';
 import { fightWinChance } from './largeMale';
 import { endLife, seasonOver } from './result';
-import { clamp01, reddOf, rivalSize, spawnRival, st, stepRivals } from './shared';
+import { clamp01, reddOf, rivalSize, st, stepRivals } from './shared';
+import { crowdReddNear, crowdRel, maleFromCrowd, patchContest, rivalFromCrowd } from './crowd';
 
 /**
  * How well a female's eggs survive in the gravel, relative to a perfect,
  * fully covered, undisturbed redd: gravel quality, then burial, then each
  * time another female dug over it.
  */
-export function eggSurvival(p: Params, quality: number, burial: number, superimposed: number): number {
+export function eggSurvival(p: Params, quality: number, burial: number, superimposed: number, eaten = 0): number {
   const unburied = p.get('spawn.unburiedSurvival');
-  return clamp01(quality) * (unburied + (1 - unburied) * clamp01(burial)) * Math.pow(1 - p.get('spawn.superimposeLoss'), superimposed);
+  return clamp01(quality) * (unburied + (1 - unburied) * clamp01(burial)) * Math.pow(1 - p.get('spawn.superimposeLoss'), superimposed) * (1 - clamp01(eaten));
 }
 
-/** Seconds between rival females at the redd: more often in big runs and late in the season. */
-export function rivalFemaleInterval(p: Params, runSize: number, seasonFraction: number): number {
-  return p.get('spawn.rivalInterval') / Math.max(0.1, runSize) / (1 + p.get('spawn.lateRivalRamp') * clamp01(seasonFraction));
+/**
+ * Seconds between rival females at the redd: more often on crowded grounds
+ * (`crowding`, the crowd's density), late in the season, and on good gravel
+ * (`contest`, from patchContest).
+ */
+export function rivalFemaleInterval(p: Params, crowding: number, seasonFraction: number, contest = 1): number {
+  return p.get('spawn.rivalInterval') / Math.max(0.1, crowding) / (1 + p.get('spawn.lateRivalRamp') * clamp01(seasonFraction)) / Math.max(0.1, contest);
 }
 
 /** Female role: charging drives a rival female off. */
@@ -50,15 +55,19 @@ export function stepFemale(w: World, intent: Intent, dt: number, spent: boolean)
   if (intent.action && still && s.dig < 1) {
     const patch = w.live('gravelPatch').find((g) => distXZ(g.pos, fish) < g.radius);
     if (patch) {
-      if (!redd) {
+      // Another female's redd is already here: on crowded gravel the space goes first.
+      if (!redd && crowdReddNear(w, fish, p.get('spawn.crowd.reddSpacing'))) {
+        w.emitOnce('caption', 'spawn.crowdReddTaken');
+      } else if (!redd) {
         redd = w.spawn('redd', v3(fish.x, -2.2, fish.z), { radius: 1.2, value: 0, state: 'dug' });
         s.quality = patch.value ?? 0.5;
         w.emitOnce('caption', 'spawn.digging');
+        if (patchContest(p, s.quality) > 1.15 && crowdRel(w) > 0.8) w.emitOnce('caption', 'spawn.patchContested');
         const cobble = patch.size?.x ?? 0.2;
         if (cobble > 0.3) w.emitOnce('caption', 'spawn.cobbleLarge');
         else if (cobble < 0.11) w.emitOnce('caption', 'spawn.cobbleSmall');
       }
-      if (distXZ(redd.pos, fish) < 2.5) {
+      if (redd && distXZ(redd.pos, fish) < 2.5) {
         s.dig = Math.min(1, s.dig + dt / p.get('spawn.digTime'));
         redd.value = s.dig;
         if (s.dig >= 1) w.emit('caption', 'spawn.reddReady');
@@ -75,13 +84,16 @@ export function stepFemale(w: World, intent: Intent, dt: number, spent: boolean)
     // Her male was lost (to a bear): the next one takes a while to arrive.
     if (males.length === 0 && s.hadMale) s.maleTimer = p.get('spawn.maleReplaceTime');
     s.hadMale = males.length > 0;
+    // The males come out of the crowd when one is free (else from along the bed).
     if (males.length === 0 && s.maleTimer <= 0) {
-      w.spawn('guardMale', v3(redd.pos.x > 20 ? 2 : 38, -1.6, redd.pos.z + 1), { radius: 0.8, state: 'court', value: rivalSize(w) });
+      const m = maleFromCrowd(w, redd.pos);
+      w.spawn('guardMale', m ? v3(m.pos.x, -1.6, m.pos.z) : v3(redd.pos.x > 20 ? 2 : 38, -1.6, redd.pos.z + 1), { radius: 0.8, state: 'court', value: m?.size ?? rivalSize(w) });
       w.emitOnce('caption', 'spawn.maleArrives');
     }
     if (s.dig >= 1 && !s.contested && males.length === 1) {
       s.contested = true;
-      w.spawn('guardMale', v3(redd.pos.x > 20 ? 38 : 2, -1.6, redd.pos.z - 1), { radius: 0.8, state: 'challenge', value: rivalSize(w) });
+      const m = maleFromCrowd(w, redd.pos);
+      w.spawn('guardMale', m ? v3(m.pos.x, -1.6, m.pos.z) : v3(redd.pos.x > 20 ? 38 : 2, -1.6, redd.pos.z - 1), { radius: 0.8, state: 'challenge', value: m?.size ?? rivalSize(w) });
     }
   }
   for (const m of w.live('guardMale')) {
@@ -159,9 +171,10 @@ export function stepFemale(w: World, intent: Intent, dt: number, spent: boolean)
   if (redd) {
     s.rivalTimer -= dt;
     if (s.rivalTimer <= 0) {
-      spawnRival(w, redd, 0.7);
+      // A female from the crowd still looking for a site; good gravel draws them more often.
+      rivalFromCrowd(w, redd, 'F', 0.7);
       w.emitOnce('caption', 'spawn.rivalFemale');
-      s.rivalTimer = rivalFemaleInterval(p, w.conditions.runSize, t / p.get('spawn.duration')) * w.rng.range(0.8, 1.2);
+      s.rivalTimer = rivalFemaleInterval(p, crowdRel(w), t / p.get('spawn.duration'), patchContest(p, s.quality)) * w.rng.range(0.8, 1.2);
     }
   }
   femaleCharges(w, intent);

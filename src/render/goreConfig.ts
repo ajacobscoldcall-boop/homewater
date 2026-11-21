@@ -104,6 +104,7 @@ const KILLERS: Partial<Record<DeathCause, { killer: DeathBeatPlan['killer']; sty
   orca: { killer: 'orca', style: 'carry', blood: true },
   shark: { killer: 'shark', style: 'carry', blood: true },
   bird: { killer: 'birdShadow', style: 'lift', blood: true },
+  gull: { killer: 'birdShadow', style: 'lift', blood: true },
   bear: { killer: 'bear', style: 'lift', blood: true },
   angler: { killer: 'lure', style: 'line', blood: false },
   gillnet: { killer: null, style: 'net', blood: false },

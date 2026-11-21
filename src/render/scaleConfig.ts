@@ -29,8 +29,11 @@ export const MODEL_SCALE = {
 
   /** Dolly Varden / char, the same model in the lake and at the outlet. */
   char: 3.2,
-  /** Common merganser. */
+  /** The same char on the spawning grounds, eating loose eggs below the redds (adult-stage units). */
+  charGrounds: 0.6,
+  /** Common merganser: on the smolt run, and over the lake (where a world unit is a fry's length, so it is drawn larger). */
   merganser: 3.4,
+  merganserFry: 7.6,
   /** A gull plunging at the smolt school. */
   gullPlunge: 3.8,
   /** Harbor seal: in the river (smolt run) and at sea. */

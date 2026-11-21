@@ -215,8 +215,8 @@ describe('effects in play', () => {
     const atDusk = (c: YearConditions) => {
       const w = world(c, 1);
       // Wait in the weeds through the lesson until the dusk feeding begins.
-      for (let i = 0; i < 60 * 90 && fryView(w)?.phase !== 'dusk'; i++) w.step(NO_INTENT);
-      expect(fryView(w)?.phase).toBe('dusk');
+      for (let i = 0; i < 60 * 90 && fryView(w)?.phase !== 'summer'; i++) w.step(NO_INTENT);
+      expect(fryView(w)?.phase).toBe('summer');
       return w.live('plankton').length;
     };
     const lean = atDusk({ ...plain, lakeFood: 0.65 });

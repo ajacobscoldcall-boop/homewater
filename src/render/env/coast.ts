@@ -13,6 +13,7 @@ import { isRiffle, returnLayout } from '../../sim/stages/return';
 import type { World } from '../../sim/world';
 import { sharedWater } from '../water';
 import { buildFalls, fallsBreaks } from './falls';
+import { buildLakeHome } from './lakeHome';
 import type { EnvParts } from './index';
 import { addLog, bladeClumpGeometry, byDetail, envMaterial, fbm, gridLines, hangingRoot, instanced, instancedCells, range, rockGeometry, rockLevel, seeded, smoothstep, stoneTint, terrain, TubeBuilder, type Detail, type Placement } from './kit';
 import { LandMask } from './landmask';
@@ -22,9 +23,12 @@ const EXTRA = 30;
 export function buildCoast(w: World, detail: Detail): EnvParts {
   const group = new THREE.Group();
   const a = w.arena;
-  const lay = returnLayout(w) ?? { coast: 90, fork: 175, homeMouth: 0, homeSide: 1, riverHalf: 7 };
+  const lay = returnLayout(w) ?? { coast: 90, fork: 175, homeMouth: 0, homeSide: 1, riverHalf: 7, riverEnd: a.max.x, lake: null };
   const rand = seeded(5501 + Math.round(lay.homeMouth));
-  const L = a.max.x;
+  // The river's end. Past it the lake (lakeHome.ts) draws its own ground and scenery.
+  const L = lay.lake ? lay.riverEnd : a.max.x;
+  const X1 = lay.lake ? L : L + EXTRA;
+  const lake = lay.lake ? buildLakeHome(w, lay.lake, detail) : null;
   const HALF = a.max.z;
   const coast = lay.coast;
   const hm = lay.homeMouth;
@@ -41,6 +45,13 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   const inNarrow = (x: number, z: number) => narrow.some((b) => x > b.min.x && x < b.max.x && z > b.min.z && z < b.max.z);
   const floor = (x: number, z: number) => a.floor(Math.min(L, x), z);
   const ground = (x: number, z: number): number => {
+    if (lake && x > L) return lake.ground(x, z);
+    const g = riverGround(x, z);
+    // The banks meet the lake's land at the river's end.
+    if (lake && x > L - 8 && mask.isLand(x, z)) return g + (lake.ground(L + 1e-3, z) - g) * smoothstep(L - 8, L, x);
+    return g;
+  };
+  const riverGround = (x: number, z: number): number => {
     if (x <= coast || !mask.isLand(x, z)) return floor(x, z) + 0.05 * fbm(x * 0.7, z * 0.7, 2, 1);
     const d = mask.distance(x, z);
     const [sx, sz] = mask.nearestWater(x, z);
@@ -61,7 +72,7 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   }
   // The falls' rock step gets a sharp face (falls.ts).
   breaksX.push(...fallsBreaks(w));
-  const xs = [...gridLines(-25, coast - 8, 1.4 * f), ...gridLines(coast - 8, L + EXTRA, 0.5 * f, breaksX)].filter((v, i, arr) => i === 0 || v - arr[i - 1]! > 1e-4);
+  const xs = [...gridLines(-25, coast - 8, 1.4 * f), ...gridLines(coast - 8, X1, 0.5 * f, breaksX)].filter((v, i, arr) => i === 0 || v - arr[i - 1]! > 1e-4);
   const zs = [...gridLines(-HALF - EXTRA, -HALF - 2, 1.5 * f), ...gridLines(-HALF - 2, HALF + 2, 0.5 * f, breaksZ), ...gridLines(HALF + 2, HALF + EXTRA, 1.5 * f)].filter((v, i, arr) => i === 0 || v - arr[i - 1]! > 1e-4);
 
   const sand = new THREE.Color(0x7a7260);
@@ -110,7 +121,7 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   const boulders: Placement[] = [];
   const target = byDetail(650, detail);
   for (let tries = 0; tries < target * 60 && boulders.length < target; tries++) {
-    const x = range(rand, coast - 0.5, L + EXTRA * 0.6);
+    const x = range(rand, coast - 0.5, Math.min(X1, L + EXTRA * 0.6));
     const z = range(rand, -HALF - 3, HALF + 3);
     const d = mask.distance(x, z);
     if (d < 0.05 || d > 1.3) continue;
@@ -173,7 +184,7 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   const nRoot = byDetail(110, detail);
   let roots = 0;
   for (let tries = 0; tries < nRoot * 200 && roots < nRoot; tries++) {
-    const x = range(rand, coast + 4, L + 10);
+    const x = range(rand, coast + 4, Math.min(X1, L + 10));
     const z = range(rand, -HALF, HALF);
     const d = mask.distance(x, z);
     if (d < 0.03 || d > 0.3) continue;
@@ -211,7 +222,7 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   const grass: Placement[] = [];
   const nGrass = byDetail(600, detail);
   for (let tries = 0; tries < nGrass * 150 && grass.length < nGrass; tries++) {
-    const x = range(rand, coast + 1, L + 10);
+    const x = range(rand, coast + 1, Math.min(X1, L + 10));
     const z = range(rand, -HALF, HALF);
     const d = mask.distance(x, z);
     if (d < 0.02 || d > 0.35) continue;
@@ -223,14 +234,15 @@ export function buildCoast(w: World, detail: Detail): EnvParts {
   // Rapids, falls, plunge pool and side channel (falls.ts).
   const falls = buildFalls(w, detail);
   if (falls) group.add(falls.group);
+  if (lake) group.add(lake.group);
   return { group, ground, down: 0.7, ...(falls ? { update: (world: World, dt: number) => falls.update(world, dt) } : {}) };
 }
 
 /** White water over the riffles: bubbles streaming downstream just under the surface. */
-function riffleFroth(w: World, lay: { coast: number; fork: number; homeMouth: number; riverHalf: number }, mask: LandMask, rand: () => number, detail: Detail): THREE.Points {
+function riffleFroth(w: World, lay: { coast: number; fork: number; homeMouth: number; riverHalf: number; riverEnd: number; lake: unknown }, mask: LandMask, rand: () => number, detail: Detail): THREE.Points {
   const zones: [number, number][] = [];
   let start = -1;
-  for (let x = lay.coast; x <= w.arena.max.x; x += 0.5) {
+  for (let x = lay.coast; x <= (lay.lake ? lay.riverEnd : w.arena.max.x); x += 0.5) {
     const r = isRiffle(x);
     if (r && start < 0) start = x;
     if (!r && start >= 0) {

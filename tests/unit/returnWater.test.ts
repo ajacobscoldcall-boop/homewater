@@ -5,7 +5,7 @@ import { heatStress, isRefuge, returnWaterView, riverWarmth, seeps, waterAt, wat
 import type { Difficulty } from '../../src/sim/params';
 import type { YearConditions } from '../../src/sim/types';
 import type { World } from '../../src/sim/world';
-import { fallsPilot, intent, newWorld, run, steerTo } from './helpers';
+import { fallsPilot, intent, lakePilot, newWorld, run, steerTo } from './helpers';
 import { fallsView } from '../../src/sim/stages/falls';
 
 const SEC = 60;
@@ -28,7 +28,7 @@ function navigator(ww: World, over = {}) {
   const L = returnLayout(ww);
   if (!L) return intent();
   // The falls and rapids (falls.ts) need their own pilot, as in the world test.
-  const falls = fallsPilot(ww);
+  const falls = fallsPilot(ww) ?? lakePilot(ww);
   if (falls) return falls;
   const x = ww.body.pos.x;
   const nextGap = ww

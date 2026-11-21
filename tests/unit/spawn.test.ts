@@ -124,6 +124,8 @@ describe('bet hedging on the spawning grounds', () => {
       for (let seed = 0; seed < 6; seed++) {
         const { w } = newWorld({ sex: 'M', preset: 'jack', seed: 300 + seed, startStage: 5 });
         (w as unknown as { conditions: { runSize: number } }).conditions.runSize = runSize;
+        // The grounds are filled for the year's run when the stage starts.
+        w.startStage(5, 0);
         run(w, 44 * SEC, (ww) => {
           for (const b of ww.live('bear')) b.alive = false;
           return intent({ hold: true });

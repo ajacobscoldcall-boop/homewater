@@ -21,6 +21,7 @@
  */
 import { yearJackFraction } from '../genetics';
 import { swimStep } from '../swim';
+import type { Params } from '../params';
 import type { Vec3 } from '../types';
 import type { World } from '../world';
 import { v3 } from '../vec';
@@ -30,6 +31,8 @@ import { stepFemale } from './spawn/female';
 import { addFemale, stepLargeMale } from './spawn/largeMale';
 import { rivalJackCount, stepJack } from './spawn/jack';
 import { result } from './spawn/result';
+import { initCrowd, stepCrowd } from './spawn/crowd';
+import { addEggThieves, stepEggThieves } from './spawn/eggThieves';
 import { roleOf, SPOT_Z, st, stepSenescence, type SpawnState } from './spawn/shared';
 
 // The stage is split by concern under ./spawn/: shared state and rivals, bears, and one file per role.
@@ -38,6 +41,8 @@ export { bearWeight } from './spawn/bears';
 export { eggSurvival, rivalFemaleInterval } from './spawn/female';
 export { fightWinChance } from './spawn/largeMale';
 export { jackFrequencyFactor, jackSneakShare, largeMaleSneakLoss, rivalJackCount } from './spawn/jack';
+export { crowdCount, crowdCounts, crowdDensity, crowdOpening, crowdRole, crowdVigour, patchContest, CROWD_FISH, type CrowdState } from './spawn/crowd';
+export { gullReach } from './spawn/eggThieves';
 
 export const spawnStage: StageDef = {
   id: 'spawn',
@@ -130,6 +135,8 @@ export const spawnStage: StageDef = {
       owners: spots.map(() => -1),
       contest: 0,
       jacksBeat: 0,
+      eggsTaken: 0,
+      exposedFor: 0,
     };
     w.stage = s as unknown as Record<string, unknown>;
     w.body.scale = w.progress.adultSize ?? 1;
@@ -168,7 +175,12 @@ export const spawnStage: StageDef = {
       if (n >= nSpots) w.emit('caption', 'spawn.jackScarce');
     }
     addBear(w);
+    addEggThieves(w);
+    // The other spawners, kept clear of the player's start, the fish of the player's own story and the hiding spots.
+    const crowd = initCrowd(w, [w.body.pos, ...w.entities.filter((e) => e.alive && (e.kind === 'female' || e.kind === 'guardMale')).map((e) => e.pos), ...spots]);
     w.emit('caption', `spawn.habitat.${habitat}`);
+    const crowdLine = crowdCaption(p, crowd.rel);
+    if (crowdLine) w.emit('caption', crowdLine);
     w.emit('caption', role === 'jack' && habitat === 'beach' ? 'spawn.jackBeach' : `spawn.${role}`);
   },
   step(w, intent, dt) {
@@ -182,6 +194,9 @@ export const spawnStage: StageDef = {
     if (s.role === 'female') stepFemale(w, intent, dt, spent);
     else if (s.role === 'largeMale') stepLargeMale(w, intent, dt, spent);
     else stepJack(w, intent, dt, spent);
+    if (w.status !== 'playing') return;
+    stepEggThieves(w, intent, dt);
+    stepCrowd(w, dt);
   },
   debugComplete(w) {
     const s = st(w);
@@ -200,5 +215,10 @@ export const spawnStage: StageDef = {
     w.finishLife(result(w));
   },
 };
+
+/** The grounds' opening line when the year is out of the ordinary: crowded or thin ('' in a typical year). */
+export function crowdCaption(p: Params, rel: number): string {
+  return rel > p.get('spawn.crowd.bigAbove') ? 'spawn.crowdBig' : rel < p.get('spawn.crowd.smallBelow') ? 'spawn.crowdSmall' : '';
+}
 
 export const spawnState = (w: World): Readonly<SpawnState> | null => (w.stageId === 'spawn' ? st(w) : null);

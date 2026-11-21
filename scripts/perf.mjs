@@ -2,7 +2,9 @@
  * Measures frames per second and draw calls per stage at each graphics preset,
  * in Chromium with software GL (SwiftShader), a stand-in for a weak laptop GPU.
  *
- *   npm run build && PW_PORT=4182 npm run perf -- [presets...] [--seconds=3] [--stages=fry,ocean] [--aa=on|off] [--shots=dir] [--dir=dist]
+ *   npm run build && PW_PORT=4182 npm run perf -- [presets...] [--seconds=3] [--stages=fry,ocean] [--aa=on|off] [--shots=dir] [--dir=dist] [--lake]
+ * --lake measures the return in the lake at its end instead of at sea.
+ * --run=x sets the year's run size (1 = typical) before the spawning grounds are filled, so the crowd there is a known size.
  *
  * --dir serves another build folder (e.g. a build of an older commit, to compare).
  *
@@ -19,6 +21,8 @@ const shots = args.find((a) => a.startsWith('--shots='))?.split('=')[1];
 // --aa=on|off forces the WebGL context's antialiasing, to measure its cost apart from the preset.
 const forceAA = args.find((a) => a.startsWith('--aa='))?.split('=')[1];
 const only = args.find((a) => a.startsWith('--stages='))?.split('=')[1]?.split(',');
+const lake = args.includes('--lake');
+const runSize = Number(args.find((a) => a.startsWith('--run='))?.split('=')[1] ?? NaN);
 const dir = args.find((a) => a.startsWith('--dir='))?.split('=')[1] ?? 'dist';
 const presets = args.filter((a) => !a.startsWith('--'));
 if (presets.length === 0) presets.push('low', 'medium', 'high', 'auto');
@@ -62,11 +66,29 @@ try {
     await page.click('#btn-accept-name');
     const row = { preset, cells: {} };
     for (const stage of STAGES) {
+      if (stage === 'spawn' && Number.isFinite(runSize)) {
+        // Refill the grounds for this run size.
+        await page.evaluate((r) => {
+          const app = window.__hw.app;
+          app.world.conditions.runSize = r;
+          delete app.world.conditions.harvestRate;
+          app.debugJump(5);
+        }, runSize);
+      }
       await page.click('#btn-play');
       if (only && !only.includes(stage)) {
         // Not measured: pass straight through.
         await page.evaluate(() => window.__hw?.completeStage());
         continue;
+      }
+      // --lake: measure the return in the lake at its end (returnLake.ts), looking across it, rather than at sea.
+      if (lake && stage === 'return') {
+        await page.evaluate(() => {
+          const w = window.__hw.app.world;
+          const lay = w.stage.lake.layout;
+          w.body.pos = { x: lay.start + 40, y: -3, z: 0 };
+          w.body.yaw = 0.2;
+        });
       }
       await page.evaluate(() => window.__hw?.step(90));
       // Shader compiles are slow in software GL (seconds each): let them finish

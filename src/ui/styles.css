@@ -55,6 +55,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 .vital svg { width: 36px; height: 36px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
 .vital .track { fill: none; stroke: rgba(255, 255, 255, 0.16); }
 .vital .arc { fill: none; stroke: var(--silver); stroke-linecap: round; transition: stroke 0.3s; }
+.vital[data-vital='colours'] .arc { stroke: var(--sockeye); }
 .vital.low { opacity: 1; color: var(--warn); }
 .vital.low .arc { stroke: var(--warn); }
 .vital.critical { opacity: 1; color: var(--sockeye); }

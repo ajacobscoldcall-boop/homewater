@@ -9,7 +9,8 @@ import type { World } from '../../world';
 import { stepBears } from './bears';
 import { largeMaleSneakLoss } from './jack';
 import { endLife, result, seasonOver } from './result';
-import { byId, clamp01, NEAR, rivalSize, sigmoid, spawnRival, st, stepRivals } from './shared';
+import { byId, clamp01, NEAR, rivalSize, sigmoid, st, stepRivals } from './shared';
+import { crowdRel, rivalFromCrowd } from './crowd';
 
 /**
  * Chance a large male wins a fight. Size dominates; ramming side-on and
@@ -83,9 +84,10 @@ export function stepLargeMale(w: World, intent: Intent, dt: number, spent: boole
   // Rivals come for whichever female he is courting.
   s.rivalTimer -= dt;
   if (s.rivalTimer <= 0 && courting) {
-    spawnRival(w, courting, rivalSize(w));
+    // An unpaired male out of the crowd; more of them, and more often, on crowded grounds.
+    rivalFromCrowd(w, courting, 'M', rivalSize(w));
     w.emitOnce('caption', 'spawn.rivalMale');
-    s.rivalTimer = (p.get('spawn.rivalInterval') * w.rng.range(0.8, 1.2)) / w.conditions.runSize;
+    s.rivalTimer = (p.get('spawn.rivalInterval') * w.rng.range(0.8, 1.2)) / crowdRel(w);
   }
   maleFights(w, intent, dt, courting);
   stepRivals(w, dt, courting, () => {

@@ -39,25 +39,25 @@ The advisor said eggs can do little, but alevin orient into the current (positiv
 
 ## 2. Fry in the lake
 
-Built from authored moments joined by time skips (the scene fades to dark water, a caption names the new season, and the next moment opens). The advisor named Dolly Varden and trout as the fry predators, and said about 60% of sockeye spend one year in fresh water.
+Built from authored moments and lived lake days, joined by time skips (the scene fades to dark water, a caption names the new season, and the next moment opens). The advisor named Dolly Varden and trout as the fry predators, and said about 60% of sockeye spend one year in fresh water.
 
 | Moment | What happens |
 |---|---|
 | **Weed-edge lesson** (early summer) | A plankton patch just outside the weeds. After a few seconds a Dolly Varden notices the fry, warns (rings, a longer warning than later ones), then chases. Darting into the weeds ends the chase. |
-| **Dusk feeding** (midsummer) | The light fades and the open-water plankton rises toward the surface. The richest food is high in open water, where Dolly Varden and trout patrol. Sparse food stays near the weeds. |
+| **Lake days** (summer) | The summer is lived as lake days (about a minute each, two in the first summer): dawn, day, dusk, night, with the light and the sky following. By day the plankton sinks deep and thins out, the surface and the shallows are bright and warm (warm water burns growth), mergansers hunt from the surface, and a Dolly Varden sees a fry from far off near the top: keep deep and dark. From dusk to dawn the plankton is up near the surface: the best feeding is at dusk and dawn, in the half-light, when char see less far; at night it is too dark to feed well. One char keeps to the weed edge, the others patrol deep by day and rise from dusk to dawn, so neither depth is simply safe. |
 | **Winter under the ice** | Cold slows the fish, energy barely recovers, and every movement costs reserves. Food is a few drifting specks. Winter starts with more reserves after a good summer. With reserves empty, the fry burns its own growth. A slow predator still patrols. |
 | **Spring decision** | The ice breaks up. Follow the drifting current to the outlet to leave (most fish do), or wait in the weeds to stay another year. A hint says whether this year's growth was good. |
-| **Second summer** (if the fish stayed) | Another dusk feeding with an extra predator, then another winter passes off-screen. |
+| **Second summer** (if the fish stayed) | More lake days with an extra predator, then another winter passes off-screen. |
 
 | | Now | Full game |
 |---|---|---|
-| **Verb** | Feed, read warnings, hide in the weeds, rise at dusk, rest in winter | Same, plus schooling |
-| **Decision** | Open water is rich but exposed; the weeds are safe but sparse. In winter, rest or spend reserves. In spring, leave now or stay a second year (bigger when it leaves, more risk). | Same |
-| **Threats** | **Dolly Varden and trout:** rings warn of a chase; they won't enter the weeds. Slower in winter. | Plus diving birds |
-| **Failure** | Caught by a Dolly Varden. Starving in winter costs growth, which carries into adult size and jack odds; it does not kill outright yet (that needs a death cause and title). | Plus starving over winter |
+| **Verb** | Feed, read warnings, keep deep by day and rise at dusk and dawn, hide in the weeds from char, dive from birds, rest in winter | Same, plus schooling |
+| **Decision** | Each lake day: deep and dark (safer, cold, little food) or up near the surface (food at dusk and dawn, birds and char by day). The weeds hide a fry from char but not from birds. In winter, rest or spend reserves. In spring, leave now or stay a second year (bigger when it leaves, more risk). | Same |
+| **Threats** | **Dolly Varden:** rings warn of a chase; they won't enter the weeds; they see farther in bright water and lose a fry that falls behind in the dark. Slower in winter. **Mergansers:** time near the surface or over the shallows in daylight brings one; it floats and paddles toward the fry (the bird against the surface and its ripples are the warning), then dives and chases; deeper than it can reach is the escape. | Plus other birds if the advisor supports them |
+| **Failure** | Caught by a Dolly Varden or a merganser. Starving in winter costs growth, which carries into adult size and jack odds; it does not kill outright yet (that needs a death cause and title). | Plus starving over winter |
 | **Checkpoints** | Start of the stage, start of winter, start of the second summer | Same |
 | **Growth** | Lake growth is recorded as bites (`fryBites`, `fryRichBites`; starving removes plain bites). The ocean stage turns it into a freshwater score: one good year is about half, two years nearly all. | Same |
-| **Length** | About 1.5-2 min first life (later lives use 0.75 of the timed moments); add about 30 s for a second year | 5 min first life, shorter after |
+| **Length** | About 2.5-3 min first life (later lives about 2 min: lake days are 0.75 as long); add about 1.5 min for a second year | 5 min first life, shorter after |
 
 ## 3. Smolt run: the gauntlet
 
@@ -119,13 +119,13 @@ The advisor's answers that shape this stage:
 
 | | Now | Full game |
 |---|---|---|
-| **Verb (female)** | Read the cobble and hold E to dig the redd. Wait over the finished redd for a male (two males may fight; she spawns with the winner). Hold E again to cover the eggs, then charge rival females (Shift) until her strength runs out | Same, plus egg predators |
+| **Verb (female)** | Read the cobble and hold E to dig the redd (not on top of another female's). Wait over the finished redd for a male (two males may fight; she spawns with the winner). Hold E again to cover the eggs, charging off any char that comes for them (Shift), then charge rival females until her strength runs out | Same |
 | **Verb (large male)** | Stay beside the female, and ram rivals side-on (Shift) before they reach her. After spawning, a second female arrives along the bed: swim to her for a second spawning, or stay | Same, plus displays and jaw-locking fights |
-| **Verb (jack)** | Claim a hiding spot under the bank (charge other jacks out), then dart in (E) when the big males clash, as often as the openings come | Same |
-| **Decision** | **Female:** which gravel. Medium cobble is best; coarse is hard to dig and fine gives the eggs less oxygen. Then cover the eggs at once, or chase a rival first. **Large male:** when and where to meet a rival. Side-on and early beat head-on and late, but size still dominates. After spawning, leave for a second female (costs strength, bears come more often) or stay. **Jack:** fight for a spot, or wait in the open and risk the guard. Go at once, or let another jack go first. | Same |
-| **Threats** | **Rivals.** **Bears:** a shadow over a chosen fish, then a swipe. Bears choose males first, and jacks hiding in a spot are safe. **Other jacks:** taking your spot or your opening; there are more of them in jack-rich years. **Rival females** digging over the eggs, more often late in the season. **Senescence:** strength drains on the grounds (faster when bursting) and never recovers; energy cannot rise above it. | Same |
+| **Verb (jack)** | Claim a hiding spot under the bank (charge other jacks out), then dart in (E) when the big males clash, beside his own pair or any crowd pair close by, as often as the openings come | Same |
+| **Decision** | **Female:** which gravel. Medium cobble is best; coarse is hard to dig and fine gives the eggs less oxygen; the best patches draw more rival females, and on crowded grounds space goes first. Then cover the eggs at once, or chase a rival or a char first. **Large male:** when and where to meet a rival. Side-on and early beat head-on and late, but size still dominates. After spawning, leave for a second female (costs strength, bears come more often) or stay. **Jack:** fight for a spot, or wait in the open and risk the guard. Go at once, or let another jack go first. | Same |
+| **Threats** | **Rivals.** **Bears:** a shadow over a chosen fish, then a swipe. Bears choose males first, and jacks hiding in a spot are safe. **Other jacks:** taking your spot or your opening; there are more of them in jack-rich years. **Rival females** digging over the eggs, more often late in the season, on crowded grounds and on good gravel. **Egg thieves:** char come for uncovered eggs (a warning, then they eat until charged off or the eggs are covered); over a shallow redd a gull too, which only covering stops. **The crowd:** dozens of other spawners in a typical year, many more in a big run, a handful in a small one; the rivals come out of it, and the bear chooses among the crowd near it as well as the player. **Senescence:** strength drains on the grounds (faster when bursting) and never recovers; energy cannot rise above it. | Same |
 | **Failure** | No spawn before strength runs out (or the season's 180 s cap), or taken by a bear | Same |
-| **Result** | **Female:** eggs laid × egg survival, where survival = gravel quality × burial × (1 − loss) for each time the redd was dug over (`eggSurvival`). **Large male:** share of the eggs fertilized, from one or two females. **Jack:** each sneak adds a share that falls as jacks get commoner (`jackFrequencyFactor`), capped below a large male's. All are scored against the cohort. | Same |
+| **Result** | **Female:** eggs laid × egg survival, where survival = gravel quality × burial × (1 − loss) for each time the redd was dug over × (1 − the share char and gulls took) (`eggSurvival`). **Large male:** share of the eggs fertilized, from one or two females. **Jack:** each sneak adds a share that falls as jacks get commoner (`jackFrequencyFactor`), capped below a large male's. All are scored against the cohort. | Same |
 | **Then** | Death and decay as fades, then the eggs hatch, the recap and score, and the pick of the next fish from three offspring | Same, longer |
 | **Length** | About 2 min for a female or jack (until strength runs out), about 1 min for a large male who stays and 1.5 min for one who leaves | 5 min |
 

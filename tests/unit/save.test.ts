@@ -6,6 +6,18 @@ import { params } from './helpers';
 const lineage = () => foundLineage(params(), { preset: 'quick', sex: 'F', name: 'Alder', difficulty: 'fieldGuide', seed: 4 });
 
 describe('save migrations', () => {
+  it('upgrades a version 6 save: deaths keep their shape and do not say where (the river), a lake death keeps its place', () => {
+    const l = lineage();
+    const deaths = [{ name: 'Alder', stage: 'return' as const, cause: 'bear' as const }];
+    const v6 = { schemaVersion: 6, savedAt: '', game: 'homewater', lineage: { ...l, records: [] }, life: { checkpoint: { stageIndex: 4, marker: 3, progress: {} }, siblingsLeft: 2, firstLife: false, seed: 1, deaths, lakeYears: 1 }, pendingOffspring: null, archive: [] };
+    const s = migrate(JSON.parse(JSON.stringify(v6)));
+    expect(s.schemaVersion).toBe(7);
+    expect(s.life?.deaths).toEqual(deaths);
+    expect(s.life?.deaths[0]!.where).toBeUndefined();
+    const v7 = { ...v6, schemaVersion: 7, life: { ...v6.life, deaths: [{ ...deaths[0]!, where: 'lake' }] } };
+    expect(migrate(JSON.parse(JSON.stringify(v7))).life?.deaths[0]!.where).toBe('lake');
+  });
+
   it('upgrades a version 1 save: no pending offspring choice', () => {
     const v1 = { schemaVersion: 1, savedAt: '2026-01-01T00:00:00Z', game: 'homewater', lineage: lineage(), life: null, archive: [] };
     const s = migrate(JSON.parse(JSON.stringify(v1)));

@@ -25,6 +25,7 @@ const snap = (over: Partial<GuideSnapshot> = {}): GuideSnapshot => ({
   fryGrowth: 0,
   fryPhase: null,
   smoltSection: null,
+  salt: null,
   schoolNear: 0,
   coast: null,
   spawn: null,
@@ -50,8 +51,8 @@ describe('guide steps', () => {
     for (const [stage, role] of cases) {
       const steps = guideSteps(stage, role);
       expect(steps.length, stage).toBeGreaterThanOrEqual(3);
-      // The fry stage carries the onboarding (steer, depth, burst) in front of its own steps.
-      expect(steps.length, stage).toBeLessThanOrEqual(stage === 'fry' ? 7 : 5);
+      // The fry stage carries the onboarding (steer, depth, burst) in front of its own steps, and its lake days.
+      expect(steps.length, stage).toBeLessThanOrEqual(stage === 'fry' ? 8 : 5);
       const last = steps.at(-1);
       expect(last?.done(snap({ stage, role }), { eat: 99 }, freshGuideState('x').obs)).toBe(false);
     }
@@ -143,10 +144,13 @@ describe('guide progression', () => {
     // Escaping into the weeds completes the next step...
     const escaped = advanceGuide(countGuideEvents(st, [ev('caption', 'fry.safeWeeds')]), s, 0.1);
     expect(escaped.index).toBe(5);
-    // ...and if no Dolly Varden ever gave chase, it is passed over once winter comes.
+    // Then the lake days, with the time of day and growth as its progress.
+    const dusk = snap({ stage: 'fry', thrust: 1, fryGrowth: 0.4, fryPhase: 'summer', fryTod: 'dusk' });
+    expect(guidePrompt(escaped, dusk)?.progress).toBe('dusk, grown 40%');
+    // ...and if no Dolly Varden ever gave chase, the weeds step is passed over once winter comes, and so are the lake days.
     const winter = snap({ stage: 'fry', thrust: 1, fryGrowth: 0.8, fryPhase: 'winter' });
     const grown = advanceGuide(st, winter, 0.1);
-    expect(grown.index).toBe(5);
+    expect(grown.index).toBe(6);
     expect(guidePrompt(grown, winter)?.progress).toBe('grown 80%');
     // Spring brings the choice to leave or stay.
     const spring = snap({ stage: 'fry', fryPhase: 'decide' });

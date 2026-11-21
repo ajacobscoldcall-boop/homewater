@@ -42,13 +42,14 @@ const fish = (id: string, look: FishLook, shape: Partial<FishShape>, label: stri
 });
 
 /** The return, step by step (bodyChange.ts): where the fish is and how much fat it has left. */
-const RETURN_STEPS: { id: string; label: string; place: BodyState['place']; upstream: number; fat: number }[] = [
-  { id: 'Sea', label: 'at sea', place: 'sea', upstream: 0, fat: 1 },
-  { id: 'Mouth', label: 'river mouth', place: 'river', upstream: 0, fat: 0.85 },
-  { id: 'Lower', label: 'lower river', place: 'river', upstream: 0.35, fat: 0.7 },
-  { id: 'Upper', label: 'upper river', place: 'river', upstream: 0.7, fat: 0.55 },
-  { id: 'Top', label: 'top of the river', place: 'river', upstream: 1, fat: 0.45 },
-  { id: 'Grounds', label: 'on the grounds', place: 'grounds', upstream: 1, fat: 0.45 },
+const RETURN_STEPS: { id: string; label: string; place: BodyState['place']; upstream: number; lake: number; fat: number }[] = [
+  { id: 'Sea', label: 'at sea', place: 'sea', upstream: 0, lake: 0, fat: 1 },
+  { id: 'Mouth', label: 'river mouth', place: 'river', upstream: 0, lake: 0, fat: 0.85 },
+  { id: 'Lower', label: 'lower river', place: 'river', upstream: 0.4, lake: 0, fat: 0.7 },
+  { id: 'Top', label: 'top of the river', place: 'river', upstream: 1, lake: 0, fat: 0.55 },
+  { id: 'Lake', label: 'waiting in the lake', place: 'river', upstream: 1, lake: 0.5, fat: 0.5 },
+  { id: 'Ready', label: 'ready, end of the lake', place: 'river', upstream: 1, lake: 1, fat: 0.45 },
+  { id: 'Grounds', label: 'on the grounds', place: 'grounds', upstream: 1, lake: 1, fat: 0.45 },
 ];
 const RETURN_ROLES: { role: BodyRole; name: string }[] = [
   { role: 'largeMale', name: 'Male' },
@@ -58,7 +59,7 @@ const RETURN_ROLES: { role: BodyRole; name: string }[] = [
 const returnItems = (): Item[] =>
   RETURN_ROLES.flatMap(({ role, name }) =>
     RETURN_STEPS.map((st) => {
-      const { look, shape } = bodyLook({ role, bodyDepth: 0, fat: st.fat, place: st.place, upstream: st.upstream });
+      const { look, shape } = bodyLook({ role, bodyDepth: 0, fat: st.fat, place: st.place, upstream: st.upstream, lake: st.lake });
       const id = `return${name}${st.id}`;
       const note = `fat ${Math.round(st.fat * 100)}%${shape.dress ? `, dress ${Math.round(shape.dress * 100)}%` : ''}${role === 'jack' ? ' (drawn enlarged)' : ''}`;
       return { id, label: `${name}: ${st.label}`, note, group: 'return' as const, make: () => fishAnimal(id, look, shape) };
@@ -101,6 +102,7 @@ const ITEMS: Item[] = [
   { id: 'eggEarly', label: 'Egg (before the eyes)', note: 'translucent orange-red, oil drop on top', group: 'salmon', make: () => eggModel(0) },
   fish('alevin', 'alevin', { depth: 0.8, yolk: 1 }, 'Alevin', 'big orange yolk sac, large eye, fin fold'),
   fish('fry', 'fry', { depth: 0.95 }, 'Fry', 'short oval parr marks, speckled back, deep fork'),
+  fish('smoltParr', 'smolt', { depth: 0.95, parr: 0.6 }, 'Smolt leaving the lake', 'silvering, the last parr marks fading'),
   fish('smolt', 'smolt', { depth: 0.95 }, 'Smolt', 'silver, dark back, no spots'),
   fish('ocean', 'ocean', { depth: 1 }, 'Ocean adult', 'steel-blue back, silver, no spots'),
   fish('returnSilver', 'returnSilver', { depth: 1.02 }, 'Return (sea)', 'still silver'),

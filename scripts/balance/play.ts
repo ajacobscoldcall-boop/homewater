@@ -9,6 +9,7 @@ import { Params, type Difficulty, type ParamFile } from '../../src/sim/params';
 import { Rng } from '../../src/sim/rng';
 import { alevinView } from '../../src/sim/stages/egg';
 import { returnLayout } from '../../src/sim/stages/return';
+import { lakeView } from '../../src/sim/stages/returnLake';
 import { roleOf } from '../../src/sim/stages/spawn';
 import { STAGE_IDS, TRAIT_IDS, type FishIdentity, type Intent, type StageId, type TraitValues, type YearConditions } from '../../src/sim/types';
 import { World } from '../../src/sim/world';
@@ -62,8 +63,8 @@ export interface Attempt {
   marker: number;
   outcome: Outcome;
   cause?: string;
-  /** Return stage only: where the fish died ('sea' before the coast, 'river' after). */
-  where?: 'sea' | 'river';
+  /** Return stage only: where the fish died ('sea' before the coast, 'river' after, 'lake' on the lake crossing). */
+  where?: 'sea' | 'river' | 'lake';
   seconds: number;
   /** Ocean stage, males: whether this fish matured as a jack (decided before the late-ocean roll). */
   jack?: boolean;
@@ -140,12 +141,13 @@ export function playLife(o: LifeSetupOpts): { result: LifeResult; world: World }
       a.cause = w.deathCause ?? 'unknown';
       if (w.stageId === 'return') {
         const L = returnLayout(w);
-        a.where = L && w.body.pos.x < L.coast ? 'sea' : 'river';
+        a.where = L && w.body.pos.x < L.coast ? 'sea' : lakeView(w)?.inside ? 'lake' : 'river';
       }
     }
     const av = alevinView(w);
     if (av && w.status === 'stageComplete' && av.broodTotal > 0) a.brood = 1 - av.broodLost / av.broodTotal;
     if (w.stageId === 'ocean' && w.fish.sex === 'M' && w.progress.isJack !== null && (w.status !== 'dead' || w.deathCause === 'sea')) a.jack = w.progress.isJack;
+    if (w.status === 'playing' && w.stageId === 'return' && lakeView(w)?.inside) a.where = 'lake';
     if (w.status === 'playing') a.stuckAt = [w.body.pos.x, w.body.pos.y, w.body.pos.z].map((v) => Math.round(v * 10) / 10) as [number, number, number];
     attempts.push(a);
     if (w.status === 'playing') {

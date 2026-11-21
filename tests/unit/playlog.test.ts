@@ -100,9 +100,10 @@ describe('play log recorder', () => {
   });
 
   it('thins a long trace instead of growing without end', () => {
-    const { w } = newWorld({ seed: 3, startStage: 1 }); // an idle fry lives through a minute
+    const { w } = newWorld({ seed: 3, startStage: 1 }); // an idle fry lives through a minute (predators cleared: idling in the shallows by day brings a merganser)
     const rec = new PlayLogRecorder({ now: () => 0, settings: () => SETTINGS, onChange: () => {}, maxSamples: 20 });
     for (let i = 0; i < 60 * 60 && w.status === 'playing'; i++) {
+      for (const e of w.entities) if (e.kind === 'merganser' || e.kind === 'trout') e.alive = false;
       w.step(intent());
       rec.observe(w, w.drainEvents());
     }

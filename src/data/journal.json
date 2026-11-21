@@ -92,6 +92,27 @@
       ]
     },
     {
+      "id": "fry.daycycle",
+      "stage": "fry",
+      "title": "Deep by day, up at dusk",
+      "text": "In many nursery lakes, young sockeye are thought to spend the day deep in dark, cold water and to rise toward the surface at dusk and dawn, following the zooplankton they eat, which migrate up and down too. In the dim light a fry can still find food close by, while hunters see less far. In this game, cold water also costs a fry less of what it has eaten, but grows it less from each bite.",
+      "unlock": [
+        "fry.day",
+        "fry.dusk",
+        "fry.dawn"
+      ]
+    },
+    {
+      "id": "fry.birds",
+      "stage": "fry",
+      "title": "Hunters from above",
+      "text": "Mergansers are diving birds that hunt young salmon. One floats on the surface, then dives and chases under water. A fry near the surface or in the shallows is within reach; deep water is the way out.",
+      "unlock": [
+        "fry.merganser",
+        "fry.mergDeep"
+      ]
+    },
+    {
       "id": "fry.winter",
       "stage": "fry",
       "title": "Winter under the ice",
@@ -130,7 +151,8 @@
         "smolt.bird",
         "smolt.gulls",
         "warning.bird",
-        "death.bird"
+        "death.bird",
+        "death.gull"
       ]
     },
     {
@@ -159,9 +181,21 @@
       "id": "smolt.salt",
       "stage": "smolt",
       "title": "Into salt water",
-      "text": "By the estuary, a smolt's gills and kidneys are ready for salt water. Of the school that left the lake together, many never reach this point.",
+      "text": "As it turns silver, a smolt's gills and kidneys change to cope with salt water: the gills switch from holding salt in to pumping it out. Of the school that left the lake together, many never reach the sea.",
       "unlock": [
-        "smolt.salt"
+        "smolt.salt",
+        "estuary.ready"
+      ]
+    },
+    {
+      "id": "smolt.estuary",
+      "stage": "smolt",
+      "title": "The estuary",
+      "text": "Where a river meets the sea, the lighter river water slides out over the denser salt water, so the water is fresher on top and saltier below and seaward, with brackish water in between. Young sockeye pass through estuaries quickly. In the game, the fish finishes adjusting to salt here: holding in brackish water takes time among the gulls and seals, and rushing into full salt water before it is ready costs energy for a while.",
+      "unlock": [
+        "estuary.enter",
+        "estuary.edge",
+        "estuary.saltStress"
       ]
     },
     {
@@ -365,6 +399,26 @@
       ]
     },
     {
+      "id": "return.lakeHome",
+      "stage": "return",
+      "title": "Home through the lake",
+      "text": "Many sockeye grow up in a lake and spawn in the streams that feed it or along its beaches, so the way home leads up the river and across the lake. Each fish looks for its own stream or stretch of beach, by the smell of home.",
+      "unlock": [
+        "return.lake.enter",
+        "return.lake.enterBeach"
+      ]
+    },
+    {
+      "id": "return.lakeLayers",
+      "stage": "return",
+      "title": "Warm above, cool below",
+      "text": "In summer a lake can settle into layers: warm water on top and colder water below. Warm water burns a fish's stored energy faster, so in a warm year the cool depths are the cheaper place to wait.",
+      "unlock": [
+        "return.lake.warm",
+        "return.lake.coolDeep"
+      ]
+    },
+    {
       "id": "spawn.grounds",
       "stage": "spawn",
       "title": "The spawning grounds",
@@ -416,6 +470,33 @@
         "spawn.maleSpawnedAgain",
         "spawn.secondLost",
         "spawn.secondFemale"
+      ]
+    },
+    {
+      "id": "spawn.crowd",
+      "stage": "spawn",
+      "title": "Crowded grounds",
+      "text": "In a big year the spawning grounds fill with fish: females dig their redds side by side, males chase one another off, and fish that have spawned fade and die on the gravel. In the game, how crowded the grounds are follows the year's run and how much of it the fishery took, and the crowd sets how often rivals come, how many openings a jack gets, and how many fish a bear has to choose from.",
+      "unlock": [
+        "spawn.crowdBig",
+        "spawn.crowdSmall",
+        "spawn.patchContested",
+        "spawn.crowdReddTaken",
+        "spawn.crowdOpening"
+      ]
+    },
+    {
+      "id": "spawn.eggThieves",
+      "stage": "spawn",
+      "title": "Egg thieves",
+      "text": "Eggs that drift loose from a redd are food for other fish, and a female guards her redd against egg predators like trout until she dies. In the game char come for eggs left uncovered, and over a shallow redd a gull picks at loose eggs; covering the eggs quickly keeps them out of reach. How much these thieves take is a game choice.",
+      "unlock": [
+        "spawn.charEggs",
+        "spawn.charDriven",
+        "spawn.gullEggs",
+        "spawn.eggsSafe",
+        "warning.char",
+        "warning.gull"
       ]
     },
     {

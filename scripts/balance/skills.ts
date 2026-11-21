@@ -40,8 +40,15 @@ export interface Skill {
   fryRisk: number;
   /** Fry: burst only when the trout is this close (units); Infinity = bursts as soon as it notices. */
   fryBurstDist: number;
+  /** Fry: chance, at each turn of the lake day, of doing what the time of day asks (deep by day and night, up at dusk and dawn). */
+  fryCycle: number;
   /** Smolt: cruising depth (y, negative is down). Bird strikes reach about 2.2 below the surface. */
   smoltDepth: number;
+  /**
+   * Estuary: hold in the brackish band until readiness for salt water reaches this share of "ready"
+   * (0 rushes straight out to sea).
+   */
+  estuaryPatience: number;
   /** Smolt: sprint past a seal while it is still a dark shape, before it lunges. */
   sealSprint: boolean;
   /** Smolt: dodging a lunge by swimming across its path, or by changing speed along the river. */
@@ -86,7 +93,9 @@ export const SKILLS: Record<SkillName, Skill> = {
     fryRichBonus: 0,
     fryRisk: 0,
     fryBurstDist: Infinity,
+    fryCycle: 0.4,
     smoltDepth: -2.0,
+    estuaryPatience: 0,
     sealSprint: false,
     sealDodge: 'across',
     forkMistake: 0.35,
@@ -117,7 +126,9 @@ export const SKILLS: Record<SkillName, Skill> = {
     fryRichBonus: 4,
     fryRisk: 8,
     fryBurstDist: 5,
+    fryCycle: 0.75,
     smoltDepth: -2.8,
+    estuaryPatience: 0.6,
     sealSprint: false,
     sealDodge: 'across',
     forkMistake: 0.1,
@@ -148,7 +159,9 @@ export const SKILLS: Record<SkillName, Skill> = {
     fryRichBonus: 8,
     fryRisk: 20,
     fryBurstDist: 3.5,
+    fryCycle: 0.95,
     smoltDepth: -3.6,
+    estuaryPatience: 1,
     sealSprint: true,
     sealDodge: 'speed',
     forkMistake: 0,

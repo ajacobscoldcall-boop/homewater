@@ -104,7 +104,17 @@ export type EntityKind =
   /** Other returning sockeye travelling the home river with the player; 'leap' while in the air at the falls. */
   | 'migrant'
   /** What a bear left of a fish on the spawning grounds (state: 'male' | 'female' | 'jack'; value: share left; radius: fish size). */
-  | 'carcass';
+  | 'carcass'
+  /** The crowd on the spawning grounds (spawn/crowd.ts): other females, large males and jacks; value: size. */
+  | 'crowdFemale'
+  | 'crowdMale'
+  | 'crowdJack'
+  /** A crowd female's redd (state: 'dug' while she digs, value: progress; 'buried' while guarded; 'left' once she is spent). */
+  | 'crowdRedd'
+  /** A crowd fish that died on the grounds (state: 'male' | 'female' | 'jack'; value: size; timer: seconds dead). */
+  | 'crowdCarcass'
+  /** A gull taking loose eggs at the surface over a shallow redd (spawn/eggThieves.ts). */
+  | 'gull';
 
 export interface Entity {
   id: number;
@@ -183,7 +193,7 @@ export const NO_INTENT: Intent = {
   risePressed: false,
 };
 
-export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn' | 'heat';
+export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn' | 'heat' | 'gull';
 
 export interface SpawnResult {
   /** Eggs laid (female) or eggs fertilized (male). */

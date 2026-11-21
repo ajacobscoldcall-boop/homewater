@@ -7,6 +7,7 @@ import { imprintOf } from '../../sim/imprint';
 import { alevinView } from '../../sim/stages/egg';
 import { fryGrowth } from '../../sim/stages/fry';
 import { returnWaterView } from '../../sim/stages/returnWater';
+import { smoltView } from '../../sim/stages/smolt';
 import type { World } from '../../sim/world';
 import { hudHint } from '../../ui/controls';
 import { h } from '../../ui/dom';
@@ -70,10 +71,13 @@ export class PlayHud {
       // Energy, yolk and fat are always shown by the rings (vitals.ts); the details panel keeps the rest.
       if (alevin) rows.push(['hold', 1 - alevin.drift], ['daylight', alevin.light]);
       if (w.stageId === 'fry') rows.push(['growth', fryGrowth(w)]);
+      // The smolt run: readiness for salt water, and the salinity around the fish (src/sim/stages/estuary.ts).
+      const smolt = smoltView(w);
+      if (smolt) rows.push(['salt ready', smolt.ready], ['salinity', smolt.salinity]);
       // Imprinting (src/sim/imprint.ts): how well the fish has learned the smell of home.
       if (w.stageId !== 'ocean' && w.stageId !== 'spawn') rows.push(['home scent', imprintOf(w.p, w.progress)]);
       if (!alevin) rows.push(['depth', Math.min(1, (w.arena.surfaceY - w.body.pos.y) / 8)]);
-      const bars = rows.map(([name, value]) => ({ name, value, low: value < 0.25 && name !== 'depth' && name !== 'daylight' }));
+      const bars = rows.map(([name, value]) => ({ name, value, low: value < 0.25 && name !== 'depth' && name !== 'daylight' && name !== 'salinity' }));
       const water = returnWaterView(w);
       if (water) bars.push(...waterBars(w.p, water));
       hud.bars('hud-bars', bars);

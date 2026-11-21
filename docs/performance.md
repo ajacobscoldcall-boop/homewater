@@ -302,3 +302,49 @@ starting commit, built with `--dir`) and after:
 
 High on the stages touched (egg, fry, smolt, ocean) was within run-to-run noise,
 except the ocean, which went from 13.9 to 16.3 fps.
+
+## The lake at the end of the return (2026-11-21)
+
+The return now ends with a crossing of the nursery lake (`src/render/env/lakeHome.ts`).
+`npm run perf -- low medium high --stages=return --lake` measures the return in the
+lake instead of at sea. Headless software GL on a busy machine; frame rates moved a lot
+between runs, so the GPU time per frame and draw calls are the steadier numbers.
+
+| Preset | Return at sea (start) | Return in the lake |
+|---|---|---|
+| Low | 10.0-13.5 fps · 29 ms · 28-48 dc · 24-32k tri | 7.6-21.9 fps · 19-24 ms · 21-22 dc · 32k tri |
+| Medium | 6.8 fps · 81 ms · 39 dc · 42k tri | 4.3-6.5 fps · 83 ms · 27 dc · 64k tri |
+| High | 6.5 fps · 102 ms · 86 dc · 148k tri | 3.9 fps · 106 ms · 46 dc · 151k tri |
+
+The lake is no heavier on Low than the start of the return: fewer draw calls and less
+GPU time per frame. Its terrain is cut into 34-unit chunks along x and its scatter is one
+instanced draw per kind (the open lake gains nothing from finer culling cells).
+## Crowded spawning grounds (2026-11-21)
+
+The grounds now hold a crowd of other spawners (Track 2.2): 36 fish in a typical
+year, up to 110 in a big run, plus their redds and the dead. Each crowd kind is one
+instanced draw (`src/render/crowd.ts`), so draw calls rose by 6 to 8. To keep the
+triangle count down the crowd uses the simple fish model (about 1,100 triangles
+against 5,000) except on High, draws a share of the fish per preset
+(`CROWD_FX.drawn`: Low 35%, Medium 60%, High all; chosen by id so the same fish
+stay drawn) and is shaded with Lambert on Low. The sim's step with the biggest
+crowd stays well under a millisecond (`tests/unit/crowd.test.ts`).
+
+Measured with `node scripts/perf.mjs low medium --seconds=5 --stages=spawn --run=1`
+(and `--run=2.4` for a big run) under SwiftShader, before (the starting commit,
+built with `--dir`) and after, three runs each; medians, with the GPU time per
+frame and the triangle count. Software GL frame rates swing a lot from run to run
+here (the same build gave 3 to 16 fps on Low), so read the medians loosely.
+
+| Spawning grounds | Low typical | Low big run | Medium typical | Medium big run |
+|---|---|---|---|---|
+| before | 13.1 fps · 28 ms · 42 dc · 43k tri | 12.3 fps · 27 ms · 42 dc · 41k tri | 6.2 fps · 98 ms · 47 dc · 121k tri | 4.5 fps · 102 ms · 47 dc · 126k tri |
+| after | 14.6 fps · 31 ms · 47 dc · 62k tri | 14.0 fps · 34 ms · 54 dc · 87k tri | 5.6 fps · 108 ms · 53 dc · 158k tri | 5.8 fps · 122 ms · 55 dc · 200k tri |
+
+On Low the frame rate is level with before in both years; GPU time is up about
+10-25%. On Medium a typical year is about 10% slower by GPU time and frame rate,
+a big run about 20% by GPU time. Earlier tries (Lambert on Medium too, Medium at
+45%) made no difference beyond the noise, so Medium keeps the standard material and
+60%. Real graphics hardware should not notice 200k triangles; the owner's own
+frame rate on Low and Medium is checklist item "Frame rate" under Crowded spawning
+grounds.

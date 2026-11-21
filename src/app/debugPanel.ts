@@ -1,4 +1,4 @@
-/** The ?debug=1 playtest panel: stats, stage select, complete stage / kill fish, run report, trait editor. */
+/** The ?debug=1 playtest panel: stats, stage select, complete stage / kill fish, run report, the year's run size, trait editor. */
 import { TRAIT_IDS } from '../sim/types';
 import { $, h } from '../ui/dom';
 import type { App } from './App';
@@ -25,6 +25,15 @@ export class DebugPanel {
           h('button', { onclick: () => (w()?.debugComplete(), w() && app.afterStatus(w()!)) }, 'Complete stage'),
           h('button', { onclick: () => (w()?.die('exhaustion'), w() && app.afterStatus(w()!)) }, 'Kill fish'),
           h('button', { onclick: () => void this.copyReport() }, 'Copy run report'),
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          // The year's run (1 = typical; the spawning grounds fill for it when the stage starts, e.g. after Stage select).
+          h('span', {}, 'Run'),
+          ...[0.4, 1, 2.4].map((r) =>
+            h('button', { onclick: () => { if (w()) { w()!.conditions.runSize = r; delete w()!.conditions.harvestRate; } } }, r === 0.4 ? 'small' : r === 1 ? 'typical' : 'big'),
+          ),
         ),
         h('div', { id: 'dbg-traits' }),
       );

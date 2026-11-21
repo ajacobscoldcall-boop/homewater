@@ -8,7 +8,7 @@ import type { Difficulty } from '../../src/sim/params';
 import { STAGE_IDS, type StageId } from '../../src/sim/types';
 import { PLAYLOG_KIND, type LifeLog, type PlayLogFile, type StageAttempt } from '../../src/telemetry/types';
 
-export const ROWS = ['egg', 'fry', 'smolt', 'ocean', 'return:sea', 'return:river', 'spawn'] as const;
+export const ROWS = ['egg', 'fry', 'smolt', 'ocean', 'return:sea', 'return:river', 'return:lake', 'spawn'] as const;
 export type Row = (typeof ROWS)[number];
 
 /** Row names as in docs/balance/REPORT.md. */
@@ -19,6 +19,7 @@ const ROW_NAME: Record<Row, string> = {
   ocean: 'Ocean years',
   'return:sea': 'Return: sea and nets',
   'return:river': 'Return: home river',
+  'return:lake': 'Return: across the lake',
   spawn: 'Spawning',
 };
 const STAGE_NAME: Record<StageId, string> = { egg: 'Egg and alevin', fry: 'Fry', smolt: 'Smolt run', ocean: 'Ocean', return: 'Return', spawn: 'Spawning' };
@@ -55,16 +56,19 @@ export function collectLives(inputs: { name: string; data: unknown }[]): ParsedL
   return { lives, files, skipped };
 }
 
-/** The report rows an attempt counts in, and whether it died there. The return is split at its checkpoint, as the bots' report does. */
+/** The return's row for a checkpoint marker: 0 at sea, 1-2 in the home river, 3 in the lake. */
+const returnRow = (marker: number): Row => (marker >= 3 ? 'return:lake' : marker > 0 ? 'return:river' : 'return:sea');
+
+/** The report rows an attempt counts in, and whether it died there. The return is split at its checkpoints, as the bots' report does. */
 export function attemptRows(a: StageAttempt): { row: Row; dead: boolean }[] {
   if (a.outcome === 'unfinished') return [];
   const died = a.outcome === 'died';
   if (a.stage !== 'return') return [{ row: a.stage, dead: died }];
-  if (a.startMarker > 0) return [{ row: 'return:river', dead: died }];
-  const diedAtSea = died && a.endMarker === 0;
-  const rows: { row: Row; dead: boolean }[] = [{ row: 'return:sea', dead: diedAtSea }];
-  if (!diedAtSea) rows.push({ row: 'return:river', dead: died });
-  return rows;
+  // Each part from where the attempt started to where it ended; the fish died (if it did) in the last.
+  const parts: Row[] = ['return:sea', 'return:river', 'return:lake'];
+  const from = parts.indexOf(returnRow(a.startMarker));
+  const to = Math.max(from, parts.indexOf(returnRow(a.endMarker)));
+  return parts.slice(from, to + 1).map((row, i, all) => ({ row, dead: died && i === all.length - 1 }));
 }
 
 const pct = (x: number): string => `${Math.round(x * 100)}%`;
@@ -235,7 +239,7 @@ export function renderSummary(parsed: ParsedLogs, sources: string[] = []): strin
           l.startedAt.slice(0, 16).replace('T', ' '),
           DIFF_NAME[l.difficulty] ?? l.difficulty,
           `${a.fish} (${a.role})`,
-          a.stage === 'return' ? ROW_NAME[a.endMarker > 0 || a.startMarker > 0 ? 'return:river' : 'return:sea'] : STAGE_NAME[a.stage],
+          a.stage === 'return' ? ROW_NAME[returnRow(Math.max(a.startMarker, a.endMarker))] : STAGE_NAME[a.stage],
           a.deathCause ?? '-',
           sec(a.simSeconds),
           a.endPos.join(', '),

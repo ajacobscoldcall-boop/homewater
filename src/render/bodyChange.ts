@@ -18,6 +18,8 @@ export interface BodyState {
   /** Where the fish is: at sea on the return, in the home river (with how far up, 0..1), or on the grounds. */
   place: 'sea' | 'river' | 'grounds';
   upstream?: number;
+  /** 0..1: how far the colours have come on in the lake. Absent for a return without a lake (the river alone then carries the whole change). */
+  lake?: number;
 }
 
 const cfgOf = (role: BodyRole) => (role === 'female' ? BODY_CHANGE.female : role === 'jack' ? BODY_CHANGE.jack : BODY_CHANGE.male);
@@ -29,6 +31,13 @@ export const dressTarget = (role: BodyRole): FishLook => (role === 'female' ? 's
 
 /** Thinner as fat drains (fat 1 = as it left the sea). */
 export const fatDepth = (fat: number): number => 1 - BODY_CHANGE.fatThin * (1 - Math.max(0, Math.min(1, fat)));
+
+/** 0..1 through the journey: up the river, then across the lake while the colours come on. */
+export function journey(upstream: number, lake?: number): number {
+  const u = Math.max(0, Math.min(1, upstream));
+  if (lake === undefined) return u;
+  return u * BODY_CHANGE.riverShare + Math.max(0, Math.min(1, lake)) * (1 - BODY_CHANGE.riverShare);
+}
 
 /** 0..1 along the river, eased and stepped, so the mesh is rebuilt only a few times on the way up. */
 export function riverStage(upstream: number): number {
@@ -51,7 +60,7 @@ export function bodyLook(b: BodyState): { look: FishLook; shape: FishShape } {
     const s = full[b.role];
     return { look: dressTarget(b.role), shape: { ...s, depth: quant(s.depth * thin, BODY_CHANGE.depthStep) } };
   }
-  const k = riverStage(b.upstream ?? 0);
+  const k = riverStage(journey(b.upstream ?? 0, b.lake));
   return {
     look: 'returnBlush',
     shape: {

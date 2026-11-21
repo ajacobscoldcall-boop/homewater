@@ -35,7 +35,7 @@ export interface StageAttempt {
   /** The fish playing it (a sibling has its own name). */
   fish: string;
   role: Role;
-  /** Checkpoint marker the attempt started from (return: 1 = already inside the home river). */
+  /** Checkpoint marker the attempt started from (smolt: 1 = already in the estuary; return: 1 = already inside the home river). */
   startMarker: number;
   /** Checkpoint marker reached by the end (return: 0 = still at sea). */
   endMarker: number;

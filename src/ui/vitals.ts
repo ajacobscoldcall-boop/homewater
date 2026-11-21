@@ -2,7 +2,7 @@
  * The always-visible minimal HUD and the screen-space threat cues.
  *
  * - `Vitals`: energy (yolk for the alevin) and, on the return, fat (strength on the spawning grounds) as two thin
- *   rings in a fixed corner, with an early fat warning from the recent rate of burn; on the return a water
+ *   rings in a fixed corner (in the lake a third, the spawning colours coming on), with an early fat warning from the recent rate of burn; on the return a water
  *   temperature chip that shows only when the water is near the heat-stress threshold. Written through HudView,
  *   so the DOM changes only when what is shown changes. The H details panel keeps the rest.
  * - `threatMarkers`: labelled rings and edge arrows for the default view.
@@ -15,7 +15,9 @@ import type { ActiveThreat } from '../render/threats';
 import { threatFocus } from '../render/threats';
 import type { HudView, ThreatMarker, VitalRing } from './hudView';
 import { alevinView } from '../sim/stages/egg';
+import { lakeView } from '../sim/stages/returnLake';
 import { returnWaterView } from '../sim/stages/returnWater';
+import { smoltView } from '../sim/stages/smolt';
 import { spawnState } from '../sim/stages/spawn';
 import { EDGE_SHADOW, VITALS } from './hudConfig';
 
@@ -64,8 +66,19 @@ export function energyLevel(v: number): FatLevel {
   return v < VITALS.energy.critical ? 'critical' : v < VITALS.energy.low ? 'low' : 'ok';
 }
 
-/** The water chip's text, or '' when the water is comfortable (return only). */
+/** The estuary's water chip: brackish or salt water, and whether the fish is ready for it ('' upstream). */
+export function estuaryChip(w: World): string {
+  const v = smoltView(w);
+  if (!v || v.estuary < VITALS.salt.chipFrom) return '';
+  if (v.over > w.p.get('estuary.stressShown')) return 'salt water: not ready';
+  if (v.salinity >= VITALS.salt.seaAbove) return 'salt water';
+  if (v.salinity >= w.p.get('estuary.brackishMin')) return 'brackish water';
+  return 'fresh water';
+}
+
+/** The water chip's text, or '' when the water is comfortable (the return's heat, the estuary's salt). */
 export function waterChip(w: World): string {
+  if (w.stageId === 'smolt') return estuaryChip(w);
   const v = returnWaterView(w);
   if (!v) return '';
   const stressT = w.p.get('return.water.stressTemp');
@@ -93,6 +106,15 @@ export class Vitals {
       const fat = w.progress.fat;
       const left = this.fat.update(fat, playing ? dt : 0);
       rings.push({ name: 'fat', value: fat, level: fatLevel(fat, left) });
+      // In the lake: how far the spawning colours have come on (full when ready to go home).
+      const lake = lakeView(w);
+      if (lake?.entered) rings.push({ name: 'colours', value: lake.ripe, level: 'ok' });
+    }
+    // The smolt run's last stretch: readiness for salt water, from the river mouth on.
+    const sv = smoltView(w);
+    if (sv && sv.estuary >= VITALS.salt.ringFrom) {
+      const level = sv.over > w.p.get('estuary.stressShown') ? 'critical' : sv.ready < sv.readyDone ? 'low' : 'ok';
+      rings.push({ name: 'salt ready', value: sv.ready / sv.readyDone, level });
     }
     const s = spawnState(w);
     if (s) rings.push({ name: 'strength', value: s.vigour, level: energyLevel(s.vigour) });

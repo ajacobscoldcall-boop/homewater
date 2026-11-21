@@ -1,21 +1,24 @@
 /**
  * Gradual body change on the return (presentation only, so it lives here and
  * not in src/data/params.json). The sim supplies how far up the home river
- * the fish has come (returnUpstream), its fat and its role; this sets how the
- * body and colours follow. Advisor: a blush on the freshwater return, full
- * spawning colours only on the grounds, so the top of the river stops short
- * of full dress.
+ * the fish has come (returnUpstream), how far its colours have come on while
+ * it waits in the lake (lakeView().ripe), its fat and its role; this sets how
+ * the body and colours follow. Advisor: a blush on the freshwater return, full
+ * spawning colours only on the grounds, so the end of the lake stops short of
+ * full dress.
  */
 export const BODY_CHANGE = {
-  /** Dress (and hump and jaw) change in this many steps up the river; each step rebuilds the player's mesh once. */
-  steps: 8,
+  /** Dress (and hump and jaw) change in this many steps up the river and across the lake; each step rebuilds the player's mesh once. */
+  steps: 10,
+  /** Share of the change made up the river; the rest comes on while the fish waits in the lake. */
+  riverShare: 0.6,
   /** Ease of the change up the river (>1: slow at first, faster near the grounds). */
   curve: 1.25,
   /** Body depth lost between full and empty fat reserves, as a fraction of depth. */
   fatThin: 0.22,
   /** Depth is rounded to this, so thinning rebuilds the mesh only now and then. */
   depthStep: 0.02,
-  /** By role: dress at the top of the river (0 = first blush, 1 = full spawning colours), hump and hooked jaw at the river mouth and at the top, and extra body depth at the top. */
+  /** By role: dress at the end of the lake (0 = first blush, 1 = full spawning colours), hump and hooked jaw at the river mouth and at the top, and extra body depth at the top. */
   male: { dressTop: 0.82, hump: [0.3, 0.82], kype: [0.3, 0.8], depthGain: 0.11 },
   /** Females darken less and grow no hump to speak of. */
   female: { dressTop: 0.6, hump: [0.02, 0.1], kype: [0, 0], depthGain: 0.03 },

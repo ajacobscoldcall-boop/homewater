@@ -72,7 +72,8 @@ export function stepReturnScent(w: World, lay: ScentLayout, s: ScentState, dt: n
 
   // Home scent.
   s.scentTimer -= dt;
-  if (s.scentTimer <= 0) {
+  // In the lake the home scent comes from the lake's plume instead (returnLake.ts).
+  if (s.scentTimer <= 0 && fish.x < lay.length) {
     s.scentTimer = p.get('imprint.scentInterval') / c;
     const sx = Math.min(lay.length - 2, Math.max(fish.x + 6, lay.coast + 2) + w.rng.range(0, 34));
     let side: number = lay.homeSide;
@@ -100,7 +101,7 @@ export function stepReturnScent(w: World, lay: ScentLayout, s: ScentState, dt: n
   }
 
   for (const sc of w.entities) {
-    if (!sc.alive || sc.kind !== 'scent') continue;
+    if (!sc.alive || sc.kind !== 'scent' || sc.state === 'lake' || sc.state === 'lakeStray') continue;
     sc.timer -= dt;
     sc.pos.x -= 1.6 * dt;
     if (sc.state === 'stray') {

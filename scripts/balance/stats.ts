@@ -4,8 +4,8 @@ import { STAGE_IDS, TRAIT_IDS, type StageId, type TraitId } from '../../src/sim/
 import type { GenerationRow, LifeResult, LineageResult } from './play';
 import type { SkillName } from './skills';
 
-/** Stages as reported: the return is split at its checkpoint (the home river). */
-export const ROWS = ['egg', 'fry', 'smolt', 'ocean', 'return:sea', 'return:river', 'spawn'] as const;
+/** Stages as reported: the return is split at its checkpoints (the home river; the lake, marker 3). */
+export const ROWS = ['egg', 'fry', 'smolt', 'ocean', 'return:sea', 'return:river', 'return:lake', 'spawn'] as const;
 export type Row = (typeof ROWS)[number];
 
 export interface StageStats {
@@ -87,7 +87,7 @@ const mean = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0
 
 export function rowOf(stage: StageId, marker: number): Row {
   if (stage !== 'return') return stage;
-  return marker > 0 ? 'return:river' : 'return:sea';
+  return marker >= 3 ? 'return:lake' : marker > 0 ? 'return:river' : 'return:sea';
 }
 
 export function cellStats(difficulty: Difficulty, skill: SkillName, lives: LifeResult[]): CellStats {
@@ -123,13 +123,16 @@ export function cellStats(difficulty: Difficulty, skill: SkillName, lives: LifeR
         (allSec[a.stage] ??= []).push(a.seconds);
         if (a.outcome === 'ok') (okSec[a.stage] ??= []).push(a.seconds);
       }
-      // The return is split at its checkpoint: a fish that started at sea and reached the river
-      // got through the sea part.
+      // The return is split at its checkpoints: a fish that started at sea and reached the river
+      // got through the sea part, and one that reached the lake got through the river.
       const rows: { row: Row; dead: boolean }[] = [];
-      if (a.stage === 'return' && a.marker === 0) {
-        const diedAtSea = a.outcome === 'dead' && a.where === 'sea';
-        rows.push({ row: 'return:sea', dead: diedAtSea });
-        if (!diedAtSea && a.outcome !== 'timeout') rows.push({ row: 'return:river', dead: a.outcome === 'dead' });
+      if (a.stage === 'return' && a.marker < 3) {
+        const dead = a.outcome === 'dead';
+        const diedAtSea = dead && a.where === 'sea';
+        const reachedLake = a.outcome === 'ok' || (dead && a.where === 'lake') || (a.outcome === 'timeout' && a.where === 'lake');
+        if (a.marker === 0) rows.push({ row: 'return:sea', dead: diedAtSea });
+        if (!diedAtSea && (a.outcome !== 'timeout' || reachedLake)) rows.push({ row: 'return:river', dead: dead && !reachedLake });
+        if (reachedLake) rows.push({ row: 'return:lake', dead: dead && a.where === 'lake' });
       } else {
         rows.push({ row: rowOf(a.stage, a.marker), dead: a.outcome === 'dead' });
       }
@@ -145,7 +148,7 @@ export function cellStats(difficulty: Difficulty, skill: SkillName, lives: LifeR
         }
       }
       if (a.outcome === 'timeout') {
-        const st = stages[rowOf(a.stage, a.marker)];
+        const st = stages[a.stage === 'return' && a.where === 'lake' ? 'return:lake' : rowOf(a.stage, a.marker)];
         st.causes.timeout = (st.causes.timeout ?? 0) + 1;
       }
     }

@@ -35,6 +35,7 @@ const ROW_NAME: Record<Row, string> = {
   ocean: 'Ocean years',
   'return:sea': 'Return: sea and nets',
   'return:river': 'Return: home river',
+  'return:lake': 'Return: across the lake',
   spawn: 'Spawning',
 };
 const STAGE_NAME: Record<StageId, string> = {
@@ -353,6 +354,7 @@ export function renderReport(data: ReportData, previous: string): string {
           k.panicChance ? `flees straight ${pct(k.panicChance)}` : '',
           `smolt depth ${-k.smoltDepth}`,
           k.sealSprint ? 'sprints past seals' : '',
+          k.estuaryPatience ? `holds in the estuary to ${pct(k.estuaryPatience)} ready` : 'rushes the estuary',
           k.forkMistake ? `wrong fork ${pct(k.forkMistake)}` : '',
           k.riverBurst ? 'bursts upstream' : '',
           k.bankSwim ? 'swims the slow edges' : '',

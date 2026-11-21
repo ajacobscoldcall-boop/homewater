@@ -26,8 +26,8 @@ export interface LifeRecord {
   oceanYears: number | null;
   adultSize: number | null;
   conditions: YearConditions;
-  /** Every fish played in this life, including siblings that died. */
-  deaths: { name: string; stage: StageId; cause: DeathCause }[];
+  /** Every fish played in this life, including siblings that died; `where: 'lake'` for a death on the lake crossing at the end of the return (schema 7). */
+  deaths: { name: string; stage: StageId; cause: DeathCause; where?: 'lake' }[];
   spawned: boolean;
   result: SpawnResult | null;
   isStray: boolean;

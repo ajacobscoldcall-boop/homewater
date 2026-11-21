@@ -4,6 +4,7 @@
  * one-line hooks; the presets themselves are in quality.ts.
  */
 import * as THREE from 'three';
+import { CROWD_FX } from './crowdConfig';
 import { buildFishGeometry, type FishLook, type FishShape } from './fishMesh';
 import { quality, type Quality } from './quality';
 
@@ -32,15 +33,18 @@ export function pixelRatioFor(q: Quality, devicePixelRatio: number): number {
 
 /** Instanced kinds that are only scenery around the player: drawing fewer changes nothing in the simulation. */
 const SCHOOL_KINDS = new Set(['herring', 'smolt', 'pink', 'migrant']);
+/** The crowd on the spawning grounds has its own share per preset (crowdConfig.ts `drawn`). */
+const CROWD_KINDS = new Set(['crowdFemale', 'crowdMale', 'crowdJack', 'crowdCarcass']);
 
 /**
  * Whether to leave this school fish out of the drawing. Chosen by entity id,
  * so the same fish stay drawn from frame to frame and the school keeps its shape.
  */
 export function skipInstance(e: { kind: string; id: number }): boolean {
-  if (quality.schoolFraction >= 1 || !SCHOOL_KINDS.has(e.kind)) return false;
+  const share = CROWD_KINDS.has(e.kind) ? (CROWD_FX.drawn[quality.level] ?? 1) : SCHOOL_KINDS.has(e.kind) ? quality.schoolFraction : 1;
+  if (share >= 1) return false;
   // Golden-ratio hash of the id: evenly spread in 0..1.
-  return (e.id * 0.6180339887) % 1 >= quality.schoolFraction;
+  return (e.id * 0.6180339887) % 1 >= share;
 }
 
 const lowFish = new Map<string, THREE.BufferGeometry>();

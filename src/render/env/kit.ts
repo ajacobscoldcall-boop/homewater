@@ -444,7 +444,9 @@ export function addLog(tb: TubeBuilder, rand: () => number, m: THREE.Matrix4, le
     const dir = new THREE.Vector3(0.4, Math.cos(a), Math.sin(a)).normalize();
     const l = r * (1.5 + 3 * rand());
     const tip = base.clone().addScaledVector(dir, l);
-    tb.tube([base.applyMatrix4(m), base.clone().lerp(tip, 0.5).applyMatrix4(m), tip.applyMatrix4(m)], [r * 0.3, r * 0.2, r * 0.08], colour, null, 4);
+    // The middle is taken before any point is moved into place (applyMatrix4 changes the vector itself).
+    const mid = base.clone().lerp(tip, 0.5);
+    tb.tube([base.applyMatrix4(m), mid.applyMatrix4(m), tip.applyMatrix4(m)], [r * 0.3, r * 0.2, r * 0.08], colour, null, 4);
   }
 }
 

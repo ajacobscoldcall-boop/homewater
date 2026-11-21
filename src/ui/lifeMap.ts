@@ -35,7 +35,7 @@ export interface MapInput {
   /** 'playing': about to start `stage`; 'spawned': the life is complete; 'died': the brood died in `stage`. */
   state: 'playing' | 'spawned' | 'died';
   /** Fish of this life that died, in order (the last one ended a 'died' life). */
-  deaths: readonly { name: string; stage: StageId; cause: DeathCause }[];
+  deaths: readonly { name: string; stage: StageId; cause: DeathCause; where?: 'lake' }[];
   /** Eggs laid or fertilized, for a life that spawned. */
   eggs?: number | null;
   /** The fish's name, for the marker. */
@@ -160,6 +160,25 @@ function lap(k: number): { cx: number; cy: number; rx: number; ry: number } {
   return { cx: SEA.cx + 6 * k, cy: SEA.cy + 4 * k, rx: SEA.rx * s, ry: SEA.ry * s };
 }
 
+/**
+ * The way home across the lake: from the outlet, out over open water (a bow
+ * through the lake's southern water) to the inlet of the home stream or the home beach.
+ */
+export function lakeCrossing(to: Pt): Pt[] {
+  const from = OUTLET;
+  const mid = P((from.x + to.x) / 2, (from.y + to.y) / 2);
+  // The curve's middle passes through the lake's southern water, clear of the fry's loop.
+  const want = P(LAKE.cx + (mid.x - LAKE.cx) * 0.3, LAKE.cy + LAKE.ry * 0.7);
+  const bow = P(2 * want.x - mid.x, 2 * want.y - mid.y);
+  const out: Pt[] = [];
+  for (let i = 1; i <= 8; i++) {
+    const t = i / 8;
+    const u = 1 - t;
+    out.push(P(u * u * from.x + 2 * u * t * bow.x + t * t * to.x, u * u * from.y + 2 * u * t * bow.y + t * t * to.y));
+  }
+  return out;
+}
+
 /** A point on the lake's fry loop facing a place (the inlet), so the loop starts and ends toward it. */
 function loopAngle(to: Pt): number {
   return Math.atan2((to.y - LAKE.cy) / LAKE.ry, (to.x - LAKE.cx) / LAKE.rx);
@@ -216,8 +235,9 @@ export function layoutLifeMap(m: MapInput): MapLayout {
     }
     push([P(764, 470)]);
   });
-  // Return: the coast and nets, the mouth, up the home river past the falls and the fork, across the lake.
-  span('return', () => push([NETS, ...[...RIVER_DOWN].reverse(), inlet]));
+  // Return: the coast and nets, the mouth, up the home river past the falls and the fork, then across the lake to home.
+  const crossing = lakeCrossing(inlet);
+  span('return', () => push([NETS, ...[...RIVER_DOWN].reverse(), ...crossing]));
   // Spawn: up to the grounds where it hatched.
   span('spawn', () => push([...nestPath].reverse()));
 
@@ -256,7 +276,15 @@ export function layoutLifeMap(m: MapInput): MapLayout {
     const last = m.deaths.at(-1);
     reached = last ? deathPoint(last, 0).i : s0;
   } else reached = s0;
-  function deathPoint(d: { stage: StageId; cause: DeathCause }, k: number) {
+  function deathPoint(d: { stage: StageId; cause: DeathCause; where?: 'lake' }, k: number) {
+    // On the lake crossing: spread along it.
+    if (d.stage === 'return' && d.where === 'lake') {
+      const at = crossing[Math.min(crossing.length - 1, 2 + ((k * 3) % Math.max(1, crossing.length - 3)))]!;
+      const [a, b] = spans.return;
+      let best = a;
+      for (let i = a; i <= b; i++) if (dist(route[i]!, at) < dist(route[best]!, at)) best = i;
+      return { i: best, at: route[best]! };
+    }
     const where = DEATH_PLACE[d.stage]?.(d.cause, k);
     return stagePoint(d.stage, where ?? 0.5);
   }
@@ -282,8 +310,13 @@ export function layoutLifeMap(m: MapInput): MapLayout {
   const la = loopAngle(inlet);
   const secondLoop = P(LAKE.cx + LAKE.rx * 0.62 * 0.72 * Math.cos(la), LAKE.cy + LAKE.ry * 0.5 * 0.72 * Math.sin(la));
   if (past('fry') && lake === 2) event('fry', secondLoop, 'Stayed a second year', 'lake');
+  // Through the estuary at first light, ready for salt water (the end of the smolt run).
+  if (past('smolt')) event('smolt', MOUTH, 'To sea at first light', 'mouth');
   if (past('ocean')) event('ocean', route[spans.ocean[1] - 1]!, m.isJack ? 'Home early, after 1 year: a jack' : `Home after ${sea} years`, 'sea');
-  if (past('return')) event('return', FALLS, 'Past the falls', 'falls');
+  if (past('return')) {
+    event('return', FALLS, 'Past the falls', 'falls');
+    event('return', crossing[Math.floor(crossing.length / 2)]!, 'Home across the lake', 'lake');
+  }
   if (m.state === 'spawned') event('spawn', nest, m.eggs ? `Spawned: ${m.eggs.toLocaleString('en')} eggs` : 'Spawned', 'nest');
 
   // A label inside the top of each ring at sea.
@@ -329,7 +362,7 @@ const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEATH_PLACE: Partial<Record<StageId, (cause: DeathCause, k: number) => StopId | number>> = {
   egg: () => 'nest',
   fry: (_c, k) => 0.55 + 0.1 * (k % 4),
-  smolt: (c) => (c === 'merganser' ? 'fork' : c === 'bird' ? 'rapids' : c === 'seal' ? 'mouth' : 'falls'),
+  smolt: (c) => (c === 'merganser' ? 'fork' : c === 'bird' ? 'rapids' : c === 'seal' || c === 'gull' ? 'mouth' : 'falls'),
   ocean: (c, k) => (c === 'seal' ? 0.08 : 0.25 + ((k * 0.17 + (c === 'shark' ? 0.3 : 0)) % 0.6)),
   return: (c) => (c === 'gillnet' || c === 'seal' ? 'nets' : c === 'angler' || c === 'heat' ? 'rapids' : c === 'sea' ? 'mouth' : 'falls'),
   spawn: () => 'grounds',
@@ -355,6 +388,7 @@ export const DEATH_LABEL: Record<DeathCause, string> = {
   exhaustion: 'exhausted',
   noSpawn: 'no spawn',
   heat: 'heat stress',
+  gull: 'a gull',
 };
 
 // ---------- Inputs ----------

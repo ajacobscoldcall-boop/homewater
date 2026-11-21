@@ -16,6 +16,12 @@ export const VITALS = {
   energy: { low: 0.3, critical: 0.15 },
   /** The water chip shows from this many °C below the heat-stress temperature, or with any heat stress or low oxygen. */
   water: { showBelow: 1.5, stressShown: 0.02 },
+  /**
+   * The smolt run's estuary: the "salt ready" ring shows from `ringFrom` and the water chip from `chipFrom`
+   * (fractions into the estuary; negative is upstream of it, at the river mouth); salinity above `seaAbove`
+   * reads as salt water.
+   */
+  salt: { ringFrom: -0.3, chipFrom: 0, seaAbove: 0.7 },
   /** Ring geometry (SVG units): radius and stroke. */
   ring: { r: 15, stroke: 3 },
 } as const;

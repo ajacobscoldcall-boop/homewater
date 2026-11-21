@@ -170,6 +170,14 @@ export class Cinematics {
         L.copy(tmp).addScaledVector(ahead, lerp(f.trackFrom, f.trackTo, u) * 0.6);
         break;
       }
+      case 'estuaryDawn': {
+        const f = F.estuaryDawn;
+        P.copy(fishV).addScaledVector(ahead, -f.behind).addScaledVector(side, f.side);
+        P.y = b.pos.y - lerp(f.belowFrom, f.belowTo, e);
+        L.copy(fishV).addScaledVector(ahead, f.lookAhead);
+        L.y = b.pos.y + f.lookUp;
+        break;
+      }
       case 'sea': {
         const f = F.sea;
         const d = lerp(f.dollyFrom, f.dollyTo, e) * (0.6 + 0.4 * s);

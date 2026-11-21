@@ -389,7 +389,8 @@ export class GoreLayer {
       killer.position.copy(b.killerStart).addScaledVector(fwd, dist);
       killer.rotation.y = -yaw;
       // Seals and orcas and fish hold prey at the front; a merganser in its bill.
-      const reach = killer.userData.animal ? 0.42 * s : 0.45 * s;
+      // (A lake merganser's model sits back under water so its bill leads: Renderer, LAKE_SPLASH.billLead.)
+      const reach = killer.userData.animal ? (0.42 + (killer.children[0]?.position.x ?? 0)) * s : 0.45 * s;
       mouth.copy(killer.position).addScaledVector(fwd, reach);
       const k = ease(t / 0.14);
       fish.position.lerpVectors(b.fishStart, mouth, k);

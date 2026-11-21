@@ -1,6 +1,7 @@
 /**
  * The smolt run at night: out of the lake through the outlet, down a river
- * channel between earth banks, to the estuary where the banks open out.
+ * channel between earth banks, to the estuary where the banks open out onto
+ * mud and sand flats with eelgrass (the sim's estuary: smolt.estuaryStart on).
  * Boulders line the banks; roots, overhanging bank lips and fallen trees
  * (sweepers) hang into the water and show as silhouettes against the
  * moonlit surface. The bank cover the simulation spawns ('cover' entities)
@@ -20,7 +21,8 @@ export function buildRiver(w: World, detail: Detail): EnvParts {
   const outlet = w.p.get('smolt.outletEnd');
   const mouth = w.p.get('smolt.mouthStart');
   const lakeEnd = 14;
-  const estuary = mouth + 20;
+  const salt = w.p.get('smolt.estuaryStart');
+  const estuary = Math.min(mouth + 20, salt - 10);
 
   // How far the banks stand back from the arena edge: wide at the lake outlet and the estuary.
   const widen = (x: number) => Math.max(0, lakeEnd - x) * 1.4 + Math.max(0, x - estuary) * 0.45;
@@ -47,15 +49,18 @@ export function buildRiver(w: World, detail: Detail): EnvParts {
   const earth = new THREE.Color(0x3a3024);
   const moss = new THREE.Color(0x3f4a26);
   const turf = new THREE.Color(0x4f5a2e);
+  const sand = new THREE.Color(0x7a7258);
   const land = terrain(xs, zs, ground, (x, z, h, out) => {
     out.copy(gravel).lerp(deep, smoothstep(2.5, 6, -h));
     if (x > mouth) out.lerp(mud, smoothstep(mouth, estuary + 20, x) * 0.8);
+    // Seaward: paler sand, rippled.
+    if (x > salt) out.lerp(sand, smoothstep(salt, salt + 60, x) * (0.55 + 0.25 * Math.sin(x * 1.7 + z * 0.4)));
     // Bars of cleaner gravel and darker, algae-covered stretches; fine mottling.
     out.multiplyScalar((0.75 + 0.45 * (fbm(x * 0.07, z * 0.18, 3, 12) + 0.5)) * (0.85 + 0.25 * fbm(x * 2.3, z * 2.3, 2, 4)));
     const bank = smoothstep(half + 0.2, half + 1.2, Math.abs(z) - widen(x));
     if (bank > 0) out.lerp(earth, bank * 0.85).lerp(moss, bank * 0.3 * (0.5 + fbm(x * 0.3, z, 2, 8)));
     if (h > -0.2) out.lerp(turf, smoothstep(-0.2, 0.4, h));
-  }, envMaterial({ caustics: 1, grain: { amount: 0.45, scale: 3 } }));
+  }, envMaterial({ caustics: 1, grain: { amount: 0.45, scale: 3 } }), 34);
   group.add(...land);
 
   // Boulders along the bank toes; scattered cobble on the bed.
@@ -136,16 +141,16 @@ export function buildRiver(w: World, detail: Detail): EnvParts {
       }
     }
   });
-  // Rootlets all along both banks: the whole bank edge is cover in the sim.
+  // Rootlets all along both banks of the river: the whole bank edge is cover in the sim.
   for (let i = 0; i < byDetail(120, detail); i++) {
-    const x = range(rand, 0, L + 20);
+    const x = range(rand, 0, salt);
     const side = rand() < 0.5 ? -1 : 1;
     const z = side * (half + widen(x) + range(rand, 0.0, 0.5));
     hangingRoot(tb, rand, new THREE.Vector3(x, -0.15, z), range(rand, 0.3, 1.0), range(rand, 0.015, 0.035), root, flow, 4);
   }
   // Driftwood in the estuary.
   const m = new THREE.Matrix4();
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 9; i++) {
     const x = range(rand, mouth, L + 10);
     const z = range(rand, -half + 1, half - 1) * (i % 2 ? 1 : 1.6);
     m.makeRotationY(rand() * 6);
@@ -163,13 +168,13 @@ export function buildRiver(w: World, detail: Detail): EnvParts {
   const grassGeo = bladeClumpGeometry(rand, { blades: 7, width: 0.03, segs: 4, spread: 0.3, bend: 1.2, base: 0x4a5528, tip: 0x6d7a3a });
   const grass: Placement[] = [];
   for (let i = 0; i < byDetail(320, detail); i++) {
-    const x = range(rand, -5, L + 20);
+    const x = range(rand, -5, salt + 30);
     const side = rand() < 0.5 ? -1 : 1;
     const z = side * (half + widen(x) + wobble(x, side) * 0.5 + range(rand, -0.1, 0.4));
     // Hanging: negative height flips the clump to trail down into the water.
     grass.push({ x, y: 0.05, z, s: [1, -range(rand, 0.4, 1.0), 1], yaw: rand() * 6 });
   }
-  for (let i = 0; i < byDetail(140, detail); i++) {
+  for (let i = 0; i < byDetail(260, detail); i++) {
     const x = range(rand, mouth + 15, L + 20);
     const z = range(rand, -half - 6, half + 6);
     if (Math.abs(z) < half - 2.5) continue;
@@ -177,7 +182,7 @@ export function buildRiver(w: World, detail: Detail): EnvParts {
     if (h > -0.6) continue;
     grass.push({ x, y: h - 0.03, z, s: [1.3, Math.min(-h * 0.7, range(rand, 0.6, 1.4)), 1.3], yaw: rand() * 6 });
   }
-  group.add(...instancedCells(grassGeo, envMaterial({ sway: { amp: 0.12, freq: 1.4, flowX: 0.15 }, caustics: 0.4, side: THREE.DoubleSide }), grass));
+  group.add(...instancedCells(grassGeo, envMaterial({ sway: { amp: 0.12, freq: 1.4, flowX: 0.15 }, caustics: 0.4, side: THREE.DoubleSide }), grass, 34));
 
   return { group, handles: ['cover'], ground, down: 0.7 };
 }

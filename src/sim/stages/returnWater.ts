@@ -25,6 +25,7 @@ import type { Vec3 } from '../types';
 import type { World } from '../world';
 import { fallsLayout } from './falls';
 import { returnLayout } from './return';
+import { lakeWater } from './returnLake';
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
@@ -117,6 +118,11 @@ export function waterAt(w: World, pos: Vec3): WaterReading {
     return { temp, oxygen: o2(temp, 0), warmth, seep: 0 };
   }
   const L = p.get('return.length');
+  // The lake: a warm top layer over cool deep water in a warm year (returnLake.ts).
+  if (lay.lake && pos.x > lay.riverEnd) {
+    const temp = lakeWater(w, lay.lake, pos, yearRiverTemp(w), warmth, day);
+    return { temp, oxygen: o2(temp, 0), warmth, seep: 0 };
+  }
   const along = clamp01((pos.x - lay.coast) / Math.max(1, L - lay.coast));
   const surface = w.arena.surfaceY;
   const depth = Math.max(0.1, surface - w.arena.floor(pos.x, pos.z));
@@ -195,7 +201,11 @@ export function stepWater(w: World, dt: number, resting: boolean): { reading: Wa
     stress -= p.get('return.water.recoverRate') * cool * (resting ? 1 : p.get('return.water.recoverMoving')) * dt;
   }
   s.heatStress = clamp01(stress);
-  if (isRefuge(w, reading)) w.emitOnce('caption', reading.seep > 0.4 ? 'return.coolSeep' : 'return.coolPool');
+  if (isRefuge(w, reading)) {
+    const lay = returnLayout(w);
+    const inLake = !!lay?.lake && w.body.pos.x > lay.riverEnd;
+    w.emitOnce('caption', reading.seep > 0.4 ? 'return.coolSeep' : inLake ? 'return.lake.coolDeep' : 'return.coolPool');
+  }
   if (s.heatStress > p.get('return.water.stressCaption')) w.emitOnce('caption', 'return.heatStress');
   return { reading, effects };
 }

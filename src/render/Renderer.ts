@@ -5,9 +5,11 @@
 import * as THREE from 'three';
 import { alevinView } from '../sim/stages/egg';
 import { fryView } from '../sim/stages/fry';
+import { fryDaySky, LAKE_SPLASH } from './lakeDay';
 import { oceanView } from '../sim/stages/ocean';
 import type { ArenaKind } from '../sim/stages';
 import { returnLayout, returnUpstream } from '../sim/stages/return';
+import { lakeBearOut, lakeView } from '../sim/stages/returnLake';
 import { roleOf, spawnState } from '../sim/stages/spawn';
 import type { Entity, EntityKind } from '../sim/types';
 import { headingVec } from '../sim/vec';
@@ -35,6 +37,8 @@ import { quality, type Quality } from './quality';
 import { adaptDetail, frameQuality, pixelRatioFor, skipInstance } from './qualityRender';
 // Fellow migrants on the return and their splashes at the falls (migrants.ts).
 import { MigrantLayer } from './migrants';
+// The crowd on the spawning grounds: other spawners, their redds and the dead (crowd.ts).
+import { CROWD_KINDS, CrowdLayer } from './crowd';
 // Performance: keeps shader programs compiled while materials come and go (programKeeper.ts).
 import { ProgramKeeper } from './programKeeper';
 import { WaterFeel } from './waterFeel';
@@ -52,6 +56,9 @@ import { eggRadius, MODEL_SCALE, smoltMateScale } from './scaleConfig';
 import { buildEggGeometry, eggMaterial, eggTint } from './eggMesh';
 import { pixelsPerUnit, PlanktonSwarm } from './midwater';
 import { NIGHT } from './nightConfig';
+// The estuary at the end of the smolt run: first light, salinity tint, the halocline, the last parr marks.
+import { buildHalocline, dawnFraction, dawnLight, parrLeft, tintBySalinity, updateHalocline, type DawnLight } from './estuary';
+import { smoltView } from '../sim/stages/smolt';
 import { drawnBedTop, easeLift, restLift, type DrawnPatch } from './bedRest';
 import { BED } from './bedConfig';
 
@@ -194,6 +201,8 @@ export class Renderer {
   /** Bears drawn this frame (syncEntities), for their splashes and their shape above the water. */
   private bearsSeen: THREE.Object3D[] = [];
   private migrants = new MigrantLayer();
+  private crowd = new CrowdLayer();
+  private crowdGround: (x: number, z: number) => number = () => 0;
 
   /** Graphics quality changed (quality.ts). rebuild: materials or geometry depend on it, so build the stage again. */
   applyQuality(q: Quality, rebuild: boolean): void {
@@ -233,6 +242,8 @@ export class Renderer {
     this.cues.applyLook(this.instanced);
     this.frameDt = frameDt;
     this.collectPatches(w);
+    this.crowd.update(frameDt);
+    this.crowdGround = (x, z) => this.groundAt(w, x, z);
     this.syncEntities(w);
     const px = pixelsPerUnit(this.renderer, this.camera);
     this.food.update(w.stageId === 'ocean' ? w.live('herring') : [], w.stageTime, px, this.fog.density);
@@ -251,6 +262,7 @@ export class Renderer {
       this.above.trackBear(obj, this.camera);
     }
     this.migrants.update(w, frameDt, this.splash, this.player);
+    if (w.stageId === 'fry') this.mergSplashes(w, frameDt);
     this.splash.update(frameDt, w.arena.surfaceY);
     sharedWater.uTime.value += frameDt;
     this.env?.update(w, frameDt, this.camera);
@@ -311,6 +323,8 @@ export class Renderer {
     });
   }
   private waterFeel = new WaterFeel(this.scene);
+  private dawnL: DawnLight | undefined;
+  private halocline: THREE.Mesh | null = null;
   private hemi!: THREE.HemisphereLight;
   private sun!: THREE.DirectionalLight;
   private baseFog = new THREE.Color();
@@ -330,25 +344,37 @@ export class Renderer {
       const dim = moment?.light ?? 1;
       // The sky above: night for the smolt run; dusk and winter in the lake; an autumn evening for the maturation reveal.
       const skyLight = 1 - 0.9 * (moment?.fade ?? 0);
-      if (night) this.above.setSky('night', 'night', 0, skyLight);
       if (night) {
-        // A real night (nightConfig.ts): moonlight from above, dark water, the school lit faintly.
-        this.hemi.color.setHex(NIGHT.sky);
-        this.hemi.groundColor.setHex(NIGHT.ground);
-        this.hemi.intensity = NIGHT.hemi * dim;
-        this.sun.color.setHex(NIGHT.moon);
-        this.sun.position.set(NIGHT.moonDir[0] * 60, NIGHT.moonDir[1] * 60, NIGHT.moonDir[2] * 60);
-        this.sun.intensity = NIGHT.moonStrength * dim;
-        this.fog.density = this.baseDensity * NIGHT.fogDensity * (1 + 30 * (moment?.fade ?? 0));
-        sharedWater.uLight.value = NIGHT.water * dim;
-        this.fog.color.setHex(NIGHT.fog).multiplyScalar(dim);
+        // A real night (nightConfig.ts): moonlight from above, dark water, the school lit faintly;
+        // brightening to first light from the river mouth across the estuary (estuaryConfig.ts).
+        const t = dawnFraction(w);
+        const L = (this.dawnL = dawnLight(t, this.dawnL));
+        if (t < 0.5) this.above.setSky('night', 'dusk', t * 2, skyLight);
+        else this.above.setSky('dusk', 'day', (t - 0.5) * 2, skyLight);
+        this.hemi.color.copy(L.sky);
+        this.hemi.groundColor.copy(L.ground);
+        this.hemi.intensity = L.hemi * dim;
+        this.sun.color.copy(L.sun);
+        this.sun.position.copy(L.sunDir).multiplyScalar(60);
+        this.sun.intensity = L.sunStrength * dim;
+        this.fog.density = this.baseDensity * L.fogDensity * (1 + 30 * (moment?.fade ?? 0));
+        sharedWater.uLight.value = L.water * dim;
+        this.fog.color.copy(L.fog).multiplyScalar(dim);
+        // Brackish water: tea-brown river water above the halocline, green-grey sea water below it.
+        tintBySalinity(this.fog.color, w, this.camera.position);
         (this.scene.background as THREE.Color).copy(this.fog.color);
+        this.shafts.setStrength(L.shafts, L.shaftColor.getHex());
+        const schoolKind = 'smolt';
+        const school = this.instanced.get(schoolKind)?.mesh.material as THREE.MeshStandardMaterial | undefined;
+        school?.emissive.setHex(NIGHT.schoolGlow).multiplyScalar(L.glow);
+        updateHalocline(this.halocline, frameDt);
         return;
       }
       else if (fry?.phase === 'winter') this.above.setSky('winter', 'winter', 0, skyLight);
-      else if (fry && (fry.phase === 'dusk' || fry.phase === 'second')) {
-        const duskLight = w.p.get('fry.duskLight');
-        this.above.setSky('day', 'dusk', Math.min(1, Math.max(0, (1 - fry.light) / Math.max(0.05, 1 - duskLight))), skyLight);
+      else if (fry && (fry.phase === 'summer' || fry.phase === 'second')) {
+        // The lake day: day to dusk as the light falls to dusk level, then dusk to night (stars) below it; dawn runs it back.
+        const k = fryDaySky(fry.light, w.p.get('fry.duskLight'), w.p.get('fry.nightLight'));
+        this.above.setSky(k.from, k.to, k.k, skyLight);
       } else if (sea?.moment === 'reveal') this.above.setSky('day', 'dusk', 0.4, skyLight);
       else this.above.setSky('day', 'day', 0, skyLight);
       this.hemi.intensity = (night ? 0.55 : 1.1) * dim;
@@ -457,6 +483,9 @@ export class Renderer {
     const sz = a.max.z - a.min.z;
     if (w.stageId === 'smolt') this.shafts.setStrength(NIGHT.shafts, NIGHT.shaftColor);
     else this.shafts.setStrength(look.shafts, look.shaftColor);
+    // The estuary's halocline: a faint shimmer where the fresher top layer meets the salt water below.
+    this.halocline = buildHalocline(w);
+    if (this.halocline) this.stageGroup.add(this.halocline);
 
     // The surface, seen from below, and the world above it seen through Snell's window.
     this.above.build(w, (x, z) => this.groundAt(w, x, z));
@@ -499,6 +528,13 @@ export class Renderer {
     this.makeInstanced('migrant', mig.geo, mig.mat, 40);
     for (const [kind, inst] of this.instanced) if (kind === 'migrant') inst.mesh.renderOrder = 2; // after the surface: see migrants.ts
     this.makeInstanced('pink', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'pink', { lod: quality.fishDetail }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25 }), 60);
+    if (w.stageId === 'spawn') {
+      // The crowd: one instanced draw per kind (crowd.ts).
+      for (const kind of CROWD_KINDS) {
+        const c = this.crowd.make(kind);
+        this.makeInstanced(kind, c.geo, c.mat, c.max);
+      }
+    }
 
     if (a.kind === 'gravel') {
       // Flecks carried by the flow show which way the water is moving.
@@ -600,6 +636,7 @@ export class Renderer {
       }
       this.updateObject(w, e, obj);
     }
+    this.crowd.flush();
     for (const [kind, inst] of this.instanced) {
       inst.mesh.count = counts.get(kind) ?? 0;
       inst.mesh.instanceMatrix.needsUpdate = true;
@@ -639,6 +676,13 @@ export class Renderer {
       }
       case 'migrant':
         this.migrants.pose(e, tmpP, tmpQ, tmpS);
+        break;
+      case 'crowdFemale':
+      case 'crowdMale':
+      case 'crowdJack':
+      case 'crowdCarcass':
+      case 'crowdRedd':
+        this.crowd.pose(w, e, i, mesh, tmpP, tmpQ, tmpS, this.crowdGround);
         break;
       case 'pink':
         tmpQ.setFromAxisAngle(UP, -e.yaw);
@@ -694,6 +738,23 @@ export class Renderer {
     mesh.setMatrixAt(i, tmpM.compose(tmpP, tmpQ, tmpS));
   }
 
+  /** Lake mergansers: a splash as one lands and as it dives, and rings while it paddles (the surface disturbance is the warning). */
+  private mergSeen = new Map<number, string>();
+  private mergRing = 0;
+  private mergSplashes(w: World, dt: number): void {
+    const live = new Set<number>();
+    this.mergRing -= dt;
+    for (const m of w.live('merganser')) {
+      live.add(m.id);
+      const was = this.mergSeen.get(m.id);
+      if (was === undefined || (m.state === 'dive' && was !== 'dive')) this.splash.burst(m.pos.x, m.pos.z, w.arena.surfaceY, m.state === 'dive' ? LAKE_SPLASH.dive : LAKE_SPLASH.land);
+      else if (m.state === 'warn' && this.mergRing <= 0) this.splash.burst(m.pos.x, m.pos.z, w.arena.surfaceY, LAKE_SPLASH.paddle);
+      this.mergSeen.set(m.id, m.state);
+    }
+    if (this.mergRing <= 0) this.mergRing = LAKE_SPLASH.paddleEvery;
+    for (const id of [...this.mergSeen.keys()]) if (!live.has(id)) this.mergSeen.delete(id);
+  }
+
   private rivalLook(w: World): FishLook {
     return w.fish.sex === 'F' ? 'spawnFemale' : 'spawnMale';
   }
@@ -703,7 +764,8 @@ export class Renderer {
       case 'trout': {
         // Dolly Varden / char (advisor: char, not trout, hunt fry and wait at the outlet).
         const g = createChar().root;
-        g.scale.setScalar(MODEL_SCALE.char);
+        // On the spawning grounds the same char, drawn at its size beside adult salmon.
+        g.scale.setScalar(w.stageId === 'spawn' ? MODEL_SCALE.charGrounds : MODEL_SCALE.char);
         return g;
       }
       case 'orca': {
@@ -730,7 +792,8 @@ export class Renderer {
         ring.rotation.x = -Math.PI / 2;
         ring.name = 'ring';
         const holder = new THREE.Group();
-        holder.scale.setScalar(MODEL_SCALE.merganser);
+        // In the lake the world unit is smaller (a fry, not a smolt), so the same bird is drawn larger.
+        holder.scale.setScalar(w.stageId === 'fry' ? MODEL_SCALE.merganserFry : MODEL_SCALE.merganser);
         holder.add(g, ring);
         holder.userData.animal = animalOf(g);
         return holder;
@@ -761,6 +824,12 @@ export class Renderer {
         bird.name = 'bird';
         bird.visible = false;
         g.add(shadow, bird);
+        return g;
+      }
+      case 'gull': {
+        // A gull after loose eggs over a shallow redd (spawn/eggThieves.ts).
+        const g = createGull().root;
+        g.scale.setScalar(MODEL_SCALE.gull);
         return g;
       }
       case 'bear': {
@@ -848,6 +917,9 @@ export class Renderer {
         if (h > 0.05 || obj.userData.yaw === undefined) obj.userData.yaw = Math.atan2(e.vel.z, e.vel.x);
         obj.rotation.set(0, -(obj.userData.yaw as number), 0);
         const under = e.state === 'dive' || e.state === 'chase' || e.state === 'surface';
+        // Over the lake the bird is many fry long: under water its bill, not its body, is at the sim's point.
+        const model = obj.children[0];
+        if (model && w.stageId === 'fry') model.position.x = under ? LAKE_SPLASH.billLead : 0;
         animalOf(obj)?.update({
           mode: warn ? 'float' : e.state,
           t: w.time + e.id,
@@ -912,7 +984,7 @@ export class Renderer {
         // Stand on the bank, or at most in the shallows, facing the middle of the river:
         // where the sim's spot is under water, step back up the bank.
         const mid = returnLayout(w)?.homeMouth ?? 0;
-        const out = w.fish.habitat === 'beach' && w.stageId === 'spawn' ? 1 : e.pos.z > mid ? 1 : -1;
+        const out = w.fish.habitat === 'beach' && w.stageId === 'spawn' ? 1 : (lakeBearOut(w, e) ?? (e.pos.z > mid ? 1 : -1));
         const surfaceY = w.arena.surfaceY;
         let z = e.pos.z;
         for (let i = 0; i < 50 && this.groundAt(w, e.pos.x, z - out * BEAR_FORE_X) < surfaceY - BEAR_STRIKE.standDepth; i++) z += out * 0.1;
@@ -949,6 +1021,14 @@ export class Renderer {
       case 'gravelPatch':
         obj.position.y = w.arena.floor(e.pos.x, e.pos.z) + 0.02;
         break;
+      case 'gull': {
+        // Circling down, then floating over the redd and dipping its head for eggs.
+        obj.rotation.set(0, -e.yaw, 0);
+        const onWater = e.state === 'strike';
+        const peck = onWater ? Math.max(0, Math.sin(w.time * 3.1 + e.id)) ** 2 : 0;
+        animalOf(obj)?.update(onWater ? { mode: 'float', t: w.time + e.id, pitch: 0.9 * peck } : { mode: 'fly', t: w.time * 1.1 + e.id });
+        break;
+      }
       case 'lure': {
         const spoon = obj.getObjectByName('spoon') as THREE.Mesh;
         const line = obj.getObjectByName('line') as THREE.Line;
@@ -988,14 +1068,16 @@ export class Renderer {
       case 'fry':
         return { look: 'fry', shape: { depth: 0.95, hump: 0, kype: 0, yolk: 0 } };
       case 'smolt':
-        return { look: 'smolt', shape: { depth: 0.95, hump: 0, kype: 0, yolk: 0 } };
+        // The last parr marks fade as it gets ready for salt water (estuary.ts).
+        return { look: 'smolt', shape: { depth: 0.95, hump: 0, kype: 0, yolk: 0, parr: parrLeft(smoltView(w)) } };
       case 'ocean':
         return { look: 'ocean', shape: { depth, hump: 0, kype: 0, yolk: 0 } };
       default: {
         // Silver at sea, a blush once in fresh water that deepens up the river, full spawning colours only on the grounds;
         // thinner as fat drains (bodyChange.ts).
         const place = w.stageId === 'spawn' ? 'grounds' : w.body.pos.x > (returnLayout(w)?.coast ?? 90) ? 'river' : 'sea';
-        return bodyLook({ role, bodyDepth: z.bodyDepth, fat: w.progress.fat, place, upstream: returnUpstream(w) });
+        const lake = lakeView(w);
+        return bodyLook({ role, bodyDepth: z.bodyDepth, fat: w.progress.fat, place, upstream: returnUpstream(w), ...(lake ? { lake: lake.ripe } : {}) });
       }
     }
   }

@@ -10,7 +10,7 @@ import { populationFromConditions, yearFromPopulation } from '../sim/population'
 import type { FishIdentity, YearConditions } from '../sim/types';
 import type { Checkpoint } from '../sim/world';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export interface LifeSave {
   checkpoint: Checkpoint;
@@ -69,6 +69,8 @@ const migrations: Record<number, Migration> = {
     const life = old.life && typeof old.life === 'object' ? { lakeYears: null, ...(old.life as Record<string, unknown>) } : old.life;
     return { ...old, lineage, archive, life };
   },
+  // 6 -> 7: a death may note where on the return it happened (`where: 'lake'`, the lake crossing); older deaths don't say, which reads as the river.
+  6: (old) => old,
 };
 
 /** Schema 6 lineage: records gain lakeYears, unknown (null) for lives recorded before. */

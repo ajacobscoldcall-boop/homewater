@@ -15,14 +15,15 @@ export function result(w: World): SpawnResult {
   if (s.role === 'female') {
     const t = Math.max(-1, Math.min(1, w.fish.z.eggTradeoff / 2)) * p.get('spawn.eggTradeoffStrength');
     const eggs = Math.round(base * (1 - t));
-    const survival = eggSurvival(p, s.quality, s.burial, s.superimposed);
+    const survival = eggSurvival(p, s.quality, s.burial, s.superimposed, s.eggsTaken);
     const young = eggs * (1 + t) * survival;
     const dug = s.superimposed + s.steals;
+    const taken = Math.round(s.eggsTaken * 100);
     return {
       eggs,
       young,
       relativeFitness: young / meanEggs(w),
-      detail: `Redd quality ${(s.quality * 100).toFixed(0)}%, eggs covered ${(s.burial * 100).toFixed(0)}%, ${dug === 0 ? 'never dug into' : `dug into ${dug === 1 ? 'once' : `${dug} times`}`}`,
+      detail: `Redd quality ${(s.quality * 100).toFixed(0)}%, eggs covered ${(s.burial * 100).toFixed(0)}%, ${dug === 0 ? 'never dug into' : `dug into ${dug === 1 ? 'once' : `${dug} times`}`}${taken > 0 ? `, ${taken}% of the eggs taken by char and gulls` : ''}`,
     };
   }
   const share = s.role === 'largeMale' ? s.firstShare + s.secondShare : s.share;

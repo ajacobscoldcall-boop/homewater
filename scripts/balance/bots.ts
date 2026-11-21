@@ -14,8 +14,12 @@
 import { Rng } from '../../src/sim/rng';
 import { alevinView } from '../../src/sim/stages/egg';
 import { fallsView } from '../../src/sim/stages/falls';
+import { fryView } from '../../src/sim/stages/fry';
 import { returnLayout } from '../../src/sim/stages/return';
-import { spawnState } from '../../src/sim/stages/spawn';
+import { lakeView, siteWater } from '../../src/sim/stages/returnLake';
+import { heatStress, returnWaterView } from '../../src/sim/stages/returnWater';
+import { smoltView } from '../../src/sim/stages/smolt';
+import { crowdOpening, spawnState } from '../../src/sim/stages/spawn';
 import { NO_INTENT, type Entity, type Intent, type Vec3 } from '../../src/sim/types';
 import { clamp, dist, distXZ, norm, wrapAngle } from '../../src/sim/vec';
 import type { World } from '../../src/sim/world';
@@ -267,7 +271,24 @@ export class Bot {
   private fry(w: World): Intent {
     const s = this.skill;
     const fish = w.body.pos;
-    const m = this.m as { target?: number; retargetAt?: number; flees?: number; fleeing?: boolean };
+    const m = this.m as { target?: number; retargetAt?: number; flees?: number; fleeing?: boolean; tod?: string | null; follows?: boolean };
+    const v = fryView(w);
+    // Mergansers: the bird on the surface is the warning. Dive below its reach, out over open water.
+    if (v?.birdReach) {
+      for (const b of w.live('merganser')) {
+        if (b.state !== 'warn' && b.state !== 'dive' && b.state !== 'chase') continue;
+        if (!this.notice(w, b, 'bird')) continue;
+        const burst = b.state === 'chase' && dist(b.pos, fish) < s.fryBurstDist + 1 && this.canBurst(w, true);
+        return this.steer3(w, { x: Math.max(fish.x + 2, v.weedEdge + 6), y: -w.p.get('fry.mergReach') - 3, z: fish.z }, { burst });
+      }
+    }
+    // The lake day: each turn of the day, this player either does what it asks or carries on feeding.
+    const tod = v?.tod ?? null;
+    if (tod !== m.tod) {
+      m.tod = tod;
+      m.follows = this.rng.chance(s.fryCycle);
+    }
+    const lieLow = !!m.follows && (tod === 'day' || tod === 'night');
     let threat: Entity | null = null;
     let td = Infinity;
     for (const t of w.live('trout')) {
@@ -282,15 +303,26 @@ export class Bot {
     m.fleeing = !!threat;
     if (threat) {
       // Flee to the weeds if the trout is not between us and them; otherwise straight away.
-      const toWeeds = threat.pos.x > fish.x - 2 || fish.x < -12;
+      const toWeeds = (threat.pos.x > fish.x - 2 && !(lieLow && fish.x > -8)) || fish.x < -12;
       const burst = threat.state === 'chase' && td < s.fryBurstDist && this.canBurst(w);
       if (toWeeds) return this.steer3(w, { x: -26, y: -4, z: clamp(fish.z, -25, 25) }, { burst });
       const away = norm({ x: fish.x - threat.pos.x, y: 0, z: fish.z - threat.pos.z });
-      return this.steer3(w, { x: fish.x + away.x * 10, y: -4, z: fish.z + away.z * 10 }, { burst });
+      // Lying low in the dark, stay down: a char that falls behind in dim water loses sight of the fry.
+      return this.steer3(w, { x: fish.x + away.x * 10, y: lieLow ? -9 : -4, z: fish.z + away.z * 10 }, { burst });
     }
     // Safe in the weeds with a trout close by: wait for it to swim off.
     if (fish.x < -19.5 && w.live('trout').some((t) => dist(t.pos, fish) < 11)) {
       return this.steer3(w, { x: -25, y: -4, z: clamp(fish.z, -25, 25) }, { forward: fish.x > -23 ? 0.6 : 0, hold: true });
+    }
+    // By day (and at night) a careful fry keeps deep and dark in open water, taking only food that drifts close.
+    if (lieLow && v) {
+      const deep = -w.p.get('fry.warmDepth') - 1.5;
+      const close = w.live('plankton').filter((e) => e.pos.y < deep && e.pos.x > v.weedEdge + 1 && dist(e.pos, fish) < 5);
+      const food = close.sort((a, b) => dist(a.pos, fish) - dist(b.pos, fish))[0];
+      if (food) return this.steer3(w, food.pos, { forward: 0.5 });
+      const hold = { x: clamp(fish.x, v.weedEdge + 6, 8), y: -8.5, z: clamp(fish.z, -20, 20) };
+      const off = dist(hold, fish);
+      return off > 1 ? this.steer3(w, hold, { forward: Math.min(0.7, off / 4) }) : intent({ hold: true });
     }
     // Feeding: pick a target and keep it for a while.
     let target = m.target ? w.entities.find((e) => e.id === m.target && e.alive) : undefined;
@@ -335,6 +367,19 @@ export class Bot {
     let ty = s.smoltDepth;
     let burst = false;
     let hold = false;
+    let waiting = false;
+    // The estuary: hold in the brackish band (just above the halocline's middle, in the mixed water) until ready
+    // enough, then on; with salt beyond readiness, rise toward the fresher top.
+    const sv = smoltView(w);
+    if (sv && sv.section === 'estuary') {
+      waiting = sv.ready < s.estuaryPatience * sv.readyDone;
+      if (waiting) {
+        ty = -(sv.halocline + 0.1);
+        ax = 0.15;
+        hold = true;
+      }
+      if (sv.over > 0.02) ty = Math.max(ty, -(sv.halocline - 0.8));
+    }
 
     // Birds: a shadow on the surface where the bird will strike. Go deep and sideways.
     for (const sh of w.live('birdShadow')) {
@@ -362,17 +407,28 @@ export class Bot {
     // Seals show as a dark shape before the lunge. A skilled player sprints past before it goes.
     for (const seal of w.live('seal')) {
       if (seal.state !== 'warn' || !this.notice(w, seal, 'shape')) continue;
-      if (s.sealSprint) burst = this.canBurst(w);
+      // (Not toward a seal well ahead, as in the estuary: sprinting would only close the gap. A careful player
+      // waits for that one to lunge, then swims across it.)
+      if (s.sealSprint && !waiting && seal.pos.x - fish.x < 10) burst = this.canBurst(w);
+      else if (s.sealSprint && sv?.section === 'estuary' && seal.pos.x - fish.x >= 10) {
+        ax = 0.1;
+        hold = true;
+        waiting = true;
+      }
     }
     // Seal lunges are straight: get across the path.
     for (const seal of w.live('seal')) {
       if (seal.state !== 'lunge' || !this.notice(w, seal)) continue;
-      const ca = closestApproach(seal.pos, seal.vel, fish, 1.5);
-      if (ca.d > w.p.get('smolt.sealCatchRadius') + s.margin) continue;
       const v = norm({ x: seal.vel.x, y: 0, z: seal.vel.z });
+      // A lunge from ahead (the estuary's seals come up from the deep channel seaward) is seen coming further off,
+      // and the fish keeps clear until it has passed.
+      const headOn = Math.abs(v.x) > 0.7 && seal.vel.x < 0;
+      const ca = closestApproach(seal.pos, seal.vel, fish, headOn ? 3 : 1.5);
+      if (ca.d > w.p.get('smolt.sealCatchRadius') + s.margin + (headOn ? 0.8 : 0)) continue;
       const rel = { x: fish.x - seal.pos.x, z: fish.z - seal.pos.z };
       const side = Math.sign(-v.z * rel.x + v.x * rel.z) || 1;
-      if (s.sealDodge === 'across') {
+      // A lunge from ahead, or any lunge in the slow estuary, can't be let pass by changing speed: swim across it.
+      if (s.sealDodge === 'across' || headOn || sv?.section === 'estuary') {
         // As the caption says: swim across its path.
         ax = -v.z * side * 3;
         az = v.x * side * 3;
@@ -423,7 +479,9 @@ export class Bot {
     const n = Math.hypot(ax, az) || 1;
     const tx = fish.x + (ax / n) * 10;
     const tz = clamp(fish.z + (az / n) * 10, -7, 7);
-    return this.steer3(w, { x: tx, y: ty, z: tz }, { burst, hold: hold && !burst });
+    // Waiting in the estuary: ease off and drift, unless a threat has the fish moving.
+    const easing = waiting && hold && !burst;
+    return this.steer3(w, { x: tx, y: ty, z: tz }, { burst, hold: hold && !burst, ...(easing ? { forward: 0.2 } : {}) });
   }
 
   // ---------------------------------------------------------------- ocean
@@ -505,6 +563,9 @@ export class Bot {
     m.ignoreNet ??= {};
     const now = w.stageTime;
     const L0 = w.p.get('return.length');
+    // Across the lake at the end (lake() below).
+    const across = this.lake(w);
+    if (across) return across;
 
     // Bears: after a swipe the bear rests; that is the moment to dash past it.
     const fv = fallsView(w);
@@ -688,6 +749,113 @@ export class Bot {
   }
 
   /**
+   * The lake at the end of the return (null before it): out of the river's
+   * trough, follow the home scent across (sweeping when it is lost), choose a
+   * stream or beach by where the scent leads, wait off it until the colours
+   * ring is full (deep in a warm year, unless this player cruises the warm
+   * shallows), dodge bears in the shallows, then go in; a stream or beach that
+   * turns out wrong is crossed off and another tried.
+   */
+  private lake(w: World): Intent | null {
+    const v = lakeView(w);
+    if (!v) return null;
+    const lay = v.layout;
+    const fish = w.body.pos;
+    if (fish.x < lay.start - 1) return null;
+    const s = this.skill;
+    const now = w.stageTime;
+    type LakeMem = { site?: number; tried: number[]; lastScent?: number; arrivedAt?: number; deep?: boolean; sweep: number };
+    const m = ((this.m.lake as LakeMem | undefined) ??= { tried: [], sweep: 0 }) as LakeMem;
+    this.m.lake = m;
+    // Does this player keep deep in a warm year? Careful players do; novices often don't.
+    m.deep ??= !this.rng.chance(s.missChance * 4);
+    const water = returnWaterView(w);
+    const warm = !!water && water.warmth > 0.3;
+    const stressed = heatStress(w) > 0.35;
+    const holdY = (warm && m.deep) || stressed ? -6.5 : s.riverDepth - 1;
+
+    // Bears in the shallows: get out toward deep water, away from the swipe.
+    const radius = w.p.get('return.bearStrikeRadius') * (0.75 + 0.35 * (w.progress.adultSize ?? 1));
+    for (const bear of w.live('bear')) {
+      if (bear.pos.x < lay.start || bear.state !== 'warn' || !bear.home || !this.notice(w, bear)) continue;
+      if (distXZ(fish, bear.home) > radius + s.margin + 2) continue;
+      const ax = fish.x - bear.home.x;
+      const az = fish.z - bear.home.z;
+      const n = Math.hypot(ax, az) || 1;
+      const cx = lay.start + lay.len * 0.55 - fish.x;
+      const cz = -fish.z;
+      const cn = Math.hypot(cx, cz) || 1;
+      return this.steer3(w, { x: fish.x + (ax / n + cx / cn) * 8, y: -6, z: fish.z + (az / n + cz / cn) * 8 }, { burst: this.canBurst(w, true), dive: true });
+    }
+
+    // Out of the river's trough into open water.
+    const inlet = (lay.inletZ0 + lay.inletZ1) / 2;
+    if (fish.x < lay.start + 20) return this.steer3(w, { x: lay.start + 30, y: Math.min(-3, holdY), z: inlet * 0.7 }, { dive: fish.y > holdY + 0.5 && fish.x > lay.start + 6 });
+
+    // The scent: specks this player can make out, weighted by how strong they look.
+    const sight = SCENT_SIGHT * 1.6;
+    const specks = w.live('scent').filter((sc) => dist(sc.pos, fish) < sight && (sc.value ?? 1) > SCENT_FAINT);
+    const open = lay.sites.map((_, i) => i).filter((i) => !m.tried.includes(i));
+    const choices = open.length ? open : lay.sites.map((_, i) => i);
+    if (specks.length) {
+      m.lastScent = now;
+      const wsum = specks.reduce((a, sc) => a + (sc.value ?? 1) ** 2, 0);
+      const cue = { x: specks.reduce((a, sc) => a + sc.pos.x * (sc.value ?? 1) ** 2, 0) / wsum, z: specks.reduce((a, sc) => a + sc.pos.z * (sc.value ?? 1) ** 2, 0) / wsum };
+      // The site whose direction best matches where the scent leads; committed once close.
+      const committed = m.site !== undefined && distXZ(fish, siteWater(lay.sites[m.site]!)) < 22;
+      if (!committed) {
+        let best = choices[0]!;
+        let score = -Infinity;
+        for (const i of choices) {
+          const q = siteWater(lay.sites[i]!);
+          const a = Math.atan2(q.z - fish.z, q.x - fish.x);
+          const b = Math.atan2(cue.z - fish.z, cue.x - fish.x);
+          const c = Math.cos(wrapAngle(a - b)) - 0.004 * Math.hypot(cue.x - q.x, cue.z - q.z);
+          if (c > score) {
+            score = c;
+            best = i;
+          }
+        }
+        m.site = best;
+      }
+    }
+    // No scent for a while and no choice yet: sweep across the middle of the lake.
+    if (m.site === undefined) {
+      m.sweep += w.dt;
+      const tx = Math.min(lay.end - 30, fish.x + 12);
+      return this.steer3(w, { x: tx, y: holdY, z: Math.sin(m.sweep * 0.25) * lay.half * 0.6 }, { dive: fish.y > holdY + 1 });
+    }
+    const q = lay.sites[m.site]!;
+    const sw = siteWater(q);
+    // Off the site in open water while the colours come on.
+    const hold = q.kind === 'inflow' ? { x: sw.x - 14, z: sw.z } : { x: sw.x, z: sw.z - q.side * 11 };
+    // Out of a stream that turned out wrong before heading anywhere else.
+    const inChannel = fish.x > lay.end - 1;
+    if (inChannel && q.kind === 'inflow' && Math.abs(fish.z - q.z) > q.half) return this.steer3(w, { x: lay.end - 10, y: -1.5, z: fish.z });
+    if (inChannel && q.kind === 'beach') return this.steer3(w, { x: lay.end - 12, y: -1.5, z: fish.z });
+    if (v.ripe < 1) {
+      // Ease in and rest there (a restless novice keeps swimming about).
+      const d = Math.hypot(hold.x - fish.x, hold.z - fish.z);
+      const rest = s.name === 'novice' ? 0.45 : 0;
+      return this.steer3(w, { x: hold.x, y: holdY, z: hold.z }, { forward: Math.max(rest, Math.min(1, (d - 1.5) / 6)), dive: fish.y > holdY + 1 });
+    }
+    // Ready: go in. If nothing happens there, it was the wrong one.
+    const inside = q.kind === 'inflow' ? fish.x > lay.end + 3 && Math.abs(fish.z - q.z) < q.half + 0.5 : Math.abs(fish.x - q.x) < q.half && Math.abs(fish.z) > Math.abs(q.z) - 0.5;
+    if (inside) {
+      m.arrivedAt ??= now;
+      if (now - m.arrivedAt > 1.5) {
+        m.tried.push(m.site);
+        m.site = undefined;
+        m.arrivedAt = undefined;
+      }
+    } else m.arrivedAt = undefined;
+    // Line up off the mouth first: between the mouths the shore is too shallow to swim.
+    if (q.kind === 'inflow' && Math.abs(fish.z - q.z) > q.half - 0.8 && fish.x < lay.end) return this.steer3(w, { x: Math.min(sw.x, fish.x - 2), y: -1.6, z: q.z });
+    if (q.kind === 'inflow') return this.steer3(w, { x: fish.x < lay.end - 4 ? lay.end + 2 : lay.end + 12, y: -1.4, z: q.z });
+    return this.steer3(w, { x: q.x, y: -0.9, z: q.z + q.side * 2.5 });
+  }
+
+  /**
    * The rapids and falls (null elsewhere): burst up the rapids aiming for the
    * slack water behind the next boulder, rest at the foot of the plunge pool,
    * then sprint and leap where this player judges the spot to be. Up the side
@@ -791,6 +959,17 @@ export class Bot {
         const d = dist(r.pos, fish);
         return this.steer(w, r.pos.x, r.pos.z, { burst: d < w.p.get('spawn.chargeRadius') && this.canBurst(w) });
       }
+      if (site && st.spawned && st.burial < 1) {
+        // Eggs lying loose: drive off a char that has come for them (if noticed and close, and the eggs are not nearly covered), else cover them.
+        for (const ch of st.burial < 0.5 ? w.live('trout') : []) {
+          if ((ch.state !== 'warn' && ch.state !== 'strike') || !this.notice(w, ch)) continue;
+          if (distXZ(ch.pos, site.pos) > 3) continue;
+          const d = dist(ch.pos, fish);
+          return this.steer(w, ch.pos.x, ch.pos.z, { burst: d < w.p.get('spawn.chargeRadius') && this.canBurst(w) });
+        }
+        const d = distXZ(site.pos, fish);
+        return d > 1.2 ? this.steer(w, site.pos.x, site.pos.z) : intent({ action: true, hold: true });
+      }
       if (!site || st.spawned) return site ? this.steer(w, site.pos.x, site.pos.z, { forward: distXZ(site.pos, fish) > 1.5 ? 1 : 0, hold: true }) : intent();
       const d = distXZ(site.pos, fish);
       return d > 1.2 ? this.steer(w, site.pos.x, site.pos.z) : intent({ action: true, hold: true });
@@ -823,8 +1002,10 @@ export class Bot {
         m2.openSeen = w.stageTime;
       }
       if (w.stageTime - (m2.openSeen ?? 0) >= s.reaction) {
-        const d = distXZ(female.pos, fish);
-        return this.steer(w, female.pos.x, female.pos.z, { burst: this.canBurst(w), actionPressed: d < 2.2 });
+        // The opening is beside the female the males fight over: the player's own, or a crowd pair's.
+        const at = crowdOpening(w) ?? female;
+        const d = distXZ(at.pos, fish);
+        return this.steer(w, at.pos.x, at.pos.z, { burst: this.canBurst(w), actionPressed: d < 2.2 });
       }
     }
     const spots = st.spots;

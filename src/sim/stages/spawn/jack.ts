@@ -8,7 +8,8 @@ import { dist, distXZ, norm, scale, sub, v3 } from '../../vec';
 import type { World } from '../../world';
 import { stepBears } from './bears';
 import { endLife, seasonOver } from './result';
-import { rivalSize, spawnRival, st, stepRivals } from './shared';
+import { rivalSize, st, stepRivals } from './shared';
+import { crowdOf, crowdOpening, crowdRel, rivalFromCrowd } from './crowd';
 
 /**
  * Frequency-dependent jack success: how much one sneak is worth, relative to
@@ -146,13 +147,16 @@ export function stepJack(w: World, intent: Intent, dt: number, spent: boolean): 
   // Rival big males arrive and fight the guard: that is the jacks' opening.
   s.rivalTimer -= dt;
   if (s.rivalTimer <= 0 && female) {
-    spawnRival(w, female, rivalSize(w));
-    // Big runs mean more big males, more fights, more openings for jacks.
-    s.rivalTimer = (p.get('spawn.jackFightInterval') * w.rng.range(0.8, 1.2)) / w.conditions.runSize;
+    rivalFromCrowd(w, female, 'M', rivalSize(w));
+    // Crowded grounds mean more big males, more fights, more openings for jacks.
+    s.rivalTimer = (p.get('spawn.jackFightInterval') * w.rng.range(0.8, 1.2)) / crowdRel(w);
   }
   for (const r of w.live('rival')) {
     if (r.state === 'approach' && female && dist(r.pos, female.pos) < 5) {
       r.state = 'fight';
+      // The opening is at the player's own female now, not at a crowd pair.
+      const c = crowdOf(w);
+      if (c) c.openId = 0;
       if (guard) {
         guard.state = 'fight';
         guard.pos = v3(female.pos.x + 3.5, -1.6, female.pos.z - 2);
@@ -188,7 +192,9 @@ export function stepJack(w: World, intent: Intent, dt: number, spent: boolean): 
   stepRivals(w, dt, female, () => undefined);
   stepBears(w, dt, hidden);
   if (w.status !== 'playing') return;
-  if (t < s.windowUntil && female && intent.actionPressed && dist(fish, female.pos) < 2.4) {
+  // The opening is beside the female the males fight over: the player's own, or a crowd pair's nearby.
+  const target = crowdOpening(w) ?? female;
+  if (t < s.windowUntil && target && intent.actionPressed && dist(fish, target.pos) < 2.4) {
     s.sneaks += 1;
     s.share = Math.min(p.get('spawn.jackShareMax'), s.share + jackSneakShare(p, s.jackFraction));
     s.windowUntil = t;

@@ -46,6 +46,8 @@ export interface FishShape {
   dress?: number;
   /** The spawning look a returning fish is changing into. */
   dressTo?: FishLook;
+  /** Smolt: how strongly the last parr marks still show (0 gone), fading as it gets ready for salt water (estuary.ts). */
+  parr?: number;
 }
 
 interface Palette {
@@ -168,6 +170,8 @@ interface Plan {
   fork?: number;
   /** How strongly the head takes the head colour (blush 0.55, spawning 0.95). */
   headMix?: number;
+  /** Strength of the parr marks and back speckles (1 for fry; a smolt's fading remnant below 1). */
+  parrMix?: number;
 }
 
 const XT = -0.4;
@@ -253,12 +257,12 @@ function bodyColor(p: Plan, xo: number, s: number, side: number, out: THREE.Colo
     const cx = -0.33 + k * 0.066 + 0.006 * (hash3(k, 3.1, side) - 0.5);
     const h = 0.2 + 0.07 * hash3(k, 7.7, side);
     const d = ((xo - cx) / 0.019) ** 2 + ((s - 0.08) / h) ** 2;
-    if (d < 1) out.lerp(pal.parr, 0.62 * (1 - d * d));
+    if (d < 1) out.lerp(pal.parr, 0.62 * (1 - d * d) * (p.parrMix ?? 1));
   }
   // Fry: fine dark speckles on the back.
-  if (pal.parr && s > 0.45 && hash3(Math.round(xo * 90), Math.round(s * 9), side) > 0.86) out.multiplyScalar(0.72);
+  if (pal.parr && s > 0.45 && hash3(Math.round(xo * 90), Math.round(s * 9), side) > 0.86) out.multiplyScalar(1 - 0.28 * (p.parrMix ?? 1));
   // Silver sheen: a slightly brighter lateral band on silver fish.
-  if (!pal.head && !pal.parr && !pal.spots && Math.abs(s - 0.05) < 0.25 && p.look !== 'alevin') out.lerp(col(0xffffff), 0.06);
+  if (!pal.head && (!pal.parr || (p.parrMix ?? 1) < 1) && !pal.spots && Math.abs(s - 0.05) < 0.25 && p.look !== 'alevin') out.lerp(col(0xffffff), 0.06);
   // The belly of the alevin is pinkish where it meets the yolk sac.
   if (p.shape.yolk > 0) {
     const yb = bell(-0.08, 0.34, xo) * smooth(-0.2, -0.8, s);
@@ -666,6 +670,11 @@ export function buildFishGeometry(shape: FishShape, look: FishLook, opts: { lod?
     plan.fork = mixN(FORK[look] ?? 0.04, FORK[to] ?? 0.04);
     plan.headMix = mixN(0.55, 0.95);
   }
+  // A smolt with the last of its parr marks: the fry's marks, faded, on the smolt's silver.
+  if (look === 'smolt' && (shape.parr ?? 0) > 0) {
+    plan.pal = { ...PALETTES.smolt, parr: PALETTES.fry.parr };
+    plan.parrMix = shape.parr;
+  }
   const b = new GeoBuilder();
   const along = lod === 'low' ? 26 : 64;
   const around = lod === 'low' ? 12 : 24;
@@ -763,6 +772,6 @@ export function createFish(shape: FishShape, look: FishLook, opts: { transparent
   return mesh;
 }
 
-export const shapeKey = (s: FishShape): string => [s.depth, s.hump, s.kype, s.yolk].map((n) => n.toFixed(2)).join(',') + (s.dress ? `,${s.dress.toFixed(3)}>${s.dressTo ?? ''}` : '');
+export const shapeKey = (s: FishShape): string => [s.depth, s.hump, s.kype, s.yolk].map((n) => n.toFixed(2)).join(',') + (s.dress ? `,${s.dress.toFixed(3)}>${s.dressTo ?? ''}` : '') + (s.parr ? `,p${s.parr.toFixed(2)}` : '');
 
 export const DEFAULT_SHAPE: FishShape = { depth: 1, hump: 0, kype: 0, yolk: 0 };

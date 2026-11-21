@@ -5,6 +5,8 @@
  * - Lake outlet: char ambush from below.
  * - River: diving birds from above; mergansers dive and chase underwater.
  * - River mouth: gull flocks and seals.
+ * - Estuary (estuary.ts): brackish water at first light, where the fish
+ *   finishes adjusting to salt water before the sea.
  * The player swims in a school of other smolts. Predators pick targets from
  * the whole school, so staying in the school dilutes the player's risk.
  */
@@ -14,6 +16,7 @@ import { curvedChase, personalityOf } from '../personality';
 import { currentAt, depthOf, swimStep } from '../swim';
 import type { Entity, Vec3 } from '../types';
 import { lakeGrowth } from './fry';
+import { checkpointReady, estuaryFraction, haloclineDepth, newSalt, saltAfter, saltBefore, type SaltState } from './estuary';
 import { dist, distXZ, headingVec, lerp, norm, scale, sub, v3 } from '../vec';
 import type { World } from '../world';
 import type { StageDef } from './index';
@@ -29,17 +32,23 @@ interface SmoltState {
   schoolStart: number;
   /** Seconds left after a near miss during which predators pick school-mates over the player. */
   grace: number;
+  /** Readiness for salt water and the salinity where the fish is (estuary.ts). */
+  salt: SaltState;
 }
 
 const st = (w: World) => w.stage as unknown as SmoltState;
 
-export type SmoltSection = 'outlet' | 'river' | 'mouth';
+export type SmoltSection = 'outlet' | 'river' | 'mouth' | 'estuary';
 
 export function smoltSection(w: World, x = w.body.pos.x): SmoltSection {
   if (x < w.p.get('smolt.outletEnd')) return 'outlet';
   if (x < w.p.get('smolt.mouthStart')) return 'river';
-  return 'mouth';
+  if (x < w.p.get('smolt.estuaryStart')) return 'mouth';
+  return 'estuary';
 }
+
+/** Gulls and seals hunt the river mouth and the estuary. */
+const seaward = (section: SmoltSection): boolean => section === 'mouth' || section === 'estuary';
 
 /** Close school-mates around the player: the more, the safer. */
 function schoolmatesNear(w: World, r = 6): Entity[] {
@@ -191,7 +200,7 @@ function stepBirds(w: World, dt: number, section: SmoltSection): void {
   const fish = w.body.pos;
   s.birdTimer -= dt;
   if (section !== 'outlet' && s.birdTimer <= 0) {
-    const flock = section === 'mouth' ? 2 : 1;
+    const flock = seaward(section) ? 2 : 1;
     for (let i = 0; i < flock; i++) {
       const t = pickTarget(w);
       const warn = p.get('smolt.birdWarning');
@@ -201,8 +210,9 @@ function stepBirds(w: World, dt: number, section: SmoltSection): void {
       w.spawn('birdShadow', aim, { radius: p.get('smolt.birdStrikeRadius'), state: 'warn', timer: warn });
     }
     w.emit('warning', 'bird');
-    w.emitOnce('caption', section === 'mouth' ? 'smolt.gulls' : 'smolt.bird');
-    s.birdTimer = p.get(section === 'mouth' ? 'smolt.gullInterval' : 'smolt.birdInterval') * w.rng.range(0.7, 1.3);
+    w.emitOnce('caption', seaward(section) ? 'smolt.gulls' : 'smolt.bird');
+    const interval = section === 'estuary' ? 'estuary.gullInterval' : section === 'mouth' ? 'smolt.gullInterval' : 'smolt.birdInterval';
+    s.birdTimer = p.get(interval) * w.rng.range(0.7, 1.3);
   }
   for (const b of w.live('birdShadow')) {
     b.timer -= dt;
@@ -219,7 +229,8 @@ function stepBirds(w: World, dt: number, section: SmoltSection): void {
         // School-mates in the same strike zone and depth: the bird takes one fish.
         const others = w.live('smolt').filter((f) => distXZ(b.pos, f.pos) < b.radius && -f.pos.y < reach + 0.6);
         if (strikeLands(w, others)) {
-          w.die('bird');
+          // Gull flocks hunt the river mouth and the estuary; other diving birds the river above.
+          w.die(seaward(section) ? 'gull' : 'bird');
           return;
         }
       } else if (d < b.radius * p.get('smolt.nearMissRange')) nearMiss(w);
@@ -295,19 +306,25 @@ function stepSeals(w: World, dt: number, section: SmoltSection): void {
   const p = w.p;
   const s = st(w);
   s.sealTimer -= dt;
-  if (section === 'mouth' && s.sealTimer <= 0 && w.live('seal').length === 0) {
+  if (seaward(section) && s.sealTimer <= 0 && w.live('seal').length === 0) {
     const side = w.rng.chance(0.5) ? 1 : -1;
-    const start = v3(w.body.pos.x + w.rng.range(6, 14), -5.5, side * (HALF_WIDTH - 1));
+    // In the estuary the fish holds or swims slowly, so the seal shows farther off, seaward in the deep channel:
+    // the same time to react as a fish going downstream at the river's pace gets.
+    const est = section === 'estuary';
+    const ahead = est ? w.rng.range(p.get('estuary.sealAheadMin'), p.get('estuary.sealAheadMax')) : w.rng.range(6, 14);
+    const start = v3(w.body.pos.x + ahead, -5.5, side * (est ? HALF_WIDTH * 0.5 : HALF_WIDTH - 1));
     const sl = w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: p.get('smolt.sealWarning') });
     sl.timer *= personalityOf(w, sl).patience;
     w.emit('warning', 'seal');
     w.emitOnce('caption', 'smolt.seal');
-    s.sealTimer = p.get('smolt.sealInterval') * w.rng.range(0.7, 1.3);
+    s.sealTimer = p.get(section === 'estuary' ? 'estuary.sealInterval' : 'smolt.sealInterval') * w.rng.range(0.7, 1.3);
   }
   for (const seal of w.live('seal')) {
     seal.timer -= dt;
     if (seal.state === 'warn') {
-      seal.vel = v3(w.p.get('smolt.current'), 0, 0);
+      // It drifts with the water while it sizes up the school. In the estuary it keeps ahead of an oncoming
+      // school (no slower than the fish comes on), so its lunge always starts from about the same distance.
+      seal.vel = v3(section === 'estuary' ? Math.max(w.p.get('estuary.current'), w.body.vel.x) : w.p.get('smolt.current'), 0, 0);
       if (seal.timer <= 0) {
         seal.state = 'lunge';
         seal.timer = 2;
@@ -361,31 +378,49 @@ export const smoltStage: StageDef = {
     const main = w.p.get('smolt.current');
     const edge = w.p.get('smolt.edgeCurrent');
     const mouth = w.p.get('smolt.mouthStart');
+    const p = w.p;
+    const deepest = p.get('estuary.floorDepth');
+    // The estuary's tidal channel: a slower, broader outflow than the river.
+    const estuary = p.get('smolt.estuaryStart');
+    const flowAt = (x: number) => {
+      const t = Math.max(0, Math.min(1, (x - estuary + 20) / 40));
+      const k = t * t * (3 - 2 * t);
+      return { main: lerp(main, p.get('estuary.current'), k), edge: lerp(edge, p.get('estuary.edgeCurrent'), k) };
+    };
     return {
       kind: 'river',
       min: v3(0, -8, -HALF_WIDTH),
       max: v3(L, 0, HALF_WIDTH),
       surfaceY: 0,
       water: 'fresh',
-      // Deeper toward the river mouth, where seals hunt.
-      floor: (x, z) => -1.4 - (5.2 + Math.max(0, (x - mouth) / 40)) * (1 - (z / HALF_WIDTH) ** 2),
-      current: (pos) => v3(lerp(edge, main, 1 - (pos.z / HALF_WIDTH) ** 2), 0, 0),
+      // Deeper toward the river mouth, where seals hunt, levelling out in the estuary.
+      floor: (x, z) => -1.4 - Math.min(deepest, 5.2 + Math.max(0, (x - mouth) / 40)) * (1 - (z / HALF_WIDTH) ** 2),
+      current: (pos) => {
+        const f = flowAt(pos.x);
+        return v3(lerp(f.edge, f.main, 1 - (pos.z / HALF_WIDTH) ** 2), 0, 0);
+      },
     };
   },
-  init(w) {
+  init(w, marker) {
     const p = w.p;
-    w.body.pos = v3(6, -3, 0);
+    // A sibling resuming at the estuary checkpoint (marker 1) starts at its edge.
+    const startX = marker >= 1 ? p.get('smolt.estuaryStart') + 2 : 6;
+    w.body.pos = v3(startX, -3, 0);
     // A fish that grew more in the lake (or stayed a second year) leaves it visibly bigger.
     w.body.scale = p.get('smolt.baseScale') + p.get('smolt.scalePerLakeGrowth') * Math.min(lakeGrowth(p, w.progress), p.get('fry.fullLakeGrowth'));
     const n = p.get('smolt.schoolSize');
-    const s: SmoltState = { birdTimer: p.get('smolt.birdInterval') * 0.5, mergTimer: p.get('smolt.mergInterval') * 0.4, sealTimer: 1, lost: 0, schoolStart: n, grace: 0 };
+    const ready = marker >= 1 ? checkpointReady(p) : p.get('estuary.readyStart');
+    const s: SmoltState = { birdTimer: p.get('smolt.birdInterval') * 0.5, mergTimer: p.get('smolt.mergInterval') * 0.4, sealTimer: marker >= 1 ? 4 : 1, lost: 0, schoolStart: n, grace: 0, salt: newSalt(ready) };
     w.stage = s as unknown as Record<string, unknown>;
+    // The resumed sibling has already learned the river above the estuary.
+    if (marker >= 1) w.stage.imprintGain = (p.get('imprint.smoltMax') * p.get('smolt.estuaryStart')) / p.get('smolt.length');
     for (let i = 0; i < n; i++) {
       const home = v3(w.rng.range(-5, 3), w.rng.range(-1.2, 1.2), w.rng.range(-3.5, 3.5));
-      w.spawn('smolt', v3(6 + home.x, -3 + home.y, home.z), { radius: 0.2, home });
+      w.spawn('smolt', v3(startX + home.x, -3 + home.y, home.z), { radius: 0.2, home });
     }
-    const L = p.get('smolt.length');
-    for (let x = 10; x < L; x += w.rng.range(8, 16)) {
+    // Overhanging banks only along the river: the estuary is open water.
+    const coverEnd = p.get('smolt.estuaryStart');
+    for (let x = 10; x < coverEnd; x += w.rng.range(8, 16)) {
       const side = w.rng.chance(0.5) ? 1 : -1;
       w.spawn('cover', v3(x, -0.3, side * (HALF_WIDTH - 0.9)), { radius: 1.8, size: v3(w.rng.range(4, 8), 0.6, 1.8) });
     }
@@ -397,9 +432,11 @@ export const smoltStage: StageDef = {
     }
   },
   step(w, intent, dt) {
-    swimStep(w, intent, dt);
-    const section = smoltSection(w);
     const ss = st(w);
+    // Water saltier than the fish is ready for weakens recovery and the burst (estuary.ts).
+    swimStep(w, intent, dt, saltBefore(w, ss.salt));
+    saltAfter(w, ss.salt, dt);
+    const section = smoltSection(w);
     ss.grace = Math.max(0, ss.grace - dt);
     stepSchool(w, dt);
     stepSmoltImprint(w, schoolmatesNear(w).length, w.body.burst, dt);
@@ -414,6 +451,8 @@ export const smoltStage: StageDef = {
     stepSeals(w, dt, section);
     if (w.status !== 'playing') return;
     if (section === 'mouth') w.emitOnce('caption', 'smolt.mouth');
+    // Into the estuary: a sibling would resume here.
+    if (section === 'estuary') w.setCheckpoint(1);
     if (schoolmatesNear(w).length < 3 && w.live('smolt').length > 6) w.emitOnce('caption', 'smolt.alone');
 
     if (w.body.pos.x >= w.arena.max.x - 5) {
@@ -434,3 +473,35 @@ export const smoltStage: StageDef = {
 
 export const smoltLosses = (w: World): { lost: number; total: number } | null =>
   w.stageId === 'smolt' ? { lost: st(w).lost, total: st(w).schoolStart } : null;
+
+/** What the renderer, HUD, guide and bots read of the smolt run (null in other stages). */
+export interface SmoltView {
+  section: SmoltSection;
+  /** 0 at the estuary's start, 1 at the sea end (negative upstream of it). */
+  estuary: number;
+  /** Readiness for salt water, 0..1. */
+  ready: number;
+  /** Salinity where the fish is (fraction of sea water). */
+  salinity: number;
+  /** How far the water is beyond what the fish is ready for (0 within tolerance). */
+  over: number;
+  /** Depth of the middle of the halocline at the fish. */
+  halocline: number;
+  /** Readiness at which the fish counts as ready for the sea. */
+  readyDone: number;
+}
+
+export function smoltView(w: World): SmoltView | null {
+  if (w.stageId !== 'smolt') return null;
+  const s = st(w).salt;
+  if (!s) return null;
+  return {
+    section: smoltSection(w),
+    estuary: estuaryFraction(w.p, w.body.pos.x),
+    ready: s.ready,
+    salinity: s.salinity,
+    over: s.over,
+    halocline: haloclineDepth(w.p, w.body.pos.x),
+    readyDone: w.p.get('estuary.readyDone'),
+  };
+}

@@ -11,6 +11,7 @@
 import type { World } from '../sim/world';
 import type { Entity } from '../sim/types';
 import { dist } from '../sim/vec';
+import { crowdOpening } from '../sim/stages/spawn';
 
 /** Predator states that are an attack in progress. */
 export const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooked']);
@@ -37,7 +38,7 @@ export interface ActiveThreat {
 
 /** The labels on markers, by entity kind. */
 export function labelFor(w: World, kind: string): string | undefined {
-  const LABEL: Partial<Record<string, string>> = { lure: 'hooked', shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival' };
+  const LABEL: Partial<Record<string, string>> = { lure: 'hooked', shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival', gull: 'gull' };
   return LABEL[kind];
 }
 
@@ -59,12 +60,15 @@ export function activeThreats(w: World): ActiveThreat[] {
     const target = e.kind === 'bear' && e.home ? e.home : e.pos;
     // Strikes from above (bears, birds) are marked over the spot they will hit, at the fish's depth, so the marker
     // sits in view near the fish rather than up at the surface (feel pass).
-    const fromAbove = e.kind === 'bear' || e.kind === 'birdShadow' || (e.kind === 'merganser' && e.state === 'warn');
+    const fromAbove = e.kind === 'bear' || e.kind === 'birdShadow' || e.kind === 'gull' || (e.kind === 'merganser' && e.state === 'warn');
     const y = fromAbove ? Math.min(fish.y, w.arena.surfaceY - 0.3) : target.y;
     out.push({ id: e.id, kind: e.kind, marker: { x: target.x, y, z: target.z }, at: { ...e.pos }, label, hot: HOT.has(e.state) });
   }
+  // The jack's opening: beside a crowd pair whose males are fighting, else beside the player's own female.
+  const crowdOpen = w.stageId === 'spawn' ? crowdOpening(w) : null;
   const female = w.live('female')[0];
-  if (female && w.stageId === 'spawn' && w.live('rival').some((r) => r.state === 'fight')) out.push({ id: -1, kind: 'opening', marker: { ...female.pos }, at: { ...female.pos }, label: 'now', hot: true, opening: true });
+  if (crowdOpen) out.push({ id: -1, kind: 'opening', marker: { ...crowdOpen.pos }, at: { ...crowdOpen.pos }, label: 'now', hot: true, opening: true });
+  else if (female && w.stageId === 'spawn' && w.live('rival').some((r) => r.state === 'fight')) out.push({ id: -1, kind: 'opening', marker: { ...female.pos }, at: { ...female.pos }, label: 'now', hot: true, opening: true });
   return out;
 }
 

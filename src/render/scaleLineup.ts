@@ -64,6 +64,7 @@ export const LINEUP: Record<ScaleStage, LineupItem[]> = {
     { id: 'fryGrown', label: 'Fry after a good summer', make: fishModel('fry', { depth: 0.95 }), scale: grow('fry', 0.07, 2) },
     { id: 'plankton', label: 'Zooplankton (one speck)', make: dot(0xd8e6c4), scale: MODEL_SCALE.planktonSpeck },
     { id: 'charFry', label: 'Dolly Varden', make: animal('char'), scale: MODEL_SCALE.char },
+    { id: 'merganserFry', label: 'Common merganser over the lake', make: animal('mergFemale'), scale: MODEL_SCALE.merganserFry },
   ],
   smolt: [
     { id: 'smolt', label: 'Smolt (player)', make: fishModel('smolt', { depth: 0.95 }), scale: STAGE_PLAYER.smolt.scale },
@@ -89,6 +90,7 @@ export const LINEUP: Record<ScaleStage, LineupItem[]> = {
     { id: 'adult', label: 'Large male (player)', make: fishModel('spawnMale', { depth: 1.15, hump: 1, kype: 1 }), scale: STAGE_PLAYER.adult.scale },
     { id: 'jack', label: 'Jack', make: fishModel('spawnJack', { hump: 0.3, kype: 0.4 }), scale: MODEL_SCALE.jack },
     { id: 'female', label: 'Female rival', make: fishModel('spawnFemale', { depth: 1.05, hump: 0.15 }), scale: 0.95 },
+    { id: 'charGrounds', label: 'Dolly Varden at the redds', make: animal('char'), scale: MODEL_SCALE.charGrounds },
     { id: 'lure', label: 'Spoon lure', make: lure(), scale: MODEL_SCALE.lure },
     { id: 'netFloat', label: 'Gillnet float', make: dot(0xff7a1a), scale: MODEL_SCALE.netFloat * 2 },
     { id: 'gull', label: 'Gull (wingspan)', make: animal('gull'), scale: MODEL_SCALE.gull, measure: 'span' },

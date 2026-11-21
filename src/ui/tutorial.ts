@@ -8,10 +8,10 @@
  * can be tested without a browser. `Guide` wraps it with the on-screen prompt.
  */
 import { alevinView } from '../sim/stages/egg';
-import { fryGrowth, fryView, type FryPhase } from '../sim/stages/fry';
+import { fryGrowth, fryView, type FryPhase, type TimeOfDay } from '../sim/stages/fry';
 import { LIP_END } from '../sim/stages/falls';
 import { returnLayout } from '../sim/stages/return';
-import { smoltSection, type SmoltSection } from '../sim/stages/smolt';
+import { smoltSection, smoltView, type SmoltSection } from '../sim/stages/smolt';
 import { spawnState, type SpawnRole } from '../sim/stages/spawn';
 import type { SimEvent, StageId } from '../sim/types';
 import { dist, wrapAngle } from '../sim/vec';
@@ -42,9 +42,13 @@ export interface GuideSnapshot {
   fryGrowth: number;
   /** The fry stage's moment (the one coming up, during a time skip); null elsewhere. */
   fryPhase: Exclude<FryPhase, 'skip'> | 'done' | null;
+  /** Time of day in a lived summer day in the lake; null elsewhere. */
+  fryTod?: TimeOfDay | null;
   smoltSection: SmoltSection | null;
   /** School-mates within a few body lengths (smolt run). */
   schoolNear: number;
+  /** The smolt run's readiness for salt water against what counts as ready, and salt beyond it (null elsewhere). */
+  salt: { ready: number; done: number; over: number } | null;
   /** x of the coastline on the return. */
   coast: number | null;
   spawn: { dig: number; spawned: boolean; hiding: boolean; nearFemale: boolean; burial: number } | null;
@@ -151,7 +155,14 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           covers: ['fry.lesson', 'fry.trout'],
         },
         {
-          text: 'Grow through the seasons.',
+          text: 'Live the lake days. By day, go deep {key:dive} into dark, cold open water. At dusk and dawn, rise {key:rise} to feed. A bird on the surface means dive.',
+          done: (s) => s.fryPhase === 'winter' || s.fryPhase === 'decide' || s.fryPhase === 'second',
+          progress: (s) => (s.fryTod ? `${s.fryTod}, grown ${pct(s.fryGrowth)}` : `grown ${pct(s.fryGrowth)}`),
+          covers: ['fry.day', 'fry.dayAgain', 'fry.dusk', 'fry.dawn', 'fry.night', 'fry.merganser', 'fry.second'],
+          keys: ['dive', 'rise'],
+        },
+        {
+          text: 'Grow through the winter.',
           done: (s) => s.fryPhase === 'decide' || s.fryPhase === 'second',
           progress: (s) => `grown ${pct(s.fryGrowth)}`,
         },
@@ -173,7 +184,13 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           covers: ['smolt.bird'],
           keys: ['dive'],
         },
-        { text: 'On to the sea. If a seal comes, swim across its path, not away.', done: never, covers: ['smolt.seal'] },
+        { text: 'On to the sea. If a seal comes, swim across its path, not away.', done: (s) => s.smoltSection === 'estuary', covers: ['smolt.seal'] },
+        {
+          text: 'The estuary. Ease off {hold:easeOff} in the brackish water, between the fresher water on top and the salt below, until the salt ring fills. Then on to the open sea.',
+          done: never,
+          progress: (s) => (!s.salt ? '' : s.salt.ready >= s.salt.done ? 'ready for the sea' : `ready ${pct(s.salt.ready / s.salt.done)}`),
+          covers: ['estuary.enter', 'estuary.edge'],
+        },
       ];
     case 'ocean':
       return [
@@ -209,7 +226,11 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           skipIf: (s) => s.coast !== null && s.x > LIP_END + 1,
           keys: ['burst', 'rise'],
         },
-        { text: 'On up to the fork, then follow the scent home.', done: never },
+        {
+          text: 'On past the fork and across the lake, following the scent. Wait until the red ring is full; in a warm year, wait deep, where it is cool.',
+          done: never,
+          covers: ['return.lake.wait', 'return.lake.warm', 'return.lake.lostScent'],
+        },
       ];
     }
     case 'spawn':
@@ -365,8 +386,10 @@ export function guideSnapshot(w: World): GuideSnapshot {
     x: body.pos.x,
     fryGrowth: fryGrowth(w),
     fryPhase: ((v) => (v ? (v.phase === 'skip' ? v.next : v.phase) : null))(fryView(w)),
+    fryTod: fryView(w)?.tod ?? null,
     smoltSection: w.stageId === 'smolt' ? smoltSection(w) : null,
     schoolNear: w.stageId === 'smolt' ? w.live('smolt').filter((s) => dist(s.pos, body.pos) < 6).length : 0,
+    salt: ((v) => (v ? { ready: v.ready, done: v.readyDone, over: v.over } : null))(smoltView(w)),
     coast: returnLayout(w)?.coast ?? null,
     yaw: body.yaw,
     burst: body.burst,

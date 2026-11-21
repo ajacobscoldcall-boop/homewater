@@ -33,7 +33,7 @@ export function showStageCard(app: App, w: World, note: string | null = null): v
       note ? h('p', { class: 'muted', id: 'stage-note' }, note) : null,
       h('p', { class: 'label' }, `Stage ${w.stageIndex + 1} of 6 · ${w.fish.name}`),
       h('h2', {}, STAGE_TITLES[w.stageId]),
-      h('p', { id: 'card-place' }, stageCardLine(w.stageId, w.progress.oceanYears)),
+      h('p', { id: 'card-place' }, stageCardLine(w.stageId, w.progress.oceanYears, w.fish.habitat)),
       h('p', { class: 'muted', id: 'card-year' }, stageYearLine(app.params, w.stageId, w.conditions), ' ', toggle),
       stageCardMap(app, w),
       details,

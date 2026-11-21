@@ -2,6 +2,7 @@
  * A fish's death: the gore death beat, then a sibling carries on, a stray
  * rescues the line (Field guide), or the line goes extinct (Wild).
  */
+import { lakeView } from '../../sim/stages/returnLake';
 import { deathBeatPlan } from '../../render/goreConfig';
 import { markExtinct, recordLife, strayRescue, type Lineage } from '../../sim/lineage';
 import type { World } from '../../sim/world';
@@ -24,7 +25,7 @@ export function onDeath(app: App, w: World): void {
   app.input.releaseLock();
   app.setHudVisible(false);
   // Record the death and save at once, so a reload on the death screen (or during the beat) cannot undo it.
-  app.deaths.push({ name: w.fish.name, stage: w.stageId, cause: w.deathCause ?? 'exhaustion' });
+  app.deaths.push({ name: w.fish.name, stage: w.stageId, cause: w.deathCause ?? 'exhaustion', ...(lakeView(w)?.inside ? { where: 'lake' as const } : {}) });
   void app.save();
   // Gore: a short, skippable death beat before the death screen, when a predator, a net or a line took the fish.
   const beat = deathBeatPlan(w.deathCause, app.settings.gore);
