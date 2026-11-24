@@ -8,21 +8,29 @@ import { alevinView } from '../../sim/stages/egg';
 import { fryGrowth } from '../../sim/stages/fry';
 import { returnWaterView } from '../../sim/stages/returnWater';
 import { smoltView } from '../../sim/stages/smolt';
+import { oceanView } from '../../sim/stages/ocean';
+import { oceanMapKey, oceanMapNodes } from '../../ui/oceanMapView';
 import type { World } from '../../sim/world';
 import { hudHint } from '../../ui/controls';
 import { h } from '../../ui/dom';
 import { HudView } from '../../ui/hudView';
 import { OBJECTIVES, sexSymbol, STAGE_TITLES } from '../../ui/text';
-import { waterBars } from '../../ui/waterHud';
+import { heatTollBar, waterBars } from '../../ui/waterHud';
+import { groundsHeat } from '../../sim/stages/heatToll';
 import type { App } from '../App';
 import { activeThreats } from '../../render/threats';
 import { access } from '../../ui/accessibility';
 import { edgeShadow, threatMarkers, Vitals } from '../../ui/vitals';
 
+/** Seconds the ocean map stays up after a time skip ends. */
+const OCEAN_MAP_LINGER = 1.5;
+
 export class PlayHud {
   /** HUD elements and the values last written to them (src/ui/hudView.ts). */
   private readonly hud = new HudView();
   private hitsHeard = 0;
+  /** Stage time the current season at sea began (the map lingers a moment after a skip). */
+  private seaSeasonAt = -Infinity;
   /** Always-visible minimal HUD (src/ui/vitals.ts): energy and fat rings, water temperature when it matters. */
   private readonly vitals = new Vitals();
 
@@ -65,11 +73,19 @@ export class PlayHud {
     hud.edgeShadow('edge-shadow', access().documentaryView ? edgeShadow(threats, w.body.pos, project) : null);
     this.vitals.update(hud, w, frameDt, playing);
 
+    // The ocean map: shown through each time skip at sea, and for the first moments of the season after it.
+    const sea = oceanView(w);
+    if (!sea || sea.phase === 'skip') this.seaSeasonAt = sea ? Infinity : -Infinity;
+    else if (this.seaSeasonAt === Infinity || this.seaSeasonAt > w.stageTime) this.seaSeasonAt = w.stageTime;
+    const showMap = !!sea && playing && (sea.phase === 'skip' || (sea.phase === 'season' && w.stageTime - this.seaSeasonAt < OCEAN_MAP_LINGER));
+    if (sea && showMap) hud.children('hud-oceanmap', oceanMapKey(sea), () => oceanMapNodes(sea));
+    hud.hidden('hud-oceanmap', !showMap);
+
     hud.hidden('hud-bars', !app.hudDetailed);
     if (app.hudDetailed) {
       const rows: [string, number][] = [];
       // Energy, yolk and fat are always shown by the rings (vitals.ts); the details panel keeps the rest.
-      if (alevin) rows.push(['hold', 1 - alevin.drift], ['daylight', alevin.light]);
+      if (alevin) rows.push(['hold', 1 - alevin.drift], ['daylight', alevin.light], ['water moving', alevin.flowHere], ['oxygen', alevin.o2], ['strength', alevin.vigour]);
       if (w.stageId === 'fry') rows.push(['growth', fryGrowth(w)]);
       // The smolt run: readiness for salt water, and the salinity around the fish (src/sim/stages/estuary.ts).
       const smolt = smoltView(w);
@@ -80,6 +96,8 @@ export class PlayHud {
       const bars = rows.map(([name, value]) => ({ name, value, low: value < 0.25 && name !== 'depth' && name !== 'daylight' && name !== 'salinity' }));
       const water = returnWaterView(w);
       if (water) bars.push(...waterBars(w.p, water));
+      const toll = heatTollBar(w.p, groundsHeat(w));
+      if (toll) bars.push(toll);
       hud.bars('hud-bars', bars);
     }
   }

@@ -15,7 +15,8 @@ import { VITALS } from './hudConfig';
 export interface VitalRing {
   name: string;
   value: number;
-  level: 'ok' | 'low' | 'critical';
+  /** 'ready': full and good to go (the leap gauge at the falls). */
+  level: 'ok' | 'low' | 'critical' | 'ready';
 }
 
 const SVG = 'http://www.w3.org/2000/svg';

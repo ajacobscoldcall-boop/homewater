@@ -9,7 +9,7 @@
  */
 import { alevinView } from '../sim/stages/egg';
 import { fryGrowth, fryView, type FryPhase, type TimeOfDay } from '../sim/stages/fry';
-import { LIP_END } from '../sim/stages/falls';
+import { LIP_END, PRACTICE_X1 } from '../sim/stages/falls';
 import { returnLayout } from '../sim/stages/return';
 import { smoltSection, smoltView, type SmoltSection } from '../sim/stages/smolt';
 import { spawnState, type SpawnRole } from '../sim/stages/spawn';
@@ -32,7 +32,8 @@ export interface GuideSnapshot {
   stage: StageId;
   /** Spawning role, on the spawning grounds only. */
   role: SpawnRole | null;
-  alevin: { hatched: boolean; aligned: boolean; turning: boolean; ready: boolean } | null;
+  /** flowing: water moves freely where the alevin lies; pocketSet: the low-oxygen pocket has stopped the water (egg threats). */
+  alevin: { hatched: boolean; aligned: boolean; turning: boolean; ready: boolean; flowing?: boolean; pocketSet?: boolean } | null;
   yolk: number;
   thrust: number;
   /** Metres below the surface. */
@@ -102,6 +103,8 @@ const HOME_RIVER_PAST_COAST = 35;
 /** Onboarding: radians to turn each way, and metres to dive and rise. */
 const TURN_GOAL = 0.6;
 const DEPTH_GOAL = 0.6;
+/** Egg stage: water moving this freely counts as out of the pocket. */
+const FLOWING = 0.6;
 
 export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] {
   switch (stage) {
@@ -112,15 +115,37 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           text: 'When the flow swings round, turn {key:steer} until you face upstream, and hold there.',
           done: (s, c) => n(c, 'warning.flow') > 0 && !!s.alevin?.aligned && !s.alevin.turning,
           hold: 0.5,
-          skipIf: (s) => !!s.alevin?.ready,
+          // A first life's events can come before the first surge; then the later steps teach facing the flow.
+          skipIf: (s, c) => !!s.alevin?.ready || n(c, 'warning.pocket', 'warning.sculpin', 'warning.flood', 'warning.silt') > 0,
           covers: ['egg.flow'],
           keys: ['steer'],
+        },
+        {
+          text: 'Where the flecks have stopped, the water is still and its oxygen is going. Crawl {key:forward} out to where they move.',
+          done: (s, c) => n(c, 'warning.pocket') > 0 && !!s.alevin?.pocketSet && !!s.alevin.flowing,
+          hold: 1,
+          skipIf: (_s, c) => n(c, 'warning.sculpin', 'warning.flood', 'warning.silt') > 0,
+          covers: ['egg.pocket', 'egg.gasping'],
+          keys: ['forward', 'steer'],
+        },
+        {
+          text: 'Something is nosing through the gravel. Get right down {key:dive}, close against a big stone, and keep still until it has gone.',
+          done: (_s, c) => n(c, 'egg.sculpinGone') > 0,
+          skipIf: (_s, c) => n(c, 'warning.flood', 'warning.silt') > 0,
+          covers: ['egg.sculpin', 'egg.sculpinNear'],
+          keys: ['dive'],
         },
         {
           text: 'Rising, cloudy water means a flood. Get right down in the gravel {key:dive} and keep turning upstream until it passes.',
           done: (_s, c) => n(c, 'egg.floodOver') > 0,
           covers: ['egg.floodComing', 'egg.flood'],
           keys: ['steer', 'dive'],
+        },
+        {
+          text: 'As silt clouds the water, head {key:forward} for a big stone with drifting specks beside it. Some of those gaps are low {key:dive}, some higher {key:rise}.',
+          done: (_s, c) => n(c, 'egg.siltOver') > 0,
+          covers: ['egg.siltComing', 'egg.silt'],
+          keys: ['forward', 'dive', 'rise'],
         },
         {
           text: 'Keep facing upstream and stay low {key:dive}. Wait for the yolk to run low.',
@@ -197,18 +222,26 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
         {
           text: 'Feed: swim through the swarm of food.',
           done: (_s, c) => n(c, 'eat') >= EAT_GOAL,
-          skipIf: (_s, c) => n(c, 'warning.orca') > 0,
+          skipIf: (_s, c) => n(c, 'warning.seal') + n(c, 'warning.orca') > 0,
           progress: (_s, c) => `${Math.min(EAT_GOAL, n(c, 'eat'))} / ${EAT_GOAL} eaten`,
         },
-        { text: 'Watch for an orca. When it charges, swim across its path, not away from it.', done: (_s, c) => n(c, 'ocean.orcaGone') > 0, covers: ['ocean.orca', 'ocean.shark'] },
-        { text: 'A salmon shark next. The same trick: cut across its line.', done: (_s, c) => n(c, 'ocean.sharkGone') > 0, covers: ['ocean.shark'] },
-        { text: 'Keep feeding until it is time to turn for home.', done: never },
+        {
+          text: 'Each season has a rich patch of food and a thin one. Hunters come where the food is thickest: feed there to grow, or keep to the thin patch and stay safer.',
+          done: (_s, c) => n(c, 'ocean.shelf') > 0,
+          covers: ['ocean.huntZone'],
+        },
+        {
+          text: 'When a hunter charges, swim across its path, not away from it.',
+          done: (_s, c) => n(c, 'ocean.orcaGone') + n(c, 'ocean.sharkGone') + n(c, 'ocean.sealGone') > 0,
+          covers: ['ocean.orca', 'ocean.shark', 'ocean.seal'],
+        },
+        { text: 'Season follows season: the map shows where you are. Keep growing until it is time to turn for home.', done: never, covers: ['ocean.turnHome'] },
       ];
     case 'return': {
       const pastCoast = (s: GuideSnapshot, by = 0) => s.coast !== null && s.x > s.coast + by;
       return [
         {
-          text: 'Follow the faint blue shimmer of the magnetic track toward the coast. If it fades, sweep side to side to find it.',
+          text: 'Follow the blue shimmer of the magnetic track toward the coast. If it fades, sweep side to side to find it.',
           done: (s) => s.coast !== null && s.x >= s.coast / 2,
           skipIf: (s) => pastCoast(s),
           covers: ['return.track', 'return.lostTrack'],
@@ -221,10 +254,19 @@ export function guideSteps(stage: StageId, role: SpawnRole | null): GuideStep[] 
           covers: ['return.pastNets', 'return.wrongRiver'],
         },
         {
-          text: 'Get up through the rapids and over the falls.',
+          // A practice leap before the falls (optional: past the ledge, the step goes by).
+          text: 'Practice first: hop the low ledge by the bank. Swim at it fast, high in the water, and burst {key:burst}.',
+          done: (_s, c) => n(c, 'return.practiceLeap') > 0,
+          skipIf: (s) => s.coast !== null && s.x > PRACTICE_X1 + 2,
+          covers: ['return.practice', 'return.practiceMiss'],
+          keys: ['forward', 'burst'],
+        },
+        {
+          text: 'Over the falls. Run at them high in the water; when the leap gauge is full, burst {key:burst}.',
           done: (_s, c) => n(c, 'return.firstLeap') + n(c, 'return.chuteUp') > 0,
           skipIf: (s) => s.coast !== null && s.x > LIP_END + 1,
-          keys: ['burst', 'rise'],
+          covers: ['return.falls', 'return.leapFail'],
+          keys: ['forward', 'burst'],
         },
         {
           text: 'On past the fork and across the lake, following the scent. Wait until the red ring is full; in a warm year, wait deep, where it is cool.',
@@ -371,7 +413,7 @@ export function guideSnapshot(w: World): GuideSnapshot {
   if (a) {
     const upstream = wrapAngle(a.currentAngle + Math.PI);
     const aligned = Math.abs(wrapAngle(body.yaw - upstream)) < w.p.get('alevin.alignTolerance');
-    alevin = { hatched: a.phase === 'alevin', aligned, turning: a.warning, ready: a.ready };
+    alevin = { hatched: a.phase === 'alevin', aligned, turning: a.warning, ready: a.ready, flowing: a.flowHere >= FLOWING, pocketSet: a.pocket.phase !== 'none' && a.pocket.phase !== 'forming' };
   }
   const female = sp ? w.live('female')[0] : undefined;
   const near = 4; // the same "beside her" distance the spawning stage uses

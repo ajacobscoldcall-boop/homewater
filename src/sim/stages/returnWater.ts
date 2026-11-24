@@ -15,8 +15,10 @@
  * Effects (applied by `stepWater`, called from the return stage):
  *   - warm water burns fat faster and slows recovery of energy;
  *   - low oxygen weakens the burst;
- *   - above a stress temperature (or below an oxygen floor) heat stress builds,
- *     and at 1 the fish dies (`heat`); resting in cool water lets it ease.
+ *   - above a stress temperature (or below an oxygen floor) heat stress builds;
+ *     resting in cool water lets it ease. Stress adds to a lasting toll the
+ *     fish carries to the spawning grounds (heatToll.ts); only full stress in
+ *     extreme water kills on the spot (`heat`).
  *
  * Every number is a param (`return.water.*`, placeholders).
  */
@@ -26,6 +28,7 @@ import type { World } from '../world';
 import { fallsLayout } from './falls';
 import { returnLayout } from './return';
 import { lakeWater } from './returnLake';
+import { heatToll, stepHeatToll } from './heatToll';
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
@@ -173,7 +176,7 @@ export function waterEffects(w: World, r: WaterReading): WaterEffects {
   };
 }
 
-/** Accumulated heat stress, 0..1 (1 kills). */
+/** Heat stress now, 0..1: the strain of the water the fish is in (1 kills only in extreme water, heatToll.ts). */
 export function heatStress(w: World): number {
   return wst(w).heatStress ?? 0;
 }
@@ -186,9 +189,11 @@ export function isRefuge(w: World, r: WaterReading): boolean {
 /**
  * One step of heat stress for the fish where it is. Stress builds above the
  * stress temperature and in low oxygen, and eases in cool water, fastest when
- * resting. Returns the reading and its effects for the stage to apply.
+ * resting. Strain adds to the lasting toll (heatToll.ts). Returns the reading,
+ * its effects for the stage to apply, and whether the fish died of heat here
+ * (full stress in extreme water).
  */
-export function stepWater(w: World, dt: number, resting: boolean): { reading: WaterReading; effects: WaterEffects } {
+export function stepWater(w: World, dt: number, resting: boolean): { reading: WaterReading; effects: WaterEffects; lethal: boolean } {
   const p = w.p;
   const s = wst(w);
   const reading = waterAt(w, w.body.pos);
@@ -207,12 +212,15 @@ export function stepWater(w: World, dt: number, resting: boolean): { reading: Wa
     w.emitOnce('caption', reading.seep > 0.4 ? 'return.coolSeep' : inLake ? 'return.lake.coolDeep' : 'return.coolPool');
   }
   if (s.heatStress > p.get('return.water.stressCaption')) w.emitOnce('caption', 'return.heatStress');
-  return { reading, effects };
+  const lethal = stepHeatToll(w, dt, s.heatStress, reading.temp);
+  return { reading, effects, lethal };
 }
 
 /** What the HUD and renderer read: the water at the fish, and its heat stress. */
 export interface ReturnWaterView extends WaterReading {
   stress: number;
+  /** The lasting toll built so far (heatToll.ts), 0..1. */
+  toll: number;
   /** -1 cool refuge .. 0 comfortable .. 1 stressful heat, for tinting the water. */
   feel: number;
 }
@@ -225,5 +233,5 @@ export function returnWaterView(w: World): ReturnWaterView | null {
   const stressT = p.get('return.water.stressTemp');
   const refuge = isRefuge(w, r);
   const feel = refuge ? -1 : clamp01((r.temp - comfort) / (stressT + p.get('return.water.stressSpan') - comfort));
-  return { ...r, stress: heatStress(w), feel };
+  return { ...r, stress: heatStress(w), toll: heatToll(w), feel };
 }

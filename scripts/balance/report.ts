@@ -355,6 +355,7 @@ export function renderReport(data: ReportData, previous: string): string {
           `smolt depth ${-k.smoltDepth}`,
           k.sealSprint ? 'sprints past seals' : '',
           k.estuaryPatience ? `holds in the estuary to ${pct(k.estuaryPatience)} ready` : 'rushes the estuary',
+          `feeds rich at sea ${pct(k.oceanBold)}${k.oceanWary ? ', moves off when a hunter shows' : ''}`,
           k.forkMistake ? `wrong fork ${pct(k.forkMistake)}` : '',
           k.riverBurst ? 'bursts upstream' : '',
           k.bankSwim ? 'swims the slow edges' : '',

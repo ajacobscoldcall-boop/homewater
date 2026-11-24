@@ -157,7 +157,7 @@ if (want('ocean')) {
   await steps(page, 60);
   await page.evaluate(() => {
     const w = window.__hw.app.world;
-    const c = w.stage.ballCenter;
+    const c = w.stage.patches?.[0]?.center; // the shallow food patch (ocean journey: two patches a season)
     if (c) {
       w.body.pos = { x: c.x, y: c.y + 0.5, z: c.z - 5 };
       w.body.yaw = Math.PI / 2;

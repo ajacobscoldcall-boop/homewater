@@ -35,6 +35,8 @@ export interface Skill {
   earlyRiseChance: number;
   /** Alevin: only turn when misaligned by more than this (saves yolk). */
   alevinDeadband: number;
+  /** Alevin, in the silt: chance of reading which height the open gap beside a stone is at (else it stays deep). */
+  alevinGapRead: number;
   /** Fry: preference for rich plankton, and penalty for food near a patrolling trout (in units of distance). */
   fryRichBonus: number;
   fryRisk: number;
@@ -49,6 +51,13 @@ export interface Skill {
    * (0 rushes straight out to sea).
    */
   estuaryPatience: number;
+  /**
+   * Ocean: chance, each season, of feeding in the rich patch where the season's predator hunts
+   * rather than the thinner, safer one.
+   */
+  oceanBold: number;
+  /** Ocean: moves off toward the thin patch as soon as a predator shows (before it attacks). */
+  oceanWary: boolean;
   /** Smolt: sprint past a seal while it is still a dark shape, before it lunges. */
   sealSprint: boolean;
   /** Smolt: dodging a lunge by swimming across its path, or by changing speed along the river. */
@@ -67,6 +76,9 @@ export interface Skill {
   riverDepth: number;
   /** Return: swims in the slower water near the banks. */
   bankSwim: boolean;
+  /** Return, warm years: heat stress at which this player goes to rest in cool water, and the stress at which they set off again. */
+  heatRefuge: number;
+  heatResume: number;
   /** Spawn (female): noise when judging cobble quality. */
   judgeNoise: number;
   /** Spawn (female): drives rivals off before the redd is finished, not only after. */
@@ -90,12 +102,15 @@ export const SKILLS: Record<SkillName, Skill> = {
     panicChance: 0.5,
     earlyRiseChance: 0.35,
     alevinDeadband: 0.35,
+    alevinGapRead: 0.45,
     fryRichBonus: 0,
     fryRisk: 0,
     fryBurstDist: Infinity,
     fryCycle: 0.4,
     smoltDepth: -2.0,
     estuaryPatience: 0,
+    oceanBold: 0.8,
+    oceanWary: false,
     sealSprint: false,
     sealDodge: 'across',
     forkMistake: 0.35,
@@ -104,6 +119,8 @@ export const SKILLS: Record<SkillName, Skill> = {
     fallsRest: 0.55,
     riverBurst: true,
     riverDepth: -1.5,
+    heatRefuge: 0.8,
+    heatResume: 0.45,
     bankSwim: false,
     judgeNoise: 0.3,
     defendEarly: false,
@@ -123,12 +140,15 @@ export const SKILLS: Record<SkillName, Skill> = {
     panicChance: 0.15,
     earlyRiseChance: 0.1,
     alevinDeadband: 0.2,
+    alevinGapRead: 0.75,
     fryRichBonus: 4,
     fryRisk: 8,
     fryBurstDist: 5,
     fryCycle: 0.75,
     smoltDepth: -2.8,
     estuaryPatience: 0.6,
+    oceanBold: 0.6,
+    oceanWary: false,
     sealSprint: false,
     sealDodge: 'across',
     forkMistake: 0.1,
@@ -137,6 +157,8 @@ export const SKILLS: Record<SkillName, Skill> = {
     fallsRest: 0.75,
     riverBurst: false,
     riverDepth: -3,
+    heatRefuge: 0.5,
+    heatResume: 0.2,
     bankSwim: false,
     judgeNoise: 0.15,
     defendEarly: false,
@@ -156,12 +178,15 @@ export const SKILLS: Record<SkillName, Skill> = {
     panicChance: 0,
     earlyRiseChance: 0,
     alevinDeadband: 0.1,
+    alevinGapRead: 1,
     fryRichBonus: 8,
     fryRisk: 20,
     fryBurstDist: 3.5,
     fryCycle: 0.95,
     smoltDepth: -3.6,
     estuaryPatience: 1,
+    oceanBold: 0.45,
+    oceanWary: true,
     sealSprint: true,
     sealDodge: 'speed',
     forkMistake: 0,
@@ -170,6 +195,8 @@ export const SKILLS: Record<SkillName, Skill> = {
     fallsRest: 0.9,
     riverBurst: true,
     riverDepth: -4.5,
+    heatRefuge: 0.3,
+    heatResume: 0.15,
     bankSwim: true,
     judgeNoise: 0.04,
     defendEarly: true,

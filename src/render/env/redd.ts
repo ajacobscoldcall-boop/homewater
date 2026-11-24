@@ -1,12 +1,16 @@
 /**
  * Egg and alevin: inside a creek redd. Cobble of mixed sizes packed around a
  * clear pocket where the egg lies, dark interstitial gaps, fine silt in the
- * hollows, and a few pebbles that shift when the flow surges.
+ * hollows, and a few pebbles that shift when the flow surges. The hollow the
+ * alevin can crawl through (alevin.crawlRadius) holds only the sim's large
+ * stones (eggThreats.ts), drawn where the sim has them, with small stones
+ * between; the stones dust over with silt when it settles.
  */
 import * as THREE from 'three';
 import { alevinView } from '../../sim/stages/egg';
 import type { World } from '../../sim/world';
 import type { EnvParts } from './index';
+import { REDD_FX } from '../reddThreatsConfig';
 import { byDetail, envMaterial, fbm, instanced, range, rockGeometry, rockLevel, seeded, terrain, gridLines, type Detail, type Placement } from './kit';
 
 interface Stone {
@@ -26,7 +30,10 @@ export function buildRedd(w: World, detail: Detail): EnvParts {
   const bed = Math.min(floor, BED);
 
   // Pack stones from largest to smallest, so the small ones fill the gaps.
-  const stones: Stone[] = [];
+  // The sim's large stones first, so the packed stones keep clear of them.
+  const sim = alevinView(w)?.stones ?? [];
+  const hollow = w.p.get('alevin.crawlRadius') + 0.12;
+  const stones: Stone[] = sim.map((s) => ({ x: s.x, z: s.z, r: s.r }));
   const tryPlace = (count: number, rMin: number, rMax: number, area: number, pocket: number, overlap: number) => {
     let placed = 0;
     for (let a = 0; a < count * 30 && placed < count; a++) {
@@ -42,9 +49,12 @@ export function buildRedd(w: World, detail: Detail): EnvParts {
     }
     return stones.length;
   };
-  const big0 = 0;
-  const big1 = tryPlace(byDetail(46, detail), 0.2, 0.36, 4.2, POCKET + 0.05, 0.92);
-  const mid1 = tryPlace(byDetail(150, detail), 0.08, 0.17, 4.2, POCKET, 0.9);
+  const sim1 = stones.length;
+  const big0 = sim1;
+  const big1 = tryPlace(byDetail(46, detail), 0.2, 0.36, 4.2, hollow, 0.92);
+  const mid1 = tryPlace(byDetail(150, detail), 0.08, 0.17, 4.2, hollow, 0.9);
+  // Inside the hollow only small, half-buried stones, so the alevin can be seen crawling among them.
+  const inner1 = tryPlace(byDetail(40, detail), 0.05, 0.09, hollow, POCKET, 1.05);
   const small1 = tryPlace(byDetail(420, detail), 0.025, 0.06, 3.6, 0.12, 0.95);
 
   const palette = [0x7f7a6c, 0x8c806a, 0x6c6a62, 0x948a74, 0x75664f, 0x5f6156, 0x897560, 0x6f705a];
@@ -69,9 +79,15 @@ export function buildRedd(w: World, detail: Detail): EnvParts {
   const cobbleGeo = rockGeometry(3, rockLevel(detail, true), { base: 0xffffff, flat: 0.75, rough: 0.2 });
   const pebbleGeo = rockGeometry(11, rockLevel(detail, false), { base: 0xffffff, flat: 0.7, rough: 0.12 });
   const add = (m: THREE.Object3D | null) => m && group.add(m);
+  // The sim's stones: their colours are kept, so silt can dust them over and wash off again.
+  const simPlaced = place(0, sim1, 0.4, 0.85);
+  const simColours = simPlaced.map((pl) => (pl.colour ?? new THREE.Color(0x7f7a6c)).clone());
+  const simMesh = instanced(cobbleGeo, rockMat, simPlaced) as THREE.InstancedMesh | null;
+  add(simMesh);
   add(instanced(cobbleGeo, rockMat, place(big0, big1, 0.45, 0.8)));
   add(instanced(cobbleGeo, rockMat, place(big1, mid1, 0.5, 0.75)));
-  add(instanced(pebbleGeo, rockMat, place(mid1, small1, 0.55, 0.7)));
+  add(instanced(pebbleGeo, rockMat, place(mid1, inner1, 0.7, 0.7)));
+  add(instanced(pebbleGeo, rockMat, place(inner1, small1, 0.55, 0.7)));
 
   // The bed under the stones: fine gravel and silt, dark in the interstitial gaps.
   const step = detail === 2 ? 0.05 : detail === 1 ? 0.075 : 0.11;
@@ -121,8 +137,18 @@ export function buildRedd(w: World, detail: Detail): EnvParts {
   const sc = new THREE.Vector3();
   let wobble = 0;
 
+  const dust = new THREE.Color(REDD_FX.silt.layer);
+  const dusted = new THREE.Color();
+  let lastDust = -1;
   const update = (world: World, dt: number) => {
     const v = alevinView(world);
+    // Silt settles on the large stones and washes off as it is flushed.
+    const d = (v?.silt.level ?? 0) * REDD_FX.silt.stoneDust;
+    if (simMesh && Math.abs(d - lastDust) > 0.01) {
+      lastDust = d;
+      simColours.forEach((c, i) => simMesh.setColorAt(i, dusted.copy(c).lerp(dust, d)));
+      if (simMesh.instanceColor) simMesh.instanceColor.needsUpdate = true;
+    }
     const surge = v?.flood === 'flood' ? 1.4 : v?.pulse ? 1 : v?.warning || v?.flood === 'warning' ? 0.25 : 0;
     wobble += dt * (4 + 14 * surge);
     const ang = v?.currentAngle ?? 0;

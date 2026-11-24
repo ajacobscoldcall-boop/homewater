@@ -89,6 +89,12 @@ export class World {
   siblingsLeft: number;
   checkpoint: Checkpoint;
   spawnResult: SpawnResult | null = null;
+  /**
+   * Values one stage hands to the next within this fish's life that are not
+   * saved (e.g. the heat toll carried up the river, heatToll.ts). Cleared for a
+   * sibling, a restored save or a playtest jump, whose next stage then derives them.
+   */
+  carry: { heatToll?: number } = {};
   private nextEntityId = 1;
   private shownOnce = new Set<string>();
 
@@ -212,6 +218,7 @@ export class World {
     this.progress = { ...this.checkpoint.progress };
     // One-time captions are per fish: a sibling sees them again.
     this.shownOnce.clear();
+    this.carry = {};
     this.startStage(this.checkpoint.stageIndex, this.checkpoint.marker);
     return sib;
   }
@@ -227,6 +234,7 @@ export class World {
   restore(cp: Checkpoint): void {
     this.checkpoint = { stageIndex: cp.stageIndex, marker: cp.marker, progress: { ...cp.progress } };
     this.progress = { ...cp.progress };
+    this.carry = {};
     this.startStage(cp.stageIndex, cp.marker);
   }
 
@@ -243,6 +251,7 @@ export class World {
       def.fillProgress?.(this);
     }
     this.checkpoint = { stageIndex: index, marker: 0, progress: { ...this.progress } };
+    this.carry = {};
     this.startStage(index, 0);
   }
 

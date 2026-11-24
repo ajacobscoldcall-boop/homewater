@@ -5,15 +5,18 @@
  */
 import * as THREE from 'three';
 import { quality } from './quality';
-import { shoreSteps, type AboveUniforms } from './above';
+import { BODY_CAPSULES, shoreSteps, type AboveUniforms } from './above';
 import { SHAFTS } from './shaftConfig';
+import { WEATHER_LOOK } from './weatherConfig';
 
 export interface WaterUniforms {
   uTime: { value: number };
   uLight: { value: number };
+  /** The sun's share of the light (1 clear; less under cloud, weather.ts): caustics and shafts follow it. */
+  uSun: { value: number };
 }
 
-export const sharedWater: WaterUniforms = { uTime: { value: 0 }, uLight: { value: 1 } };
+export const sharedWater: WaterUniforms = { uTime: { value: 0 }, uLight: { value: 1 }, uSun: { value: 1 } };
 
 const CAUSTIC_GLSL = /* glsl */ `
 float hwCaustic(vec2 p, float t) {
@@ -44,11 +47,12 @@ export function causticFloorMaterial(): THREE.MeshStandardMaterial | THREE.MeshL
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = sharedWater.uTime;
     shader.uniforms.uLight = sharedWater.uLight;
+    shader.uniforms.uSun = sharedWater.uSun;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vHwWorld;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHwWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\n#define HW_CAUSTIC_STEPS ${steps}\nvarying vec3 vHwWorld;\nuniform float uTime;\nuniform float uLight;\n${CAUSTIC_GLSL}`)
+      .replace('#include <common>', `#include <common>\n#define HW_CAUSTIC_STEPS ${steps}\nvarying vec3 vHwWorld;\nuniform float uTime;\nuniform float uLight;\nuniform float uSun;\n${CAUSTIC_GLSL}`)
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -59,7 +63,7 @@ export function causticFloorMaterial(): THREE.MeshStandardMaterial | THREE.MeshL
         #endif
         // At most about 0.5 * hwW of light: below 0.002 it cannot be seen, so skip the pattern.
         if (hwW > 0.002) {
-          float hwC = hwCaustic(vHwWorld.xz, uTime) * exp(-hwDepth * 0.09) * uLight;
+          float hwC = hwCaustic(vHwWorld.xz, uTime) * exp(-hwDepth * 0.09) * uLight * uSun;
           totalEmissiveRadiance += vec3(0.55, 0.62, 0.55) * hwC * 0.22;
         }`,
       );
@@ -83,7 +87,18 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
     side: THREE.DoubleSide,
     transparent: true,
     depthWrite: false,
-    defines: { HW_STEPS: steps, HW_SHORE: steps > 0 ? 1 : 0 },
+    defines: {
+      HW_STEPS: steps,
+      HW_SHORE: steps > 0 ? 1 : 0,
+      HW_BODIES: BODY_CAPSULES,
+      // Rain rings: two offset grids of drops, one on Low.
+      HW_RAIN_LAYERS: quality.aboveWater === 0 ? 1 : 2,
+      HW_RAIN_CELL: WEATHER_LOOK.rainCell.toFixed(3),
+      HW_RAIN_FAR: WEATHER_LOOK.rainFar.toFixed(1),
+      HW_RIPPLE_CALM: WEATHER_LOOK.rippleCalm.toFixed(3),
+      HW_RIPPLE_WIND: WEATHER_LOOK.rippleWind.toFixed(3),
+      HW_SKY_CLOUD: WEATHER_LOOK.skyUnderCloud.toFixed(3),
+    },
     uniforms: {
       uTime: sharedWater.uTime,
       uLight: sharedWater.uLight,
@@ -123,10 +138,47 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
       uniform vec4 uSkyBox;
       uniform float uSkyMax;
       uniform vec2 uFar;
-      uniform vec4 uBear[4];
+      uniform vec4 uBody[HW_BODIES * 2];
+      uniform int uBodyCount;
+      uniform vec4 uWeather;
+      uniform vec3 uCloud;
+      uniform vec3 uLeaf;
+      uniform float uSnow;
+      uniform vec3 uCoat;
+      uniform vec3 uHull;
       varying vec3 vWorld;
 
       float hwHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float hwNoise(vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hwHash(i), hwHash(i + vec2(1.0, 0.0)), f.x), mix(hwHash(i + vec2(0.0, 1.0)), hwHash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      // How bright the sky is now, against a clear day's (1): leaves, snow, coats and hulls follow it.
+      float hwDayK() { return clamp(dot(uHorizon, vec3(0.3, 0.59, 0.11)) / 0.72, 0.03, 1.2); }
+
+      // Rain on the surface: rings spreading from drops, one drop per cell, each cell its own beat.
+      // Returns the tilt the rings give the surface (xy), a bright speck where a drop has just hit (z) and how bright the rings are (w).
+      vec4 hwRain(vec2 p, float t, float rain) {
+        vec4 o = vec4(0.0);
+        for (int l = 0; l < HW_RAIN_LAYERS; l++) {
+          vec2 q = p / HW_RAIN_CELL + float(l) * vec2(0.5, 0.37);
+          vec2 cell = floor(q);
+          float h = hwHash(cell + float(l) * 17.0);
+          // Fewer cells have drops in light rain.
+          if (h > 0.25 + 0.75 * rain) continue;
+          vec2 c = cell + 0.3 + 0.4 * vec2(hwHash(cell + 3.1), hwHash(cell + 7.7));
+          float age = fract(t * (0.9 + 0.5 * h) + h * 13.0);
+          vec2 dv = q - c;
+          float d = length(dv);
+          float r = age * 0.3;
+          float wave = sin((d - r) * 40.0) * exp(-pow((d - r) * 9.0, 2.0)) * (1.0 - age);
+          o.xy += dv / max(d, 1e-3) * wave;
+          o.w += abs(wave);
+          o.z += (1.0 - smoothstep(0.0, 0.05, d)) * (1.0 - smoothstep(0.0, 0.12, age));
+        }
+        return o;
+      }
 
       // Distance from point p to segment a-b.
       float hwSeg(vec3 p, vec3 a, vec3 b) {
@@ -148,23 +200,48 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
         float e = clamp(rd.y, 0.0, 1.0);
         vec3 c = mix(uHorizon, uZenith, pow(e, 0.55));
         vec2 flat2 = normalize(rd.xz + 1e-4);
-        c += uGlow * pow(max(0.0, dot(flat2, uGlowDir)), 6.0) * pow(1.0 - e, 3.0);
-        if (uStars > 0.0) {
+        float oc = uWeather.x;
+        c += uGlow * pow(max(0.0, dot(flat2, uGlowDir)), 6.0) * pow(1.0 - e, 3.0) * (1.0 - 0.85 * oc);
+        // Cloud: broken cloud drifting at moderate cover, a low grey sheet at full cover.
+        if (oc > 0.02) {
+          vec2 cp = rd.xz / (rd.y + 0.2) * 1.4 + vec2(uTime * 0.012, uTime * 0.004);
+          float n = 0.62 * hwNoise(cp) + 0.38 * hwNoise(cp * 2.7 + 5.3);
+          float cover = smoothstep(1.0 - oc, 1.35 - oc, n);
+          cover = max(cover, smoothstep(0.65, 1.0, oc));
+          // Fair-weather cloud is brighter than the sky behind it; heavy cover a flat grey.
+          float skyL = dot(c, vec3(0.3, 0.59, 0.11));
+          vec3 fair = vec3(skyL * 1.12 + 0.04 * hwDayK());
+          vec3 cloud = mix(fair, uCloud * hwDayK(), smoothstep(0.45, 0.9, oc)) * (0.9 + 0.2 * n);
+          c = mix(c, cloud, cover * 0.95);
+        }
+        if (uStars > 0.0 && oc < 0.85) {
           vec2 g = floor(rd.xz / (rd.y + 0.25) * 90.0);
-          c += vec3(0.6, 0.65, 0.75) * uStars * step(0.997, hwHash(g)) * e;
+          c += vec3(0.6, 0.65, 0.75) * uStars * (1.0 - smoothstep(0.2, 0.7, oc)) * step(0.997, hwHash(g)) * e;
           // The moon, high in the sky, with a soft halo that lights the surface around it.
           vec3 moonDir = normalize(vec3(-0.25, 1.0, 0.35));
           float m = max(0.0, dot(rd, moonDir));
-          c += uStars * (vec3(0.92, 0.95, 1.0) * smoothstep(0.9988, 0.9993, m) + vec3(0.32, 0.38, 0.5) * pow(m, 24.0) + vec3(0.05, 0.07, 0.1) * pow(m, 3.0));
+          c += uStars * (1.0 - smoothstep(0.3, 0.85, oc)) * (vec3(0.92, 0.95, 1.0) * smoothstep(0.9988, 0.9993, m) + vec3(0.32, 0.38, 0.5) * pow(m, 24.0) + vec3(0.05, 0.07, 0.1) * pow(m, 3.0));
         }
         return c;
       }
 
       // The world above, along a refracted ray leaving the surface at p.
       vec3 hwOutside(vec3 p, vec3 rd) {
-        float tb = hwCapsule(p, rd, uBear[0], uBear[1]);
-        float th = hwCapsule(p, rd, uBear[2], uBear[3]);
-        if (tb >= 0.0 || th >= 0.0) return vec3(0.03, 0.022, 0.016) + 0.05 * uHorizon;
+        float best = 1e6;
+        float kind = -1.0;
+        for (int i = 0; i < HW_BODIES; i++) {
+          if (i >= uBodyCount) break;
+          vec4 a = uBody[i * 2];
+          if (a.w <= 0.0) continue;
+          vec4 b = uBody[i * 2 + 1];
+          float t = hwCapsule(p, rd, a, b);
+          if (t >= 0.0 && t < best) { best = t; kind = b.w; }
+        }
+        // Seen against the sky, mostly in silhouette: the bear dark, a coat and a hull lit a little by the sky.
+        if (kind > 2.5) return vec3(0.035, 0.03, 0.028) + 0.04 * uHorizon;
+        if (kind > 1.5) return uHull * 0.2 * hwDayK() + 0.04 * uHorizon;
+        if (kind > 0.5) return uCoat * 0.4 * hwDayK() + 0.02 * uHorizon;
+        if (kind > -0.5) return vec3(0.03, 0.022, 0.016) + 0.05 * uHorizon;
         #if HW_SHORE == 1
           float s = uFirst;
           float prev = 0.0;
@@ -183,7 +260,14 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
               vec3 qh = p + rd * hi;
               // Trees, darker low down, or bare bank where the trees stand back from the water; hazier far off.
               float up = clamp((qh.y - uSurfaceY) / max(m.r * uSkyMax, 0.5), 0.0, 1.0);
-              vec3 c = mix(uTrees * 1.8 + vec3(0.035, 0.028, 0.018), uTrees * (0.7 + 0.5 * up), m.g);
+              float dk = hwDayK();
+              vec3 bank = mix(uTrees * 1.8 + vec3(0.035, 0.028, 0.018) * min(1.0, dk), vec3(0.62, 0.66, 0.7) * dk, uSnow * 0.85);
+              vec3 conifer = mix(uTrees * (0.7 + 0.5 * up), vec3(0.4, 0.44, 0.47) * dk, uSnow * 0.3 * up);
+              // Alder and willow along the water take the season's colour (bare twigs in winter).
+              // Backlit against the sky, so mostly in shadow; clumps of leaves with darker gaps between.
+              float clump = hwNoise(qh.xz * 1.7 + qh.y * 1.3);
+              vec3 leaf = uLeaf * dk * (0.035 + 0.075 * up) * (0.5 + 0.9 * clump);
+              vec3 c = mix(bank, mix(conifer, leaf, step(0.5, m.b)), m.g);
               return mix(c, uHorizon, clamp(hi / 1500.0, 0.0, 0.3));
             }
             prev = s;
@@ -193,7 +277,7 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
         if (uFar.x > 0.0) {
           float az = atan(rd.z, rd.x);
           float ridge = uFar.x * (0.55 + 0.3 * sin(az * 3.0 + 1.3) + 0.15 * sin(az * 11.0));
-          if (rd.y * uFar.y < ridge * length(rd.xz)) return mix(uHills, uHorizon, 0.25);
+          if (rd.y * uFar.y < ridge * length(rd.xz)) return mix(mix(uHills, uHorizon, 0.25), uCloud * hwDayK(), 0.45 * uWeather.x);
         }
         return hwSky(rd);
       }
@@ -204,30 +288,59 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
         vec3 v = d / max(dist, 1e-4);
         float ripple = sin(vWorld.x * 1.3 + uTime * 1.7) * sin(vWorld.z * 1.1 - uTime * 1.3);
         float ripple2 = sin(vWorld.x * 0.7 - vWorld.z * 0.9 + uTime * 1.1);
-        // A bear overhead blocks the light: the surface under its body is darker.
+        float wind = uWeather.z;
+        float rain = uWeather.y;
+        // Wind ruffles the surface: the swell tilts further and a fine chop runs downwind.
+        float amp = mix(HW_RIPPLE_CALM, HW_RIPPLE_WIND, wind);
+        vec2 tilt = vec2(ripple, ripple2) * amp;
+        if (wind > 0.01) {
+          float c1 = sin(vWorld.x * 4.1 + vWorld.z * 1.3 + uTime * 5.0) * sin(vWorld.z * 3.3 - vWorld.x * 0.9 + uTime * 3.7);
+          float c2 = sin(vWorld.x * 2.3 - vWorld.z * 5.2 + uTime * 4.3);
+          // Kept small: a steep chop folds the refracted view and draws thin lines along every edge in the sky.
+          tilt += vec2(c1, c2) * 0.04 * wind;
+        }
+        vec4 drops = vec4(0.0);
+        // Rings only near the camera (too small to see further off); on Low only inside the window.
+        #if HW_RAIN_LAYERS == 1
+          bool rainHere = dist < HW_RAIN_FAR && v.y > 0.6;
+        #else
+          bool rainHere = dist < HW_RAIN_FAR;
+        #endif
+        if (rain > 0.01 && rainHere) {
+          drops = hwRain(vWorld.xz, uTime, rain) * (1.0 - smoothstep(HW_RAIN_FAR * 0.6, HW_RAIN_FAR, dist));
+          // Rings tilt the surface less in the dark, where they would only flicker.
+          tilt += drops.xy * (0.025 + 0.15 * min(1.0, hwDayK())) * rain;
+        }
+        // Bodies above the water block the light: the surface under a bear or a boat is darker.
         float shade = 0.0;
-        for (int i = 0; i < 4; i += 2) {
-          if (uBear[i].w > 0.0) {
-            vec3 a = uBear[i].xyz; vec3 b = uBear[i + 1].xyz;
-            float dd = hwSeg(vec3(vWorld.x, 0.0, vWorld.z), vec3(a.x, 0.0, a.z), vec3(b.x, 0.0, b.z));
-            float above = step(uSurfaceY, max(a.y, b.y) + uBear[i].w);
-            shade = max(shade, above * (1.0 - smoothstep(uBear[i].w * 0.5, uBear[i].w * 1.8, dd)));
-          }
+        for (int i = 0; i < HW_BODIES; i++) {
+          if (i >= uBodyCount) break;
+          vec4 a4 = uBody[i * 2];
+          if (a4.w <= 0.0) continue;
+          vec3 a = a4.xyz; vec3 b = uBody[i * 2 + 1].xyz;
+          float dd = hwSeg(vec3(vWorld.x, 0.0, vWorld.z), vec3(a.x, 0.0, a.z), vec3(b.x, 0.0, b.z));
+          float above = step(uSurfaceY, max(a.y, b.y) + a4.w);
+          shade = max(shade, above * (1.0 - smoothstep(a4.w * 0.5, a4.w * 1.8, dd)));
         }
         vec3 col;
         float alpha = 1.0;
         float window = 0.0;
         if (cameraPosition.y < uSurfaceY) {
           // The window's edge comes from the flat surface; ripples only wobble the view through it.
-          vec3 n = normalize(vec3(0.05 * ripple, -1.0, 0.05 * ripple2));
+          vec3 n = normalize(vec3(tilt.x, -1.0, tilt.y));
           vec3 r = refract(v, n, 1.333);
           if (dot(r, r) < 0.001) r = refract(v, vec3(0.0, -1.0, 0.0), 1.333);
           // Outside the window: total internal reflection, the water below in a darker mirror.
-          vec3 mirror = uFogColor * (0.76 + 0.1 * ripple + 0.06 * ripple2);
+          vec3 mirror = uFogColor * (0.76 + 0.1 * ripple + 0.06 * ripple2 + 0.6 * (tilt.x - amp * ripple)) * (1.0 - 0.12 * uWeather.x);
           // cos(48.6 deg) = 0.661: the critical angle.
           window = smoothstep(0.662, 0.685, v.y);
-          vec3 outside = window > 0.0 && dot(r, r) > 0.001 ? hwOutside(vWorld, normalize(r)) * uSkyLight * (0.45 + 0.65 * uLight) : mirror;
+          float cloudy = 1.0 - (1.0 - HW_SKY_CLOUD) * uWeather.x;
+          vec3 outside = window > 0.0 && dot(r, r) > 0.001 ? hwOutside(vWorld, normalize(r)) * uSkyLight * cloudy * (0.45 + 0.65 * uLight) : mirror;
           col = mix(mirror, outside, window);
+          // Rain speckles the window: a bright fleck where each drop lands.
+          col += drops.z * rain * window * 0.5 * uSkyLight * hwDayK() * vec3(0.9, 0.95, 1.0);
+          // The rings catch the light: pale in the window, faint glints in the mirror outside it.
+          col += drops.w * rain * mix(0.05 * uFogColor, 0.12 * uSkyLight * hwDayK() * vec3(0.85, 0.9, 0.95), window);
           col *= 1.0 - 0.6 * shade;
           float fogF = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
           // From deeper down the window dims into the water's colour.
@@ -236,7 +349,7 @@ export function surfaceMaterial(fog: THREE.FogExp2, above: AboveUniforms, surfac
         } else {
           // From above: sky reflected at a glancing view, the water's colour looking down.
           float fres = pow(1.0 - clamp(-v.y, 0.0, 1.0), 4.0);
-          vec3 sky = hwSky(reflect(v, vec3(0.0, 1.0, 0.0))) * uSkyLight;
+          vec3 sky = hwSky(reflect(v, normalize(vec3(-tilt.x, 1.0, -tilt.y)))) * uSkyLight;
           col = mix(uFogColor * 0.9, sky, 0.25 + 0.7 * fres) * (1.0 - 0.4 * shade) * (0.93 + 0.07 * ripple);
           alpha = 0.55 + 0.4 * fres;
         }
@@ -335,12 +448,20 @@ export class LightShafts {
 
   private strength = 0;
   private count = Infinity;
+  private weatherK = 1;
 
   setStrength(s: number, color?: number): void {
     this.strength = s;
-    this.material.uniforms.uStrength!.value = s * SHAFTS.gain;
+    this.material.uniforms.uStrength!.value = s * SHAFTS.gain * this.weatherK;
     if (color !== undefined) (this.material.uniforms.uColor!.value as THREE.Color).setHex(color);
     this.group.visible = s > 0 && this.count > 0;
+  }
+
+  /** Weather (weather.ts): under cloud the shafts soften, to k of their clear-sky strength. */
+  setWeather(k: number): void {
+    if (Math.abs(k - this.weatherK) < 1e-4) return;
+    this.weatherK = k;
+    this.material.uniforms.uStrength!.value = this.strength * SHAFTS.gain * k;
   }
 
   /** How many shafts to draw (graphics quality). */

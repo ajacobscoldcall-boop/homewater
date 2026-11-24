@@ -4,8 +4,8 @@
  * - The startle: when a predator first warns or turns to strike near the fish, the player's fish flinches
  *   away from it (a quick turn, roll and tail beat). Shown in both views.
  * - Documentary view (access().documentaryView): a soft shadow on the bed under a warning predator that swims;
- *   home scent drawn as a faint shimmer in the water instead of specks; the magnetic track as soft glows of
- *   light instead of markers. The sim's entities, positions and timings are unchanged; only the drawing is.
+ *   home scent drawn as a faint shimmer in the water instead of specks. (The magnetic track's softer
+ *   Documentary look is in trackGlow.ts.) The sim's entities, positions and timings are unchanged; only the drawing is.
  *
  * Tuning: threatCuesConfig at the bottom of this file is presentation, not params.json.
  */
@@ -22,8 +22,6 @@ export const CUES = {
   shadow: { size: { trout: 2.6, seal: 3.6, orca: 9, shark: 5, merganser: 1.8 } as Record<string, number>, opacity: 0.5, hotOpacity: 0.7, maxDepth: 14 },
   /** Home scent as a shimmer: sprite size (times the speck's size), opacity and flicker. */
   scent: { size: 9, opacity: 0.16, flicker: 0.35, colour: 0xd9fff0 },
-  /** Magnetic track as soft light: sprite size (times the marker's size), opacity. */
-  track: { size: 7, opacity: 0.2, colour: 0xb5ddff },
 } as const;
 
 /** A soft round spot, white with alpha falling off to the edge (one texture for every soft cue). */
@@ -59,7 +57,6 @@ export class ThreatCues {
   /** Documentary view's soft sprites for scent and track, swapped onto those instanced meshes. */
   readonly softGeo = new THREE.PlaneGeometry(1, 1);
   readonly scentMat = new THREE.MeshBasicMaterial({ color: CUES.scent.colour, map: this.tex, transparent: true, opacity: CUES.scent.opacity, blending: THREE.AdditiveBlending, depthWrite: false });
-  readonly trackMat = new THREE.MeshBasicMaterial({ color: CUES.track.colour, map: this.tex, transparent: true, opacity: CUES.track.opacity, blending: THREE.AdditiveBlending, depthWrite: false });
   private shadows: THREE.InstancedMesh;
   private defaults = new Map<string, { geo: THREE.BufferGeometry; mat: THREE.Material | THREE.Material[] }>();
   /** Whether Documentary view is on this frame. */
@@ -129,9 +126,9 @@ export class ThreatCues {
     return { yaw: this.startleSide * s.yaw * env, roll: this.startleSide * s.roll * env, tail: s.tail * k };
   }
 
-  /** Swap the scent and track instanced meshes between specks/markers and soft sprites. */
+  /** Swap the scent instanced mesh between specks and soft sprites. */
   applyLook(meshes: Map<string, { mesh: THREE.InstancedMesh }>): void {
-    for (const kind of ['scent', 'track']) {
+    for (const kind of ['scent']) {
       const inst = meshes.get(kind);
       if (!inst) continue;
       let d = this.defaults.get(kind);
@@ -140,22 +137,17 @@ export class ThreatCues {
         this.defaults.set(kind, d);
       }
       const geo = this.doc ? this.softGeo : d.geo;
-      const mat = this.doc ? (kind === 'scent' ? this.scentMat : this.trackMat) : d.mat;
+      const mat = this.doc ? this.scentMat : d.mat;
       if (inst.mesh.geometry !== geo) inst.mesh.geometry = geo;
       if (inst.mesh.material !== mat) inst.mesh.material = mat;
     }
   }
 
-  /** Documentary view: pose a scent or track entity as a soft sprite facing the camera. */
+  /** Documentary view: pose a scent entity as a soft sprite facing the camera. */
   writeSoft(w: World, e: Entity, camera: THREE.Camera, q: THREE.Quaternion, s: THREE.Vector3): void {
     q.copy(camera.quaternion);
-    if (e.kind === 'track') {
-      const life = Math.max(0, Math.min(1, e.timer / 1.4));
-      s.setScalar(CUES.track.size * (0.25 + 0.55 * (e.value ?? 0)) * Math.sin(Math.PI * life) * 0.12);
-    } else {
-      const flick = 1 + CUES.scent.flicker * Math.sin(w.time * 3.1 + e.id * 1.7);
-      const base = Math.max(0.3, (e.timer ?? 1) / 9) * (0.4 + 0.6 * (e.value ?? 1));
-      s.setScalar(CUES.scent.size * 0.09 * base * flick);
-    }
+    const flick = 1 + CUES.scent.flicker * Math.sin(w.time * 3.1 + e.id * 1.7);
+    const base = Math.max(0.3, (e.timer ?? 1) / 9) * (0.4 + 0.6 * (e.value ?? 1));
+    s.setScalar(CUES.scent.size * 0.09 * base * flick);
   }
 }

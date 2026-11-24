@@ -348,3 +348,52 @@ a big run about 20% by GPU time. Earlier tries (Lambert on Medium too, Medium at
 60%. Real graphics hardware should not notice 200k triangles; the owner's own
 frame rate on Low and Medium is checklist item "Frame rate" under Crowded spawning
 grounds.
+
+## Weather and the world above (2026-11-24)
+
+Weather (cloud, rain, wind), lake ice and the gillnet skiffs (Track 3.3-3.4) are mostly
+work in the surface shader, plus one draw per skiff and one per skiff shadow on the return.
+`npm run perf -- --weather=rain|clear` fixes the weather: rain (full cloud, rain rings, wind)
+is the costliest look. Measured under SwiftShader at 1280×720 with
+`node scripts/perf.mjs low medium --seconds=4 --stages=fry,return,spawn`, before (the starting
+commit, built with `--dir`) and after, two runs each; GPU time per frame (the steadier number
+here; frame rates swung 8-17 fps between identical runs).
+
+| GPU ms per frame | Fry | Return (at sea) | Spawning grounds |
+|---|---|---|---|
+| Low, before | 27 / 27 | 43 / 32 | 30 / 33 |
+| Low, clear | 32 / 26 | 33 / 34 | 29 / 31 |
+| Low, rain | 37 / 26 | 35 / 34 | 31 / 44 |
+| Medium, before | 125 / 116 | 100 / 84 | 118 / 109 |
+| Medium, clear | 120 / 116 | 99 / 128 | 107 / 111 |
+| Medium, rain | 123 / 124 | 105 / 96 | 112 / 115 |
+
+A first full run of every stage and preset (one run each) showed the same: clear weather is
+within the noise of before; rain adds up to about 10 ms a frame on Low where the surface fills
+the view. Two fixes came out of it:
+- the surface's loops over the bodies above the water (two bears, two skiffs with their crews:
+  14 capsule slots) stop at the slots in use (`uBodyCount`), so a frame with no bear or boat
+  near pays nothing for them;
+- rain rings are worked out only within `WEATHER_LOOK.rainFar` (30 units) of the camera, where
+  they can be seen at all, and on Low only inside Snell's window.
+
+Draw calls: +2 per fished net line on the return (skiff and shadow), none elsewhere. The ice is
+one draw, as before.
+## Ocean journey (2026-11-24)
+
+The ocean's seasons (Track 2.6) change the water colour, fog, shafts and how many far
+schools show (one uniform: winter discards most of their points), and each season has
+two smaller food patches instead of one large bait ball, so fewer krill are drawn at
+once. No new meshes or draw calls. The ocean map is DOM (inline SVG) shown only in time
+skips.
+
+Measured with `node scripts/perf.mjs low --stages=ocean --seconds=5` under SwiftShader,
+before (the starting commit, built with `--dir`) and after, three runs each:
+
+| Ocean, Low | fps (3 runs) | GPU ms/frame | draw calls | triangles |
+|---|---|---|---|---|
+| before | 21.3, 19.3, 11.9 | 20-21 | 11 | 121k |
+| after | 18.1, 23.9, 18.8 | 12 | 11 | 79k |
+
+Low is no slower: same draw calls, about a third fewer triangles and lower GPU time;
+frame rates are within the usual software-GL noise.

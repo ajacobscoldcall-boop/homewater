@@ -19,6 +19,8 @@ export const HOT = new Set(['chase', 'strike', 'lunge', 'charge', 'dive', 'hooke
 export const WARN = new Set(['warn', ...HOT]);
 /** A swinging lure within this many units gets a marker. */
 export const LURE_MARKER_RANGE = 9;
+/** A sculpin probing this close to the fish is marked hot (egg stage units). */
+const SCULPIN_NEAR = 0.6;
 
 export interface ActiveThreat {
   /** Entity id, or -1 for a synthetic cue (the spawning "now"). */
@@ -38,7 +40,7 @@ export interface ActiveThreat {
 
 /** The labels on markers, by entity kind. */
 export function labelFor(w: World, kind: string): string | undefined {
-  const LABEL: Partial<Record<string, string>> = { lure: 'hooked', shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival', gull: 'gull' };
+  const LABEL: Partial<Record<string, string>> = { lure: 'hooked', shark: 'shark', trout: w.stageId === 'fry' ? 'dolly varden' : 'char', birdShadow: 'bird', merganser: 'merganser', seal: 'seal', orca: 'orca', bear: 'bear', rival: 'rival', gull: 'gull', sculpin: 'sculpin' };
   return LABEL[kind];
 }
 
@@ -50,7 +52,7 @@ export function activeThreats(w: World): ActiveThreat[] {
     if (!e.alive) continue;
     const label = labelFor(w, e.kind);
     if (!label) continue;
-    const rivalActive = e.kind === 'rival' && e.state === 'approach';
+    const rivalActive = (e.kind === 'rival' && e.state === 'approach') || (e.kind === 'sculpin' && e.state !== 'leave');
     if (e.kind === 'lure' && e.state === 'swing' && dist(e.pos, fish) < LURE_MARKER_RANGE) {
       out.push({ id: e.id, kind: e.kind, marker: { ...e.pos }, at: { ...e.pos }, label: 'lure', hot: false, tell: true });
       continue;
@@ -62,7 +64,9 @@ export function activeThreats(w: World): ActiveThreat[] {
     // sits in view near the fish rather than up at the surface (feel pass).
     const fromAbove = e.kind === 'bear' || e.kind === 'birdShadow' || e.kind === 'gull' || (e.kind === 'merganser' && e.state === 'warn');
     const y = fromAbove ? Math.min(fish.y, w.arena.surfaceY - 0.3) : target.y;
-    out.push({ id: e.id, kind: e.kind, marker: { x: target.x, y, z: target.z }, at: { ...e.pos }, label, hot: HOT.has(e.state) });
+    // A sculpin is marked at the spot it is probing; it is an attack in progress while it probes within reach of the fish.
+    const sculpinHot = e.kind === 'sculpin' && (e.state === 'strike' || (e.state === 'probe' && !!e.home && Math.hypot(e.home.x - fish.x, e.home.z - fish.z) < SCULPIN_NEAR));
+    out.push({ id: e.id, kind: e.kind, marker: { x: target.x, y, z: target.z }, at: { ...e.pos }, label, hot: HOT.has(e.state) || sculpinHot });
   }
   // The jack's opening: beside a crowd pair whose males are fighting, else beside the player's own female.
   const crowdOpen = w.stageId === 'spawn' ? crowdOpening(w) : null;
@@ -89,6 +93,6 @@ export function threatFocus(list: readonly ActiveThreat[], fish: { x: number; y:
 }
 
 /** Predators that swim (their shadow on the bed is a Documentary-view cue). */
-export const SWIMMERS: ReadonlySet<string> = new Set(['trout', 'seal', 'orca', 'shark', 'merganser']);
+export const SWIMMERS: ReadonlySet<string> = new Set(['trout', 'seal', 'orca', 'shark', 'merganser', 'sculpin']);
 
 export type { Entity };

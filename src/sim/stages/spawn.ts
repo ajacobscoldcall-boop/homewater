@@ -33,6 +33,7 @@ import { rivalJackCount, stepJack } from './spawn/jack';
 import { result } from './spawn/result';
 import { initCrowd, stepCrowd } from './spawn/crowd';
 import { addEggThieves, stepEggThieves } from './spawn/eggThieves';
+import { arriveWithToll, stepPrespawn } from './heatToll';
 import { roleOf, SPOT_Z, st, stepSenescence, type SpawnState } from './spawn/shared';
 
 // The stage is split by concern under ./spawn/: shared state and rivals, bears, and one file per role.
@@ -181,6 +182,8 @@ export const spawnStage: StageDef = {
     w.emit('caption', `spawn.habitat.${habitat}`);
     const crowdLine = crowdCaption(p, crowd.rel);
     if (crowdLine) w.emit('caption', crowdLine);
+    // A warm year's toll, carried up the river, and crowding in warm water: less strength, faster ageing, a chance of dying before spawning (heatToll.ts).
+    arriveWithToll(w, crowd.rel);
     w.emit('caption', role === 'jack' && habitat === 'beach' ? 'spawn.jackBeach' : `spawn.${role}`);
   },
   step(w, intent, dt) {
@@ -191,6 +194,7 @@ export const spawnStage: StageDef = {
     }
     const s = st(w);
     const spent = stepSenescence(w, dt);
+    if (stepPrespawn(w, dt, s.spawned)) return;
     if (s.role === 'female') stepFemale(w, intent, dt, spent);
     else if (s.role === 'largeMale') stepLargeMale(w, intent, dt, spent);
     else stepJack(w, intent, dt, spent);

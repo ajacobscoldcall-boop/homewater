@@ -1,7 +1,14 @@
-/** The ?debug=1 playtest panel: stats, stage select, complete stage / kill fish, run report, the year's run size, trait editor. */
+/** The ?debug=1 playtest panel: stats, stage select, complete stage / kill fish, run report, the year's run size and water, trait editor. */
 import { TRAIT_IDS } from '../sim/types';
 import { $, h } from '../ui/dom';
 import type { App } from './App';
+
+/** Debug panel water presets: name, flow, temperature (YearConditions). */
+const DEBUG_WATER: [string, number, number][] = [
+  ['ordinary', 1, 1],
+  ['warm', 0.85, 1.15],
+  ['hot', 0.7, 1.25],
+];
 
 export class DebugPanel {
   private el: HTMLElement | null = null;
@@ -33,6 +40,26 @@ export class DebugPanel {
           h('span', {}, 'Run'),
           ...[0.4, 1, 2.4].map((r) =>
             h('button', { onclick: () => { if (w()) { w()!.conditions.runSize = r; delete w()!.conditions.harvestRate; } } }, r === 0.4 ? 'small' : r === 1 ? 'typical' : 'big'),
+          ),
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          // Weather (render only, src/render/weather.ts): the year's own, or fixed for a look.
+          h('span', {}, 'Weather'),
+          ...(
+            [
+              ['year', null],
+              ['clear', { overcast: 0, rain: 0, wind: 0.1 }],
+              ['grey', { overcast: 0.9, rain: 0, wind: 0.3 }],
+              ['rain', { overcast: 1, rain: 1, wind: 0.4 }],
+              ['wind', { overcast: 0.4, rain: 0, wind: 1 }],
+            ] as const
+          ).map(([label, wx]) => h('button', { onclick: () => (app.renderer.weatherOverride = wx ? { ...wx } : null) }, label)),
+          // The year's water (flow, temperature): ordinary, a warm low-water year, or an extreme hot one. Takes effect when a stage starts.
+          h('span', {}, 'Water'),
+          ...DEBUG_WATER.map(([name, flow, temperature]) =>
+            h('button', { onclick: () => { if (w()) Object.assign(w()!.conditions, { flow, temperature }); } }, name),
           ),
         ),
         h('div', { id: 'dbg-traits' }),

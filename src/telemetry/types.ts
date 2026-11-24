@@ -60,6 +60,8 @@ export interface StageAttempt {
   /** Close calls: strikes that missed and marks taken (the renderer's wound tracker). */
   nearMisses: number;
   nearMissTimes: number[];
+  /** Leaps at the return's falls: [stage seconds, 'clear' or why it missed ('slow', 'deep', 'close', 'spot', 'nearly')], up to a cap. Absent in older logs. */
+  leaps?: [number, string][];
   trace: TraceSample[];
 }
 

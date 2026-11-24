@@ -21,6 +21,7 @@
  */
 import { rollYear } from './genetics';
 import type { Params } from './params';
+import { applyChange, changeCaptions, isChanging, recruitFactor, rollChange, setNetsFor, type ChangeYear, type RiverMode } from './riverChange';
 import type { Rng } from './rng';
 import type { YearConditions } from './types';
 
@@ -42,6 +43,8 @@ export interface PopulationYear {
   catch: number;
   /** Fish that got through to spawn (same units). */
   spawners: number;
+  /** What had changed in the river this generation (changing river mode only; saves schema 8). */
+  change?: ChangeYear;
 }
 
 export interface Population {
@@ -70,22 +73,27 @@ export function rickerRun(p: Params, spawners: number): number {
 /** Marine survival in a crowded ocean (pink years): fewer of the cohort come home. */
 export const crowdingSurvival = (p: Params, oceanCrowding: number): number => Math.pow(Math.max(0.3, oceanCrowding), -p.get('population.crowdingSurvival'));
 
-/** The run this generation, from the parents' escapement, the ocean and a lognormal noise draw. */
-export function rollRun(p: Params, rng: Rng, parentSpawners: number, oceanCrowding: number): number {
+/**
+ * The run this generation, from the parents' escapement, the ocean and a lognormal noise draw.
+ * `factor` scales recruits (the changing river: hatchery parents, silt, warm water) and
+ * `strays` is the share of the run that joins from hatcheries (adds to the wild run).
+ */
+export function rollRun(p: Params, rng: Rng, parentSpawners: number, oceanCrowding: number, factor = 1, strays = 0): number {
   const sd = p.get('population.recruitSd');
   // Mean-one lognormal noise, so the typical run stays at 1.
   const noise = Math.exp(rng.normal(0, sd) - (sd * sd) / 2);
-  return clamp(rickerRun(p, parentSpawners) * crowdingSurvival(p, oceanCrowding) * noise, p.get('population.minRun'), p.get('population.maxRun'));
+  const wild = rickerRun(p, parentSpawners) * crowdingSurvival(p, oceanCrowding) * noise * factor;
+  return clamp(wild / (1 - clamp(strays, 0, 0.9)), p.get('population.minRun'), p.get('population.maxRun'));
 }
 
-/** The fishery's target catch: everything above the escapement goal, up to its maximum share of the run. */
-export function targetCatch(p: Params, run: number): number {
-  return clamp(run - escapementGoal(p), 0, p.get('population.maxHarvestRate') * run);
+/** The fishery's target catch: everything above the escapement goal (lowered by `goalShift` on a changing river), up to its maximum share of the run. */
+export function targetCatch(p: Params, run: number, goalShift = 0): number {
+  return clamp(run - (escapementGoal(p) - goalShift), 0, p.get('population.maxHarvestRate') * run);
 }
 
 /** Catch with management error (the run is never known exactly in season). */
-export function rollCatch(p: Params, rng: Rng, run: number): number {
-  const t = targetCatch(p, run);
+export function rollCatch(p: Params, rng: Rng, run: number, goalShift = 0): number {
+  const t = targetCatch(p, run, goalShift);
   if (t <= 0) return 0;
   const err = Math.exp(rng.normal(0, p.get('population.managementSd')));
   return clamp(t * err, 0, p.get('population.maxHarvestRate') * run);
@@ -99,19 +107,32 @@ export function lakeFor(p: Params, parentSpawners: number): Pick<PopulationYear,
   return { fry, enrichment, lakeFood };
 }
 
-/** Roll one generation of the run from the parents' escapement. */
-export function rollPopulationYear(p: Params, rng: Rng, generation: number, parentSpawners: number, oceanCrowding: number): PopulationYear {
-  const run = rollRun(p, rng, parentSpawners, oceanCrowding);
-  const caught = rollCatch(p, rng, run);
-  return { generation, parentSpawners, ...lakeFor(p, parentSpawners), run, catch: caught, spawners: run - caught };
+/**
+ * Roll one generation of the run from the parents' escapement. On a changing
+ * river, `change` is this generation's change and `parentChange` the parents'.
+ */
+export function rollPopulationYear(
+  p: Params,
+  rng: Rng,
+  generation: number,
+  parentSpawners: number,
+  oceanCrowding: number,
+  change?: ChangeYear,
+  parentChange?: ChangeYear,
+): PopulationYear {
+  const run = change ? rollRun(p, rng, parentSpawners, oceanCrowding, recruitFactor(p, parentChange, change), change.hatchery) : rollRun(p, rng, parentSpawners, oceanCrowding);
+  const caught = rollCatch(p, rng, run, change?.goalShift ?? 0);
+  const y: PopulationYear = { generation, parentSpawners, ...lakeFor(p, parentSpawners), run, catch: caught, spawners: run - caught };
+  if (change) y.change = { ...change, setNets: setNetsFor(p, change, run) };
+  return y;
 }
 
 /** Share of the run the fishery takes. */
 export const harvestRate = (y: Pick<PopulationYear, 'run' | 'catch'>): number => (y.run > 0 ? y.catch / y.run : 0);
 
-/** Year conditions for a generation: the random year (flow, temperature, the pink ocean) plus this generation's run and lake. */
+/** Year conditions for a generation: the random year (flow, temperature, the pink ocean) plus this generation's run and lake, and on a changing river what has changed. */
 export function yearFromPopulation(base: YearConditions, y: PopulationYear): YearConditions {
-  return { ...base, runSize: y.run, lakeFood: y.lakeFood, fryCrowding: y.fry, harvestRate: harvestRate(y) };
+  return applyChange({ ...base, runSize: y.run, lakeFood: y.lakeFood, fryCrowding: y.fry, harvestRate: harvestRate(y) }, y.change);
 }
 
 /**
@@ -135,10 +156,16 @@ export function seedPopulation(p: Params, rng: Rng): Population {
 /** The spawners whose young make the next generation. */
 export const lastSpawners = (p: Params, pop: Population): number => pop.history.at(-1)?.spawners ?? escapementGoal(p);
 
-/** Advance the population by one generation and return that generation's year conditions. */
-export function nextYear(p: Params, rng: Rng, pop: Population, generation: number): YearConditions {
+/**
+ * Advance the population by one generation and return that generation's year
+ * conditions. On a changing river (`mode`), the change is rolled after the year
+ * and before the run; a healthy river draws exactly as before.
+ */
+export function nextYear(p: Params, rng: Rng, pop: Population, generation: number, mode: RiverMode = 'healthy'): YearConditions {
   const base = rollYear(p, rng, generation);
-  const y = rollPopulationYear(p, rng, generation, lastSpawners(p, pop), base.oceanCrowding);
+  const last = pop.history.at(-1);
+  const change = isChanging(mode) ? rollChange(p, rng, last?.change, last?.run ?? 1) : undefined;
+  const y = rollPopulationYear(p, rng, generation, lastSpawners(p, pop), base.oceanCrowding, change, last?.change);
   pop.history.push(y);
   // Keep the save small: a long line keeps its most recent generations.
   const keep = Math.round(p.get('population.historyKept'));
@@ -186,7 +213,9 @@ export function fishingEffort(p: Params, c: YearConditions): number {
 export function netLinesFor(p: Params, c: YearConditions, baseLines: number): number {
   if (c.harvestRate === undefined) return baseLines;
   if (c.harvestRate < p.get('population.closedBelow')) return 0;
-  return clamp(Math.round(baseLines * Math.pow(fishingEffort(p, c), p.get('population.netEffortExponent'))), 1, Math.round(p.get('population.maxNetLines')));
+  const managed = clamp(Math.round(baseLines * Math.pow(fishingEffort(p, c), p.get('population.netEffortExponent'))), 1, Math.round(p.get('population.maxNetLines')));
+  // A changing river's set nets and subsistence nets come on top of the managed fishery's lines.
+  return managed + Math.max(0, Math.round(c.setNets ?? 0));
 }
 
 /** Plankton in one lake food patch this year. */
@@ -209,7 +238,8 @@ export function fisheryCaption(p: Params, c: YearConditions): string | null {
   if (c.harvestRate === undefined) return null;
   // Says what the player will meet: the number of nets on the approach.
   const base = p.get('return.netLines');
-  const lines = netLinesFor(p, c, base);
+  // The managed fishery's lines; set nets on a changing river have their own line (change.setNets).
+  const lines = netLinesFor(p, { ...c, setNets: 0 }, base);
   if (lines === 0) return 'pop.fisheryClosed';
   if (lines > base) return 'pop.fisheryHeavy';
   if (lines < base) return 'pop.fisheryLight';
@@ -219,10 +249,10 @@ export function fisheryCaption(p: Params, c: YearConditions): string | null {
 /** Caption ids for the population lines on a stage card. */
 export function populationCaptions(p: Params, stage: string, c: YearConditions): string[] {
   const id = stage === 'fry' ? lakeCaption(p, c) : stage === 'return' ? fisheryCaption(p, c) : null;
-  return id ? [id] : [];
+  return [...(id ? [id] : []), ...changeCaptions(p, stage, c)];
 }
 
 /** Caption ids for the recap: the lake this life grew up in and the fishery it came home through. */
 export function recapCaptions(p: Params, c: YearConditions): string[] {
-  return [lakeCaption(p, c), fisheryCaption(p, c)].filter((x): x is string => x !== null);
+  return [lakeCaption(p, c), fisheryCaption(p, c), ...changeCaptions(p, null, c)].filter((x): x is string => x !== null);
 }

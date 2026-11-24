@@ -8,6 +8,7 @@ import type { World } from '../../world';
 import type { Params } from '../../params';
 import type { BearPreyKind } from '../../bearFeeding';
 import type { CrowdState } from './crowd';
+import { senescenceFactor, type GroundsHeat } from '../heatToll';
 
 export type SpawnRole = 'female' | 'largeMale' | 'jack';
 
@@ -85,6 +86,8 @@ export interface SpawnState {
   gullCame?: boolean;
   /** The other spawners on the grounds (crowd.ts). */
   crowd?: CrowdState;
+  /** A warm year's burden (heatToll.ts); absent in a year without one. */
+  heat?: GroundsHeat;
 }
 
 export const st = (w: World) => w.stage as unknown as SpawnState;
@@ -146,7 +149,7 @@ export function stepRivals(w: World, dt: number, target: Entity | undefined, onT
 export function stepSenescence(w: World, dt: number): boolean {
   const p = w.p;
   const s = st(w);
-  s.vigour = Math.max(0, s.vigour - senescenceRate(p, w.body.burst) * dt);
+  s.vigour = Math.max(0, s.vigour - senescenceRate(p, w.body.burst) * senescenceFactor(w) * dt);
   w.body.energy = Math.min(w.body.energy, s.vigour);
   if (s.vigour < p.get('spawn.senescenceWarnAt')) w.emitOnce('caption', 'spawn.senescence');
   return s.vigour <= p.get('spawn.senescenceEnd');

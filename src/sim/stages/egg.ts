@@ -11,8 +11,13 @@
  *   the gravel for a few seconds. Facing upstream deep in the gravel rides it
  *   out. The brood-mates in the nest are washed out around the player, so the
  *   heavy loss of eggs and alevin is seen without being the player's fault.
+ * - Besides the flood: a low-oxygen pocket, fine silt and a sculpin probing the
+ *   gravel (eggThreats.ts). The alevin can crawl (forward) a little way through
+ *   the gaps between the stones. A first life meets all of them and lasts about
+ *   two minutes; later lives meet the flood and one other in under a minute.
  */
 import { fillImprint, stepAlevinImprint } from '../imprint';
+import { canStart, crawl, finish, newThreatState, quietFlow, stepActivity, stepOxygen, stepPocket, stepSculpin, stepSilt, gravelFlow, gravelHeight, oxygenFor, sculpinExposure, siltCloud, type EggThreat, type EggThreatState, type PocketPhase, type SiltPhase, type Stone } from './eggThreats';
 import type { StageDef } from './index';
 import { v3, wrapAngle } from '../vec';
 import type { Entity } from '../types';
@@ -47,6 +52,10 @@ interface AlevinState {
   gustSide: number;
   broodTotal: number;
   broodLost: number;
+  /** Brood-mates the flood and the surges took (the flood's own count, for its caption). */
+  broodScoured: number;
+  /** The pocket, the silt, the sculpin and the queue of events (eggThreats.ts). */
+  threats: EggThreatState;
 }
 
 export type FloodPhase = 'none' | 'warning' | 'flood' | 'over';
@@ -82,6 +91,20 @@ function loseBrood(w: World, s: AlevinState, b: Entity): void {
   b.timer = 0;
   b.vel = v3(Math.cos(s.currentAngle) * sp, 0.6 + w.rng.range(0, 0.5), Math.sin(s.currentAngle) * sp);
   s.broodLost += 1;
+  s.broodScoured += 1;
+}
+
+/** A brood-mate where the silt stopped the water: it lies still and pale where it was. */
+function smotherBrood(s: AlevinState, b: Entity): void {
+  b.state = 'smothered';
+  b.timer = 0;
+  s.broodLost += 1;
+}
+
+/** A brood-mate a sculpin found. */
+function eatBrood(s: AlevinState, b: Entity): void {
+  b.alive = false;
+  s.broodLost += 1;
 }
 
 /** Brood-mates face into the current like the player; washed-out ones tumble away downstream. */
@@ -90,6 +113,10 @@ function stepBrood(w: World, s: AlevinState, dt: number): void {
   for (const b of w.live('brood')) {
     if (b.state === 'hidden') {
       b.yaw = wrapAngle(b.yaw + wrapAngle(upstream - b.yaw) * Math.min(1, dt * 1.5));
+      continue;
+    }
+    if (b.state === 'smothered') {
+      b.timer += dt;
       continue;
     }
     b.timer += dt;
@@ -108,7 +135,8 @@ function stepFlood(w: World, s: AlevinState, dt: number): void {
   s.floodLeft -= dt;
   if (s.flood === 'none') {
     // Wait for any surge already under way to pass, so the two never overlap.
-    if (w.progress.yolk > p.get('alevin.floodYolk') || s.warnLeft > 0 || s.pulseLeft > 0) return;
+    if (!canStart(w, s.threats, 'flood', s.warnLeft > 0 || s.pulseLeft > 0)) return;
+    s.threats.active = 'flood';
     s.flood = 'warning';
     s.floodLeft = p.get('alevin.floodWarning');
     s.floodAngle = wrapAngle(s.currentAngle + w.rng.range(-1.2, 1.2));
@@ -159,9 +187,24 @@ function stepFlood(w: World, s: AlevinState, dt: number): void {
     if (s.floodLeft <= 0) {
       s.flood = 'over';
       s.nextChange = p.get('alevin.currentInterval') * 0.8;
-      w.emit('caption', 'egg.floodOver', { lost: s.broodLost, total: s.broodTotal });
+      finish(s.threats, 'flood');
+      w.emit('caption', 'egg.floodOver', { lost: s.broodScoured, total: s.broodTotal });
     }
   }
+}
+
+/** A point moved just clear of any large stone (no dice). */
+function clearOfStones(stones: readonly Stone[], x: number, z: number): { x: number; z: number } {
+  for (const st of stones) {
+    const d = Math.hypot(x - st.x, z - st.z);
+    const min = st.r + 0.1;
+    if (d < min) {
+      const k = d > 1e-6 ? min / d : 0;
+      x = d > 1e-6 ? st.x + (x - st.x) * k : st.x + min;
+      z = d > 1e-6 ? st.z + (z - st.z) * k : st.z;
+    }
+  }
+  return { x, z };
 }
 
 export const eggStage: StageDef = {
@@ -203,6 +246,8 @@ export const eggStage: StageDef = {
       gustSide: 1,
       broodTotal: 0,
       broodLost: 0,
+      broodScoured: 0,
+      threats: newThreatState(w),
     };
     w.stage = s as unknown as Record<string, unknown>;
     // The rest of the nest: a handful of the clutch, drawn around the player's egg.
@@ -211,7 +256,8 @@ export const eggStage: StageDef = {
       const a = (i / n) * Math.PI * 2 + w.rng.range(-0.15, 0.15);
       const r = w.rng.range(0.45, 0.85);
       // value: how deep in the gravel it lies (1 = deepest, best sheltered).
-      w.spawn('eggs', v3(Math.cos(a) * r, -1.52, Math.sin(a) * r), { radius: 0.12, value: w.rng.next() });
+      const at = clearOfStones(s.threats.stones, Math.cos(a) * r, Math.sin(a) * r);
+      w.spawn('eggs', v3(at.x, -1.52, at.z), { radius: 0.12, value: w.rng.next() });
     }
     s.broodTotal = n;
   },
@@ -234,22 +280,40 @@ export const eggStage: StageDef = {
       return;
     }
 
-    // Turning and rising cost a little yolk.
-    const turn = intent.turn * p.get('swim.turnRate') * 0.8 * dt + intent.mouseX * p.get('swim.mouseSensitivity');
-    w.body.yaw = wrapAngle(w.body.yaw + turn);
+    // Turning, rising and crawling cost a little yolk. A weak alevin (low oxygen) turns and rises more slowly.
+    const th = s.threats;
+    const weak = 0.4 + 0.6 * Math.max(0, Math.min(1, w.body.energy));
+    const turnIn = intent.turn * p.get('swim.turnRate') * 0.8 * dt * weak + intent.mouseX * p.get('swim.mouseSensitivity');
+    w.body.yaw = wrapAngle(w.body.yaw + turnIn);
     const rise = (intent.rise ? 1 : 0) - (intent.dive ? 1 : 0);
-    s.height = Math.min(1, Math.max(0, s.height + rise * p.get('alevin.riseRate') * dt));
+    const was = s.height;
+    s.height = Math.min(1, Math.max(0, s.height + rise * p.get('alevin.riseRate') * weak * dt));
+    // Pressing down at the bottom of the gravel (or up at the top) moves nothing.
+    const climbed = Math.abs(s.height - was) / Math.max(1e-6, p.get('alevin.riseRate') * dt);
     w.body.pos.y = -1.55 + 0.5 * s.height;
-    const activity = Math.min(1, Math.abs(intent.turn) + Math.abs(intent.mouseX) * 0.05 + Math.abs(rise));
-    w.progress.yolk -= (p.get('alevin.yolkRate') * w.conditions.temperature + p.get('alevin.activityYolk') * activity) * dt;
+    const crawled = crawl(w, th, intent.forward, dt);
+    const turning = Math.min(1, Math.abs(intent.turn) + Math.abs(intent.mouseX) * 0.05);
+    const activity = Math.min(1, turning + Math.abs(rise) + crawled);
+    // The sculpin senses movement: crawling, rising and diving count fully, turning on the spot less.
+    stepActivity(w, th, Math.max(crawled, climbed, turning * p.get('alevin.turnActivity')), dt);
+    const yolkScale = w.firstLife ? p.get('alevin.firstLifeYolk') : 1;
+    w.progress.yolk -= (p.get('alevin.yolkRate') * w.conditions.temperature + p.get('alevin.activityYolk') * activity) * yolkScale * dt;
 
+    const surging = s.warnLeft > 0 || s.pulseLeft > 0;
     stepFlood(w, s, dt);
+    stepPocket(w, th, dt, surging);
+    stepSculpin(w, th, dt, surging, (b) => eatBrood(s, b));
+    stepSilt(w, th, dt, surging, (b) => smotherBrood(s, b));
     stepBrood(w, s, dt);
+    stepOxygen(w, th, dt);
+    if (w.status !== 'playing') return;
     const flooding = s.flood === 'warning' || s.flood === 'flood';
+    // While events are still to come, the yolk holds out (a game device: the stage never starves the fish mid-event).
+    if (th.active !== null || th.queue.length > 0) w.progress.yolk = Math.max(w.progress.yolk, p.get('alevin.readyYolk') + 0.02);
 
     // The flow: every so often it swings to a new direction, with a warning, then pulses hard.
     s.nextChange -= dt;
-    if (!flooding && s.nextChange <= 0 && s.warnLeft <= 0 && s.pulseLeft <= 0) {
+    if (!flooding && !quietFlow(th) && s.nextChange <= 0 && s.warnLeft <= 0 && s.pulseLeft <= 0) {
       const swing = w.rng.range(0.9, 2.4) * (w.rng.chance(0.5) ? 1 : -1);
       s.targetAngle = wrapAngle(s.currentAngle + swing);
       s.warnLeft = p.get('alevin.pulseWarning');
@@ -301,7 +365,7 @@ export const eggStage: StageDef = {
     if (!s.ready && s.height > 0.6) w.emitOnce('caption', 'egg.tooEarly');
 
     // Not while a flood is coming or under way: the guide would be sending the fish up into it.
-    if (!s.ready && !flooding && w.progress.yolk <= p.get('alevin.readyYolk')) {
+    if (!s.ready && !flooding && th.active === null && th.queue.length === 0 && w.progress.yolk <= p.get('alevin.readyYolk')) {
       s.ready = true;
       w.emit('caption', 'egg.ready');
     }
@@ -339,6 +403,24 @@ export interface AlevinView {
   floodLevel: number;
   broodLost: number;
   broodTotal: number;
+  /** The large stones; water keeps moving beside each at its gap height. */
+  stones: readonly Stone[];
+  /** The event under way, if any. */
+  threat: EggThreat | null;
+  pocket: { phase: PocketPhase; level: number; x: number; z: number; radius: number };
+  silt: { phase: SiltPhase; level: number };
+  /** 0..1 fine silt hanging in the water (render). */
+  siltCloud: number;
+  /** 0..1 how freely water moves where the alevin lies, and the oxygen in the water around it. */
+  flowHere: number;
+  o2: number;
+  /** The alevin's strength (low oxygen wears it down). */
+  vigour: number;
+  /** 0..1 recent movement, and how close a probing sculpin is to finding the alevin. */
+  activity: number;
+  sculpinNotice: number;
+  /** How easy the alevin is for a sculpin to find right now (0 when still and deep against a stone). */
+  findable: number;
 }
 
 /** 0..1 flood water level for the view (render and audio only). */
@@ -353,6 +435,8 @@ function floodLevel(w: World, s: AlevinState): number {
 export function alevinView(w: World): AlevinView | null {
   if (w.stageId !== 'egg') return null;
   const s = st(w);
+  const th = s.threats;
+  const flow = gravelFlow(w, th, w.body.pos.x, w.body.pos.z, s.height);
   return {
     phase: s.phase,
     light: daylight(w),
@@ -360,12 +444,34 @@ export function alevinView(w: World): AlevinView | null {
     warning: s.warnLeft > 0,
     pulse: s.pulseLeft > 0,
     height: s.height,
-    exposure: s.exposure,
+    exposure: Math.max(s.exposure, th.sculpin.notice),
     drift: s.drift,
     ready: s.ready,
     flood: s.flood,
     floodLevel: floodLevel(w, s),
     broodLost: s.broodLost,
     broodTotal: s.broodTotal,
+    stones: th.stones,
+    threat: th.active,
+    pocket: { phase: th.pocket.phase, level: th.pocket.level, x: th.pocket.x, z: th.pocket.z, radius: w.p.get('alevin.pocketRadius') },
+    silt: { phase: th.silt.phase, level: th.silt.level },
+    siltCloud: siltCloud(w, th),
+    flowHere: flow,
+    o2: th.o2,
+    vigour: w.body.energy,
+    activity: th.activity,
+    sculpinNotice: th.sculpin.notice,
+    findable: sculpinExposure(w, th),
   };
+}
+
+/** How freely water moves through the gravel at a point (render: the flecks), or 1 outside the egg stage. */
+export function gravelFlowAt(w: World, x: number, z: number, y: number): number {
+  if (w.stageId !== 'egg') return 1;
+  return gravelFlow(w, st(w).threats, x, z, gravelHeight(y));
+}
+
+/** Oxygen the water at a point holds for the alevin (0..1). */
+export function gravelOxygenAt(w: World, x: number, z: number, y: number): number {
+  return oxygenFor(w, gravelFlowAt(w, x, z, y));
 }

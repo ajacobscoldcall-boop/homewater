@@ -31,7 +31,7 @@ export function stageCardLine(stage: StageId, oceanYears: number | null, habitat
     case 'smolt':
       return 'Spring. Out of the lake by night, to the estuary at first light.';
     case 'ocean':
-      return 'Past the estuary, out into the open sea.';
+      return 'Summer. Past the estuary and out along the coast, then the open sea: one to three years of seasons.';
     case 'return':
       return `${oceanYears ?? 2} year${oceanYears === 1 ? '' : 's'} at sea. Summer, and the pull of home.`;
     case 'spawn':
@@ -41,10 +41,10 @@ export function stageCardLine(stage: StageId, oceanYears: number | null, habitat
 
 /** Objectives with key placeholders ({key:dive}); read through OBJECTIVES, which fills in the player's keys. */
 const OBJECTIVE_TEXT: Record<StageId, string> = {
-  egg: 'Face into the current {key:steer}. Stay low {key:dive} in surges, and deep through the flood. When the yolk is nearly used, swim up {key:rise}.',
+  egg: 'Face into the current {key:steer}. Stay low {key:dive} in surges, and deep through the flood. Crawl {key:forward} to moving water; keep still for a sculpin. When the yolk is nearly used, swim up {key:rise}.',
   fry: 'Live the lake days: deep by day, up at dusk and dawn to feed. Dart into the weeds when a Dolly Varden chases; dive deep from a merganser. Rest through the winter. In spring, follow the current out or stay another year.',
   smolt: 'Ride the current to the sea with the school. Go deep for birds, burst from mergansers, swim across a seal\'s path. In the estuary, hold in the brackish water until you are ready for salt.',
-  ocean: 'Feed where the food gathers. When an orca or shark charges, swim across its path.',
+  ocean: 'Each season, feed where the food is thick (hunters come there) or thin (safer). Swim across a charging hunter’s path.',
   return: 'Follow the faint magnetic track to the coast. Slip through the nets, find the right river mouth, then swim upstream and follow the scent across the lake. Wait there until the spawning colours come on.',
   spawn: 'Spawn before your strength runs out. It will not come back.',
 };
@@ -74,6 +74,8 @@ export const DEATH_TITLES: Record<DeathCause, string> = {
   noSpawn: 'No spawn',
   heat: 'Heat stress',
   gull: 'Taken by a gull',
+  prespawn: 'Died before spawning',
+  sculpin: 'Taken by a sculpin',
 };
 
 export function traitLines(fish: FishIdentity, z: TraitValues = fish.z): string[] {

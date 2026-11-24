@@ -12,12 +12,14 @@
  * attention lapses and per-stage habits added.
  */
 import { Rng } from '../../src/sim/rng';
-import { alevinView } from '../../src/sim/stages/egg';
+import { alevinView, type AlevinView } from '../../src/sim/stages/egg';
 import { fallsView } from '../../src/sim/stages/falls';
 import { fryView } from '../../src/sim/stages/fry';
+import { oceanView } from '../../src/sim/stages/ocean';
+import { huntsShallow } from '../../src/sim/stages/oceanRoute';
 import { returnLayout } from '../../src/sim/stages/return';
 import { lakeView, siteWater } from '../../src/sim/stages/returnLake';
-import { heatStress, returnWaterView } from '../../src/sim/stages/returnWater';
+import { heatStress, returnWaterView, seeps } from '../../src/sim/stages/returnWater';
 import { smoltView } from '../../src/sim/stages/smolt';
 import { crowdOpening, spawnState } from '../../src/sim/stages/spawn';
 import { NO_INTENT, type Entity, type Intent, type Vec3 } from '../../src/sim/types';
@@ -260,10 +262,116 @@ export class Bot {
     }
     if (v.ready && m.readySeen === undefined) m.readySeen = now;
     const ready = m.readySeen !== undefined && now - m.readySeen >= this.skill.reaction;
+    // The pocket, the sculpin and the silt (eggThreats.ts) take over while one is under way and noticed.
+    const threat = this.eggThreat(w, v);
+    if (threat) return threat;
     const rise = !floodNoticed && (ready || (m.early && w.progress.yolk < 0.45));
     // Stay low until it is time to go (diving costs a little yolk, so only when needed).
     const dive = !rise && v.height > 0.05;
     return intent({ ...turn, rise, dive });
+  }
+
+  /**
+   * Egg threats, read from what is on screen: the flecks stop in the pocket (crawl out to moving water), a sculpin
+   * glides in (get deep, close to a stone if one is right there, and keep still), silt clouds the water (crawl to a
+   * big stone and sit at its gap's height, if this player reads it). A player who misses the warning reacts only
+   * when it starts to hurt: gasping in still water, or the sculpin already probing.
+   */
+  private eggThreat(w: World, v: AlevinView): Intent | null {
+    const s = this.skill;
+    const m = this.m as { eggSeen?: Record<string, number>; eggMissed?: Record<string, boolean>; goal?: { x: number; z: number; h: number } | null; goalFor?: string; gapRead?: boolean };
+    m.eggSeen ??= {};
+    m.eggMissed ??= {};
+    const now = w.stageTime;
+    const k = v.threat;
+    if (!k || k === 'flood') {
+      m.goal = null;
+      return null;
+    }
+    if (m.eggSeen[k] === undefined) {
+      m.eggSeen[k] = now;
+      m.eggMissed[k] = this.rng.chance(s.missChance);
+    }
+    const hurting = k === 'sculpin' ? w.live('sculpin').some((e) => e.state === 'probe') : v.o2 < w.p.get('alevin.o2Low');
+    const noticed = m.eggMissed[k] ? hurting : now - m.eggSeen[k]! >= s.reaction;
+    if (!noticed) return null;
+    const fish = w.body.pos;
+    if (k === 'sculpin') {
+      // Get down and keep still: no turning, no crawling. Close against a big stone first, if there is time.
+      // Still on the way to a stone while the sculpin probes well away from here (not for a novice: they freeze).
+      const reach = w.p.get('alevin.sculpinReach');
+      const probing = w.live('sculpin').some((e) => e.state !== 'warn' && (s.alevinGapRead < 0.75 || !e.home || Math.hypot(e.home.x - fish.x, e.home.z - fish.z) < reach + 0.35));
+      if (!probing && m.goalFor !== 'sculpin') {
+        m.goalFor = 'sculpin';
+        const near = v.stones.map((st) => ({ st, d: Math.hypot(st.x - fish.x, st.z - fish.z) - st.r })).sort((a, b) => a.d - b.d)[0];
+        // Most players make for the nearest big stone before it starts probing; some just freeze where they are.
+        m.goal = near && near.d < 1.2 && this.rng.chance(s.alevinGapRead) ? this.besideStone(near.st, fish, 0) : null;
+      }
+      if (m.goal && !probing) {
+        const go = this.crawlTo(w, m.goal);
+        if (go) return intent({ ...go, dive: v.height > 0.02 });
+        m.goal = null;
+      }
+      return intent({ dive: v.height > 0.02 });
+    }
+    if (k === 'pocket') {
+      if (v.flowHere >= 0.95 && m.goalFor !== 'pocket') return null;
+      if (m.goalFor !== 'pocket' || !m.goal) {
+        m.goalFor = 'pocket';
+        // Out of the still water: the nearest open spot beyond its edge.
+        let best: { x: number; z: number; h: number } | null = null;
+        let bestD = Infinity;
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          const r = v.pocket.radius + 0.3;
+          const x = v.pocket.x + Math.cos(a) * r;
+          const z = v.pocket.z + Math.sin(a) * r;
+          if (Math.hypot(x, z) > w.p.get('alevin.crawlRadius') - 0.05) continue;
+          if (v.stones.some((st) => Math.hypot(st.x - x, st.z - z) < st.r + 0.08)) continue;
+          const d = Math.hypot(x - fish.x, z - fish.z);
+          if (d < bestD) {
+            bestD = d;
+            best = { x, z, h: v.height };
+          }
+        }
+        m.goal = best;
+      }
+      const go = m.goal ? this.crawlTo(w, m.goal) : null;
+      if (go) return intent(go);
+      return null;
+    }
+    // Silt: a big stone's gap, at its height if this player reads it.
+    if (m.goalFor !== 'silt' || !m.goal) {
+      m.goalFor = 'silt';
+      m.gapRead = this.rng.chance(s.alevinGapRead);
+      const near = v.stones.map((st) => ({ st, d: Math.hypot(st.x - fish.x, st.z - fish.z) })).sort((a, b) => a.d - b.d);
+      // A player who reads the flecks picks the stone whose gap is easiest to reach; one who doesn't, the nearest.
+      const pick = m.gapRead ? near.slice(0, 3).sort((a, b) => a.d + Math.abs(a.st.gap - v.height) - (b.d + Math.abs(b.st.gap - v.height)))[0] : near[0];
+      m.goal = pick ? this.besideStone(pick.st, fish, m.gapRead ? pick.st.gap : 0) : null;
+    }
+    if (!m.goal) return null;
+    const go = this.crawlTo(w, m.goal);
+    const dh = m.goal.h - v.height;
+    if (go) return intent({ ...go, rise: dh > 0.05, dive: dh < -0.05 });
+    // There: hold at the gap's height, facing the stone.
+    return intent({ rise: dh > 0.05, dive: dh < -0.05 });
+  }
+
+  /** A spot just outside a stone, on the side facing the fish, at height h. */
+  private besideStone(st: { x: number; z: number; r: number }, fish: Vec3, h: number): { x: number; z: number; h: number } {
+    const a = Math.atan2(fish.z - st.z, fish.x - st.x);
+    const r = st.r + 0.09;
+    return { x: st.x + Math.cos(a) * r, z: st.z + Math.sin(a) * r, h };
+  }
+
+  /** Turn toward a point and crawl when roughly facing it; null once there. */
+  private crawlTo(w: World, goal: { x: number; z: number }): Partial<Intent> | null {
+    const fish = w.body.pos;
+    const dx = goal.x - fish.x;
+    const dz = goal.z - fish.z;
+    if (Math.hypot(dx, dz) < 0.08) return null;
+    const d = wrapAngle(Math.atan2(dz, dx) + this.noise - w.body.yaw);
+    return { turn: clamp(d * 3, -1, 1), forward: Math.abs(d) < 0.6 ? 1 : 0 };
   }
 
   // ---------------------------------------------------------------- fry
@@ -520,17 +628,35 @@ export class Bot {
       const ty = fish.y + (seal.pos.y > fish.y ? -3 : 3);
       return this.steer3(w, { x: fish.x - v.z * side * 20, y: clamp(ty, -27, -1), z: fish.z + v.x * side * 20 }, { burst: this.canBurst(w, true) });
     }
-    // Feed: chase the nearest herring.
-    let best: Entity | undefined;
-    let bd = Infinity;
-    for (const h of w.live('herring')) {
-      const d = dist(h.pos, fish);
-      if (d < bd) {
-        bd = d;
-        best = h;
-      }
+    // Feed: each season, choose the rich patch (where the hunter comes) or the thin, safer one,
+    // and chase the nearest food there. A wary bot moves off to the thin patch once a hunter shows.
+    const v = oceanView(w);
+    const mm = this.m as { season?: number; bold?: boolean };
+    if (v && mm.season !== v.index) {
+      mm.season = v.index;
+      mm.bold = this.rng.chance(s.oceanBold);
     }
-    if (!best) return intent({ forward: 0.6 });
+    const hunting = w.live('seal').length + w.live('orca').length + w.live('shark').length > 0;
+    const richShallow = v?.season ? huntsShallow(w.p, v.season) : true;
+    const wantShallow = mm.bold && !(s.oceanWary && hunting) ? richShallow : !richShallow;
+    const patch = v?.patches.find((pa) => pa.shallow === wantShallow);
+    const nearestFood = (only: boolean): Entity | undefined => {
+      let best: Entity | undefined;
+      let bd = Infinity;
+      for (const h of w.live('herring')) {
+        // Stay with the chosen patch's food (its members orbit within about 7 units of its centre).
+        if (only && patch && Math.hypot(h.pos.x - patch.x, h.pos.y - patch.y, h.pos.z - patch.z) > 9) continue;
+        const d = dist(h.pos, fish);
+        if (d < bd) {
+          bd = d;
+          best = h;
+        }
+      }
+      return best;
+    };
+    // Once the chosen patch is eaten out, any food will do (unless a hunter is about and the bot is wary).
+    const best = nearestFood(true) ?? (patch && patch.left >= 1 ? undefined : s.oceanWary && hunting ? undefined : nearestFood(false));
+    if (!best) return patch ? this.steer3(w, { x: patch.x, y: patch.y, z: patch.z }) : intent({ forward: 0.6 });
     return this.steer3(w, best.pos);
   }
 
@@ -632,6 +758,14 @@ export class Bot {
       m.stuckX = fish.x;
       m.stuckAt = now;
       m.noScentSince = undefined;
+    }
+    // A warm year: rest in cool water when heat stress builds (it adds to a toll carried to the grounds).
+    const cool = m.backout || m.forkBack || fish.x < L.coast + 2 ? null : this.coolOff(w);
+    if (cool) {
+      m.stuckX = fish.x;
+      m.stuckAt = now;
+      m.noScentSince = undefined;
+      return cool;
     }
     const falls = m.backout || m.forkBack ? null : this.falls(w);
     if (falls) return falls;
@@ -746,6 +880,49 @@ export class Bot {
     const bearAhead = w.live('bear').some((br) => br.pos.x > fish.x - 4 && br.pos.x - fish.x < 22);
     const burst = s.riverBurst && w.body.energy > (s.burstReserve > 0 && bearAhead ? 0.95 : 0.6);
     return this.steer3(w, { x: Math.min(L0, fish.x + 10), y: s.riverDepth, z: tz }, { burst });
+  }
+
+  /**
+   * Heat on the river (null when there is no need): once heat stress passes
+   * this player's threshold (if they notice it at all), head for the nearest
+   * cold seep within reach and rest until it has eased (or, if it will not
+   * ease, give up after a while). With no seep in reach (a wrong river, say)
+   * there is nowhere to go. Novices often press on.
+   */
+  private coolOff(w: World): Intent | null {
+    const s = this.skill;
+    const fish = w.body.pos;
+    const stress = heatStress(w);
+    type HeatMem = { resting?: boolean; ignores?: boolean; seep?: { x: number; z: number } | null; since?: number; until?: number };
+    const m = ((this.m.heat as HeatMem | undefined) ??= {}) as HeatMem;
+    this.m.heat = m;
+    if (stress < s.heatResume) {
+      m.resting = false;
+      m.seep = undefined;
+      return null;
+    }
+    const now = w.stageTime;
+    if (!m.resting) {
+      if (stress < s.heatRefuge || now < (m.until ?? 0)) return null;
+      m.ignores ??= this.rng.chance(s.missChance * 2);
+      if (m.ignores) return null;
+      const near = seeps(w)
+        .filter((sp) => Math.abs(sp.x - fish.x) < 28 && Math.abs(sp.z - fish.z) < 12)
+        .sort((a, b) => Math.hypot(a.x - fish.x, a.z - fish.z) - Math.hypot(b.x - fish.x, b.z - fish.z));
+      m.seep = near[0] ?? null;
+      if (!m.seep) return null;
+      m.resting = true;
+      m.since = now;
+    }
+    if (now - (m.since ?? now) > 40) {
+      m.resting = false;
+      m.until = now + 20;
+      return null;
+    }
+    const at = m.seep ?? { x: fish.x, z: fish.z };
+    const deep = w.arena.floor(at.x, at.z) + 0.6;
+    if (Math.hypot(at.x - fish.x, at.z - fish.z) > 1.6 || fish.y > deep + 1.2) return this.steer3(w, { x: at.x, y: deep, z: at.z });
+    return this.steer3(w, { x: at.x + 0.5, y: deep, z: at.z }, { forward: 0.2, hold: true });
   }
 
   /**
@@ -912,9 +1089,10 @@ export class Bot {
       m.run = true;
       m.poolSince = undefined;
     }
-    // From deep in the pool, climb toward the surface first (rising without bursting starts no leap).
-    if (w.arena.surfaceY - b.pos.y > w.p.get('return.leapDepth') - 0.3 && x < (m.leapX ?? v.waveX) - 0.4) {
-      return this.steer3(w, { x: x + 2, y: -0.5, z: aimZ }, { forward: 0.5, rise: true, dive: false });
+    // From deep in the pool, climb toward the surface first, nearly in place so the run-up stays long
+    // (rising without bursting starts no leap; below the white water a burst only builds speed).
+    if (w.arena.surfaceY - b.pos.y > w.p.get('return.leapDepth') - 0.6 && x < (m.leapX ?? v.waveX) - 1.5) {
+      return this.steer3(w, { x: x + 2, y: -0.5, z: aimZ }, { forward: 0.15, rise: true, dive: false });
     }
     const rise = x > (m.leapX ?? v.waveX) - 0.4;
     return this.steer3(w, { x: v.face, y: -0.5, z: aimZ }, { burst: true, rise, dive: false });

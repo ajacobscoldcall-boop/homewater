@@ -4,6 +4,7 @@
  */
 import { endCards } from '../../render/goreConfig';
 import { yearFavours } from '../../sim/genetics';
+import { changeCaptions } from '../../sim/riverChange';
 import { advanceGeneration, offerOffspring, peekNextYear, recordLife, type LifeRecord } from '../../sim/lineage';
 import type { FishIdentity, YearConditions } from '../../sim/types';
 import type { World } from '../../sim/world';
@@ -51,7 +52,7 @@ export function showOffspringChoice(app: App, rec: LifeRecord, kids: FishIdentit
   if (!l) return;
   app.mode = 'menu';
   app.ending = true;
-  app.noteJournal(['year.betHedging', ...yearFavours(rec.conditions)]);
+  app.noteJournal(['year.betHedging', ...yearFavours(rec.conditions), ...changeCaptions(app.params, null, rec.conditions)]);
   const coming = peekNextYear(app.params, l, (kids[0]?.generation ?? l.generation + 1));
   showScreen(
     recapPanel({

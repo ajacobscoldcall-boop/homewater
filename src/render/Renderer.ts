@@ -3,10 +3,11 @@
  * Fish and animals are built in code (fishMesh.ts, animals.ts); fog and colour carry the scene.
  */
 import * as THREE from 'three';
-import { alevinView } from '../sim/stages/egg';
+import { alevinView, gravelFlowAt } from '../sim/stages/egg';
 import { fryView } from '../sim/stages/fry';
 import { fryDaySky, LAKE_SPLASH } from './lakeDay';
-import { oceanView } from '../sim/stages/ocean';
+import { oceanView, type OceanView } from '../sim/stages/ocean';
+import { easeLook, oceanLook, oceanSchools, type OceanLook } from './oceanLook';
 import type { ArenaKind } from '../sim/stages';
 import { returnLayout, returnUpstream } from '../sim/stages/return';
 import { lakeBearOut, lakeView } from '../sim/stages/returnLake';
@@ -24,6 +25,11 @@ import { LightShafts, MarineSnow, sharedWater, surfaceMaterial } from './water';
 // The world above the water (sky, shore, the bear's bulk) and splashes: see above.ts, splash.ts.
 import { AboveWater } from './above';
 import { BEAR_STRIKE } from './aboveConfig';
+// Weather and season, lake ice and the people at the nets (render only): see weather.ts, ice.ts, boats.ts.
+import { CLEAR, weatherFor, type Weather } from './weather';
+import { WEATHER_LOOK } from './weatherConfig';
+import { iceMaterial } from './ice';
+import { BoatLayer } from './boats';
 import { softDisc, Splashes } from './splash';
 // Gore: wounds, senescence, death beats and the carcass (render only).
 import { GoreLayer } from './gore';
@@ -48,6 +54,7 @@ import { CameraRig, type CameraAim, type CameraProbe } from './cameraRig';
 import { activeThreats, threatFocus, type ActiveThreat } from './threats';
 import { ThreatCues } from './threatCues';
 import { fallsView } from '../sim/stages/falls';
+import { TrackGlow } from './trackGlow';
 import { CAMERA } from './cameraConfig';
 import { SceneryProbe } from './sceneryProbe';
 import { access, setAccess } from '../ui/accessibility';
@@ -61,6 +68,10 @@ import { buildHalocline, dawnFraction, dawnLight, parrLeft, tintBySalinity, upda
 import { smoltView } from '../sim/stages/smolt';
 import { drawnBedTop, easeLift, restLift, type DrawnPatch } from './bedRest';
 import { BED } from './bedConfig';
+import { ReddThreats } from './reddThreats';
+import { REDD_FX } from './reddThreatsConfig';
+import { createSculpin } from './sculpin';
+import { SCULPIN_TOP } from '../sim/stages/eggThreats';
 
 export type CameraMode = 'third' | 'first';
 const NO_WALLS: readonly never[] = [];
@@ -88,6 +99,7 @@ const tmpQ = new THREE.Quaternion();
 const tmpS = new THREE.Vector3();
 const tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
+const wxGrey = new THREE.Color();
 /** Flood water colour in the redd (silt). */
 const SILT = new THREE.Color(0x6e5c3c);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -115,6 +127,8 @@ export class Renderer {
   /** Threats live this frame (threats.ts), the startle and Documentary view's cues (threatCues.ts). */
   threats: ActiveThreat[] = [];
   readonly cues = new ThreatCues(this.scene);
+  /** The magnetic track's glows (trackGlow.ts). */
+  private readonly trackGlow = new TrackGlow();
 
   /** The view key: low chase, high, then through the fish's eyes. The third-person view is kept in access().cameraView. */
   cycleView(): void {
@@ -174,7 +188,49 @@ export class Renderer {
     this.sun.position.set(20, 60, 10);
     this.scene.add(this.hemi, this.sun);
     this.scene.add(this.stageGroup, this.entityGroup, this.shafts.group, this.snow.points, this.food.group, this.splash.group);
-    this.scene.add(this.scavengers.group, this.plankton.points);
+    this.scene.add(this.scavengers.group, this.plankton.points, this.boats.group);
+  }
+
+  /** Weather now (weather.ts), for the sound of rain and wind (App's weather hook). */
+  get weather(): Weather {
+    return this.wx;
+  }
+  private wx: Weather = CLEAR;
+  /** Playtest and review shots: fix parts of the weather (e.g. { rain: 1 }); null follows the year. */
+  weatherOverride: Partial<Weather> | null = null;
+  private boats = new BoatLayer();
+
+  /**
+   * Weather on top of the stage's own light (after updateAlevin, which sets the light afresh each frame):
+   * cloud flattens and dims the light and softens shafts and caustics; the sky, rain, wind and ice go to the surface.
+   */
+  private applyWeather(w: World): void {
+    const c = w.conditions;
+    const wx = (this.wx = weatherFor({
+      stage: w.stageId,
+      flow: c.flow,
+      temperature: c.temperature,
+      t: w.stageTime,
+      fryPhase: fryView(w)?.phase ?? null,
+      oceanMoment: oceanView(w)?.moment ?? null,
+      flood: alevinView(w)?.floodLevel ?? 0,
+    }));
+    if (this.weatherOverride) Object.assign(wx, this.weatherOverride);
+    this.above.setWeather(wx);
+    const L = WEATHER_LOOK;
+    const oc = wx.overcast;
+    const sun = 1 - (1 - L.sunUnderCloud) * oc;
+    sharedWater.uSun.value = sun;
+    this.sun.intensity *= sun;
+    this.hemi.intensity *= 1 - (1 - L.hemiUnderCloud) * oc;
+    // Flatter, greyer water under cloud.
+    const f = this.fog.color;
+    const grey = 0.3 * f.r + 0.59 * f.g + 0.11 * f.b;
+    f.lerp(wxGrey.setRGB(grey, grey, grey), 0.2 * oc).multiplyScalar(1 - (1 - L.fogUnderCloud) * oc);
+    (this.scene.background as THREE.Color).copy(f);
+    this.shafts.setWeather(1 - (1 - L.shaftsUnderCloud) * oc);
+    this.boats.update(w.stageTime, wx.wind, sun, this.above, this.camera);
+    this.above.countBodies();
   }
 
   /** Ocean food patch: krill swarm with small fish and squid (krill.ts). */
@@ -183,6 +239,8 @@ export class Renderer {
   private plankton = new PlanktonSwarm(this.fog);
   /** The player's own egg before hatching (eggMesh.ts), and the egg material's eye strength. */
   private ownEgg: THREE.Mesh | null = null;
+  /** Egg stage: silt and the low-oxygen pocket (reddThreats.ts). */
+  private reddThreats: ReddThreats | null = null;
   private eggEyed: { value: number } | null = null;
 
   /** Gore layer (src/render/gore.ts): wounds, wear, the death beat and the carcass. App sets its mode. */
@@ -267,6 +325,7 @@ export class Renderer {
     sharedWater.uTime.value += frameDt;
     this.env?.update(w, frameDt, this.camera);
     this.updateAlevin(w, frameDt);
+    this.applyWeather(w);
     this.updateHidingSpots(w);
     frameQuality(this.fog, this.camera, 400); // quality: fog scale and far clip
     if (this.surfaceMat) this.surfaceMat.uniforms.uFogDensity!.value = this.fog.density;
@@ -331,6 +390,19 @@ export class Renderer {
   private flow: THREE.InstancedMesh | null = null;
   private flowPts: THREE.Vector3[] = [];
 
+  private seaLook = oceanLook({ season: null, warmth: 'typical', moment: null });
+  private seaTarget = oceanLook({ season: null, warmth: 'typical', moment: null });
+  /** The ocean's look for this frame, eased toward the season's (sets the base fog, shafts and far schools). */
+  private oceanLookNow(sea: OceanView, frameDt: number): OceanLook {
+    oceanLook(sea, this.seaTarget);
+    // Cut straight to the new look while a skip has the screen dark; ease otherwise.
+    const L = sea.fade > 0.85 ? easeLook(this.seaLook, this.seaTarget, 10) : easeLook(this.seaLook, this.seaTarget, frameDt);
+    this.baseFog.copy(L.fog);
+    this.shafts.setStrength(WATER.ocean.shafts * L.shafts, WATER.ocean.shaftColor);
+    oceanSchools.uAmount.value = L.schools;
+    return L;
+  }
+
   /** Egg stage: daylight, the flow made visible as drifting flecks. */
   private updateAlevin(w: World, frameDt: number): void {
     const v = alevinView(w);
@@ -375,12 +447,16 @@ export class Renderer {
         // The lake day: day to dusk as the light falls to dusk level, then dusk to night (stars) below it; dawn runs it back.
         const k = fryDaySky(fry.light, w.p.get('fry.duskLight'), w.p.get('fry.nightLight'));
         this.above.setSky(k.from, k.to, k.k, skyLight);
-      } else if (sea?.moment === 'reveal') this.above.setSky('day', 'dusk', 0.4, skyLight);
-      else this.above.setSky('day', 'day', 0, skyLight);
+      } else if (sea) {
+        // The ocean route: coastal green, offshore blue, dark winter water; an autumn evening sky (oceanLook.ts).
+        const L = this.oceanLookNow(sea, frameDt);
+        if (L.sky === 'winter') this.above.setSky('winter', 'winter', 0, skyLight);
+        else this.above.setSky('day', L.sky === 'autumn' ? 'dusk' : 'day', L.sky === 'autumn' ? 0.4 : 0, skyLight);
+      } else this.above.setSky('day', 'day', 0, skyLight);
       this.hemi.intensity = (night ? 0.55 : 1.1) * dim;
       this.sun.intensity = (night ? 0.45 : 1.3) * dim;
       // Time skips close in with dark water, then open on the next moment.
-      this.fog.density = this.baseDensity * (1 + 30 * (moment?.fade ?? 0));
+      this.fog.density = this.baseDensity * (sea ? this.seaLook.density : 1) * (1 + 30 * (moment?.fade ?? 0));
       sharedWater.uLight.value = (night ? 0.45 : 1) * dim;
       // Deeper water is darker.
       const depth = Math.max(0, w.arena.surfaceY - this.camera.position.y);
@@ -405,8 +481,15 @@ export class Renderer {
     this.hemi.intensity = 0.2 + 0.95 * light;
     this.sun.intensity = 0.1 + 1.3 * light;
     this.fog.color.copy(this.baseFog).lerp(SILT, 0.75 * flood).multiplyScalar(0.25 + 0.75 * light);
-    (this.scene.background as THREE.Color).copy(this.fog.color);
     this.fog.density = this.baseDensity * (1 + 2.5 * flood);
+    // Silt clouding the water and the still pocket (reddThreats.ts).
+    const silt = this.reddThreats?.update(w, frameDt, this.fog, this.camera.position);
+    if (silt?.dim) {
+      sharedWater.uLight.value *= 1 - silt.dim;
+      this.hemi.intensity *= 1 - silt.dim;
+      this.sun.intensity *= 1 - silt.dim;
+    }
+    (this.scene.background as THREE.Color).copy(this.fog.color);
     const flow = this.flow;
     if (!flow) return;
     const flooding = v.flood === 'flood';
@@ -414,8 +497,10 @@ export class Renderer {
     const dx = Math.cos(v.currentAngle) * speed * frameDt;
     const dz = Math.sin(v.currentAngle) * speed * frameDt;
     this.flowPts.forEach((pt, i) => {
-      pt.x += dx;
-      pt.z += dz;
+      // Where silt clogs the gravel the flecks slow; in the still pocket they stop (eggThreats.ts gravelFlow).
+      const k = gravelFlowAt(w, pt.x, pt.z, pt.y);
+      pt.x += dx * k;
+      pt.z += dz * k;
       if (Math.hypot(pt.x, pt.z) > 2.6) {
         // Re-enter on the upstream side.
         const a = v.currentAngle + Math.PI + (Math.random() - 0.5) * 2;
@@ -462,6 +547,7 @@ export class Renderer {
     this.baseFog.setHex(look.fog);
     this.baseDensity = look.density;
     this.flow = null;
+    this.reddThreats = null;
     this.scene.background = new THREE.Color(look.fog);
     // Day light colours (the smolt run's night sets its own every frame).
     this.hemi.color.setHex(0xcfe8e2);
@@ -489,6 +575,8 @@ export class Renderer {
 
     // The surface, seen from below, and the world above it seen through Snell's window.
     this.above.build(w, (x, z) => this.groundAt(w, x, z));
+    // Gillnet skiffs at the ends of the return's net lines (boats.ts).
+    this.boats.build(w, (x, z) => w.arena.floor(x, z));
     this.splash.clear();
     this.surfaceMat = surfaceMaterial(this.fog, this.above.uniforms, a.surfaceY);
     // Reaching past the far clip from anywhere in the arena, so from the low camera the surface fades into the fog
@@ -520,7 +608,8 @@ export class Renderer {
     }
     // Brood-mates after hatching: alevin with their yolk sacs, one draw call for the nest.
     this.makeInstanced('brood', buildFishGeometry({ depth: 0.8, hump: 0, kype: 0, yolk: 1 }, 'alevin', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4 }), 20);
-    this.makeInstanced('track', new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }), 200);
+    // The magnetic track: soft glows, clearly visible at every preset (trackGlow.ts).
+    this.makeInstanced('track', this.trackGlow.geometry, this.trackGlow.material, 200);
     this.makeInstanced('smolt', buildFishGeometry({ depth: 0.95, hump: 0, kype: 0, yolk: 0 }, 'smolt', { lod: 'low' }), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3, emissive: new THREE.Color(NIGHT.schoolGlow) }), 80);
     // Pink salmon in a crowded ocean year: silver at sea, a little smaller than the player.
     // Other returning sockeye travelling the home river with the player (migrants.ts).
@@ -548,6 +637,7 @@ export class Renderer {
       });
       this.flow = flow;
       this.stageGroup.add(flow);
+      this.reddThreats = new ReddThreats(this.stageGroup, w);
     }
   }
 
@@ -686,7 +776,8 @@ export class Renderer {
         break;
       case 'pink':
         tmpQ.setFromAxisAngle(UP, -e.yaw);
-        tmpS.setScalar(MODEL_SCALE.pink);
+        // Pinks feed beside the player in its first autumn too (oceanRoute.ts): never drawn bigger than it.
+        tmpS.setScalar(Math.min(MODEL_SCALE.pink, w.body.scale * 0.95));
         mesh.setColorAt(i, tmpC.setHex(0xb8c4cc));
         break;
       case 'eggs': {
@@ -702,6 +793,10 @@ export class Renderer {
         if (e.state === 'washed') {
           // Tumbling away on the flood.
           tmpQ.setFromEuler(tmpE.set(e.timer * 9 + e.id, -e.yaw, e.timer * 5));
+        } else if (e.state === 'smothered') {
+          // Smothered by silt: still, rolled onto its side on the bed.
+          tmpP.y -= 0.06 * (e.value ?? 0.5) + 0.02;
+          tmpQ.setFromEuler(tmpE.set(Math.min(1.4, e.timer * 0.8), -e.yaw, 0));
         } else {
           // Deeper ones sit lower among the stones; all wriggle a little.
           tmpP.y -= 0.06 * (e.value ?? 0.5);
@@ -710,18 +805,11 @@ export class Renderer {
         // A little smaller than the player's alevin (0.35), so the player's own fish stands out.
         tmpS.setScalar(MODEL_SCALE.brood);
         break;
-      case 'track': {
-        // Documentary view: a soft glow of light instead (threatCues.ts).
-        if (this.cues.doc) {
-          this.cues.writeSoft(w, e, this.camera, tmpQ, tmpS);
-          break;
-        }
-        // The magnetic sense: a shimmer that fades in and out.
-        const life = Math.max(0, Math.min(1, e.timer / 1.4));
-        tmpS.setScalar((0.25 + 0.55 * (e.value ?? 0)) * Math.sin(Math.PI * life));
-        tmpQ.setFromEuler(tmpE.set(w.time * 2 + e.id, w.time * 3, 0));
+      case 'track':
+        // The magnetic sense: a glow that fades in and out; softer and larger in Documentary view (trackGlow.ts).
+        this.trackGlow.pose(w, e, this.camera, this.cues.doc, tmpP, tmpQ, tmpS, tmpC);
+        mesh.setColorAt(i, tmpC);
         break;
-      }
       case 'scent':
         // Documentary view: a faint shimmer in the water instead of specks (threatCues.ts).
         if (this.cues.doc) {
@@ -766,6 +854,12 @@ export class Renderer {
         const g = createChar().root;
         // On the spawning grounds the same char, drawn at its size beside adult salmon.
         g.scale.setScalar(w.stageId === 'spawn' ? MODEL_SCALE.charGrounds : MODEL_SCALE.char);
+        return g;
+      }
+      case 'sculpin': {
+        // A bottom fish probing the gravel (egg stage), drawn at its real length beside the alevin.
+        const g = createSculpin().root;
+        g.scale.setScalar(MODEL_SCALE.sculpin);
         return g;
       }
       case 'orca': {
@@ -868,9 +962,11 @@ export class Renderer {
         return buildGravelPatch(e.radius, e.size?.x ?? 0.2, this.envDetail, (dx, dz) => a.floor(e.pos.x + dx, e.pos.z + dz) - base);
       }
       case 'ice': {
-        // Lake ice, seen from below: a pale, unlit, unfogged sheet, so the ceiling reads even in the winter gloom.
+        // Lake ice, seen from below (ice.ts): blue-white light through it, snow patches, cracks and bubbles.
         const s = e.size ?? new THREE.Vector3(90, 0.1, 90);
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(s.x, s.z), new THREE.MeshBasicMaterial({ color: 0x7f979c, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+        // The whole lake is frozen: drawn as far as the surface reaches, so the sheet's edge never shows.
+        const reach = Math.max(s.x, s.z) + 2 * SURFACE_REACH;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(reach, reach), iceMaterial());
         m.rotation.x = -Math.PI / 2;
         // Over the surface (drawn after it), so the sky does not show through the ice.
         m.renderOrder = 2;
@@ -889,6 +985,15 @@ export class Renderer {
   private updateObject(w: World, e: Entity, obj: THREE.Object3D): void {
     obj.position.set(e.pos.x, e.pos.y, e.pos.z);
     switch (e.kind) {
+      case 'sculpin': {
+        // Its point is the head: the nose tips down into the gaps as the head goes below the top of the gravel.
+        obj.rotation.set(0, -e.yaw, 0);
+        const fx = REDD_FX;
+        const down = Math.max(0, Math.min(1, (SCULPIN_TOP - e.pos.y) / (SCULPIN_TOP - (-1.55 + 0.5 * w.p.get('alevin.sculpinProbeDepth')))));
+        obj.position.y = fx.sculpinRestY + (fx.sculpinProbeY - fx.sculpinRestY) * down;
+        animalOf(obj)?.update({ mode: e.state, t: w.time + e.id, pitch: -fx.sculpinMaxPitch * down });
+        break;
+      }
       case 'seal': {
         obj.rotation.set(0, -e.yaw, 0);
         const lunge = e.state === 'lunge';
@@ -1166,8 +1271,8 @@ export class Renderer {
     if (w.stageId === 'egg') {
       // Chase: low among the stones, side-on to the flow; high: looking down on the alevin (cameraConfig.ts egg).
       const v = CAMERA.egg[access().cameraView];
-      want.set(v.pos.x, b.pos.y + v.pos.y, v.pos.z);
-      look.set(v.look.x, b.pos.y + v.look.y, v.look.z);
+      want.set(b.pos.x + v.pos.x, b.pos.y + v.pos.y, b.pos.z + v.pos.z);
+      look.set(b.pos.x + v.look.x, b.pos.y + v.look.y, b.pos.z + v.look.z);
       want.y = Math.max(want.y, this.groundAt(w, want.x, want.z) + 0.12);
     } else if (this.cameraMode === 'first') {
       const h = headingVec(b.yaw, b.pitch);

@@ -121,6 +121,8 @@ The same traits can thrive in one generation and fail in the next. That is bet h
 
 The year card and the recap say what the year favoured.
 
+**Changing river (optional mode, off by default).** Chosen when a lineage is founded; the main game stays a healthy Bristol Bay-type river with no dams. On a changing river, over the generations: summers warm, some years bring logging silt into the spawning gravel, hatchery strays join the run, and set nets and subsistence nets fish open runs harder, easing off after small runs. Each change shows on the stage card where it matters and as a mark on the run chart, and the Lineages page and the recap say what has changed since the line began. All rates are game placeholders (`change.*`).
+
 ## End-of-life summary
 
 After spawning and death, a short sequence plays: the carcass decays and feeds the stream and forest, the seasons pass, and the eggs hatch. v1 keeps this simple, as a series of fades rather than a full cinematic. Then the life ends with a recap and a score.
@@ -282,7 +284,7 @@ The user reviews and can redirect after each milestone. Outside playtesters can 
 - **Size:** The cut list and the milestones above manage this.
 - **Other animals:** They will be the roughest visuals, so they are shown in part, through murk and silhouette.
 - **Ocean stage:** Built from distinct events so it doesn't feel empty.
-- **Advisor timing:** The current choices hold as defaults unless he says otherwise. Biology lives in the data file, so his corrections are tuning changes rather than rewrites.
+- **Advisor timing:** The current choices hold as defaults unless they say otherwise. Biology lives in the data file, so their corrections are tuning changes rather than rewrites.
 
 ## Title
 
@@ -290,8 +292,19 @@ The user reviews and can redirect after each milestone. Outside playtesters can 
 
 ## Sources
 
+- Chapman, D. W. 1988. Critical review of variables used to define effects of fines in redds of large salmonids. Transactions of the American Fisheries Society 117: 1-21 (fine sediment and the flow of water and oxygen through redds; used for the egg stage's silt and still water)
+- Foote, C. J. and Brown, G. S. 1998. Ecological relationship between freshwater sculpins (genus *Cottus*) and beach-spawning sockeye salmon (*Oncorhynchus nerka*) in Iliamna Lake, Alaska. Canadian Journal of Fisheries and Aquatic Sciences 55: 1524-1533 (sculpins and sockeye eggs; the egg stage's sculpin)
 - [DeFilippo PhD dissertation: Salmon Life Histories and Fisheries Management (UW)](https://digital.lib.washington.edu/researchworks/items/f492992e-1b79-4cf0-ad84-4c19b0ff6d9a/full)
 - [DeFilippo et al. 2019, Frazer Lake jacks (listing)](https://pherobase.com/literature/data/details/M/38760); [UW SAFS summary](https://fish.uw.edu/?p=16965)
 - [DeFilippo et al. 2018, stream geomorphology and jacks (USGS listing)](https://pubs.usgs.gov/publication/70197438)
 - [Juneau Empire on DeFilippo's jack research, including the Wood River rate](https://www.juneauempire.com/news/short-lived-salmon-play-a-role-in-long-term-survival)
 - [NOAA: Investigating salmon bycatch in the Alaska pollock fishery](https://www.fisheries.noaa.gov/feature-story/investigating-salmon-bycatch-dynamics-alaska-pollock-fishery)
+- Changing river mode (cited in params.json, no links): Isaak et al. 2012, Climatic Change (summer stream warming in the US Northwest, 1980-2009); Jensen et al. 2009, Reviews in Fisheries Science (fine sediment and salmon egg-to-fry survival, a meta-analysis); Araki et al. 2007, Science, and Christie et al. 2014, Evolutionary Applications (reproductive success of hatchery-origin fish spawning in the wild)
+- Further published sources behind the captions and journal (full list on the journal's Sources page, `src/data/journal.json`; which line each supports is in `src/data/claims.json`):
+  - Burgner (1991), Life history of sockeye salmon, in Groot & Margolis (eds), *Pacific Salmon Life Histories*; Heard (1991), Life history of pink salmon, same volume.
+  - Quinn (2018), *The Behavior and Ecology of Pacific Salmon and Trout*, 2nd ed.; Dittman & Quinn (1996), *J. Exp. Biol.* 199.
+  - DeFilippo et al. (2018), *J. Evol. Biol.* 31; DeFilippo et al. (2019), *Evol. Appl.* 12 (the two DeFilippo listings above).
+  - Narver (1970), *J. Fish. Res. Board Can.* 27; Clark & Levy (1988), *Am. Nat.* 131; Scheuerell & Schindler (2003), *Ecology* 84.
+  - Brett (1971), *Am. Zool.* 11; Wetzel (2001), *Limnology*, 3rd ed.
+  - Ruggerone et al. (2003), *Fish. Oceanogr.* 12; Ricker (1954), *J. Fish. Res. Board Can.* 11.
+  - Gende et al. (2001), *Oecologia* 127; Gende et al. (2002), *BioScience* 52.

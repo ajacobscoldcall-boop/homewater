@@ -23,10 +23,11 @@ import type { Entity } from '../types';
 import { distXZ, v3 } from '../vec';
 import { heatStress, stepWater } from './returnWater';
 import type { World } from '../world';
-import { afterSwim, fallsCurrent, fallsFloor, FACE, inFallsZone, initFalls, stepPlayerLeap, type FallsState } from './falls';
+import { afterSwim, fallsCurrent, fallsFloor, FACE, inFallsZone, initFalls, isLipBear, lipBearHolds, lipBearWarnScale, stepPlayerLeap, type FallsState } from './falls';
 import type { Box, StageDef } from './index';
 import { stepReturnScent, type ScentLayout } from './returnScent';
 import { bearAim, bearStrike, spawnMigrants, stepMigrants } from './migrants';
+import { resetHeatToll } from './heatToll';
 import { initLake, lakeCurrent, lakeFloor, spawnLakeBears, stepLake, type LakeLayout, type LakeState } from './returnLake';
 
 const COAST = 90;
@@ -192,8 +193,9 @@ function stepBear(w: World, bear: Entity, dt: number): void {
   const branchSide = bear.pos.x > FORK ? Math.sign(bear.pos.z - s.homeMouth) : 0;
   const sameBranch = branchSide === 0 || Math.sign(fish.z - s.homeMouth) === branchSide;
   if (bear.state === 'idle') {
-    if (Math.abs(fish.x - bear.pos.x) < 12 && fish.x < bear.pos.x + 4 && sameBranch) {
-      const warn = p.get('return.bearWarning');
+    // The lip bear holds off on Field guide's first tries at the falls, and warns longer on Wild (falls.ts).
+    if (Math.abs(fish.x - bear.pos.x) < 12 && fish.x < bear.pos.x + 4 && sameBranch && !lipBearHolds(w, bear)) {
+      const warn = p.get('return.bearWarning') * lipBearWarnScale(w, bear);
       bear.state = 'warn';
       bear.timer = warn;
       const tx = fish.x + w.body.vel.x * warn;
@@ -204,6 +206,7 @@ function stepBear(w: World, bear: Entity, dt: number): void {
       bear.home = bearAim(w, bear, v3(tx, 0, tz), p.get('return.bearReachDepth'), branchSide, FORK);
       w.emit('warning', 'bear');
       w.emitOnce('caption', 'return.bear');
+      if (isLipBear(bear) && s.falls && !s.falls.passed) w.emitOnce('caption', 'return.lipBear');
     }
   } else if (bear.state === 'warn' && bear.timer <= 0) {
     bear.state = 'strike';
@@ -256,6 +259,7 @@ export const returnStage: StageDef = {
   },
   init(w, marker) {
     const p = w.p;
+    resetHeatToll(w);
     const L = p.get('return.length');
     const homeMouth = w.rng.pick(MOUTHS);
     const homeSide: 1 | -1 = w.rng.chance(0.5) ? 1 : -1;
@@ -337,7 +341,8 @@ export const returnStage: StageDef = {
     const leaping = stepPlayerLeap(w, dt);
     // Water temperature and oxygen where the fish is (returnWater.ts): warm water burns fat and slows recovery, low oxygen weakens the burst.
     const water = stepWater(w, dt, intent.forward < 0.3 && !intent.burst);
-    if (heatStress(w) >= 1) {
+    // Heat stress builds a lasting toll carried to the grounds (heatToll.ts); only full stress in extreme water kills here.
+    if (water.lethal) {
       w.die('heat');
       return;
     }

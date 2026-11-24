@@ -1,68 +1,105 @@
 /**
- * Stage 4: ocean years. Separate moments joined by time skips:
- * - baitball: feed in a drifting food patch. Food entities keep the kind 'herring'
- *   for save and test stability; they are drawn as a krill swarm with a few small
- *   fish and squid (src/render/krill.ts), since sockeye at sea eat mainly zooplankton.
- * - orca: another ball, and an orca makes a charging pass (advisor: whales).
- * - seal: feeding near the surface, a seal lunges (advisor: seals and sea lions).
- * - pinks: in a crowded year only, pink salmon compete for the same food.
- * - shark: a salmon shark strikes from below (advisor: yes to salmon sharks).
- * - reveal: the first autumn at sea; genes and growth decide maturation.
+ * Stage 4: the years at sea, as a journey (Track 2.6; route and food rules in oceanRoute.ts).
+ * One season after another, joined by time skips shown on the ocean map:
+ * - out along the coast in the first summer, over the shelf edge in the first autumn,
+ *   then the maturation reveal (genes and growth decide maturation, as before);
+ * - for each year at sea a loop of spring, summer, autumn and winter offshore, and the
+ *   turn for home in the last spring.
+ * Each season has two food patches, one near the surface and one deep, and one
+ * encounter: a seal (feeding near the surface; advisor: seals and sea lions), an orca
+ * (advisor: whales), a salmon shark from below (advisor: yes to salmon sharks), or, in a
+ * crowded year, pink salmon competing for the same food. The predator hunts where the
+ * food is thickest, so feeding rich costs risk. Food entities keep the kind 'herring'
+ * for save and test stability; they are drawn as a krill swarm with a few small fish and
+ * squid (src/render/krill.ts), since sockeye at sea eat mainly zooplankton.
+ * Season, ocean warmth and crowding set how much food there is, which sets growth (the
+ * ocean bites before the reveal feed decideMaturation on the same scale as before; later
+ * feeding nudges adult size), and the fish is drawn larger season by season.
  * Sockeye stay within 20-40 m of the surface (advisor), so the arena is that band.
  */
 import { flockStep, flockTuning, type FlockGoal, type Threat } from '../flock';
 import { adultSize, becomesJack, oceanYearsFor } from '../genetics';
 import { curvedChase, personalityOf } from '../personality';
 import { swimStep } from '../swim';
-import type { Entity } from '../types';
+import type { Entity, Vec3 } from '../types';
 import { add, clamp, dist, norm, scale, sub, v3 } from '../vec';
 import type { World } from '../world';
 import { freshwaterScore } from './fry';
 import type { StageDef } from './index';
+import { AFTER_REVEAL, firstYearPlan, fullPlan, huntsShallow, laterPlan, seasonCaption, seasonFood, shallowShare, sizeOnRoute, warmthFrom, type Encounter, type SeasonPlan, type Warmth } from './oceanRoute';
 
-export type OceanPhase = 'baitball' | 'orca' | 'seal' | 'pinks' | 'shark' | 'reveal' | 'skip';
-type Moment = Exclude<OceanPhase, 'skip'>;
+export type OceanPhase = 'season' | 'reveal' | 'skip';
+/** The scene being played: a season's encounter, or the maturation reveal. */
+type Moment = Encounter | 'reveal';
+
+interface Patch {
+  /** Where the patch drifts around. */
+  base: Vec3;
+  /** Its centre now (food entities keep a reference to it as their `home`). */
+  center: Vec3;
+  shallow: boolean;
+  /** Food still to come in this patch this season. */
+  budget: number;
+  /** How many show at once. */
+  shown: number;
+}
 
 interface OceanState {
   phase: OceanPhase;
-  /** The moments still to come, in order. */
-  queue: Moment[];
+  /** The route: seasons in order (the first year only, until the reveal decides the years at sea). */
+  plan: SeasonPlan[];
+  /** Index of the season being played (or coming up after a skip). */
+  index: number;
+  /** Ocean warmth for each year at sea (index 0 = year 1). */
+  warmth: Warmth[];
   phaseTime: number;
   skipLeft: number;
-  ballCenter: { x: number; y: number; z: number };
-  /** Bait-ball drift is off for moments without one. */
-  ballDrift: boolean;
+  /** After the skip: play the reveal rather than the next season. */
+  revealNext: boolean;
+  patches: Patch[];
+  /** Seconds the fish has spent where this season's predator hunts. */
+  exposure: number;
+  /** Rolled once a season: whether the predator comes for a fish that kept out of its way. */
+  latePredator: boolean | null;
   predatorSpawned: boolean;
   predatorDone: boolean;
-  /** Seconds of calm left after a predator has gone; negative when not settling. */
-  settleLeft: number;
+  /** Season time when the predator went (or vanished), else -1: a moment of calm follows. */
+  goneAt: number;
   revealed: boolean;
+  /** Food eaten this season, and after the reveal in all (adult size). */
+  seasonBites: number;
+  lateBites: number;
+  lateExpected: number;
+  /** 0..1 feeding so far against a typical fish (drawn size). */
+  feed: number;
 }
 
 const st = (w: World) => w.stage as unknown as OceanState;
 
-const SKIP_CAPTION: Record<Moment, string> = {
-  baitball: 'ocean.intro',
-  orca: 'ocean.skipOrca',
-  seal: 'ocean.skipSeal',
-  pinks: 'ocean.crowded',
-  shark: 'ocean.skipShark',
-  reveal: 'ocean.autumn',
-};
-
-/** Moments are shorter after the first life. */
-function dur(w: World, id: string): number {
-  return w.p.get(id) * (w.firstLife ? 1 : w.p.get('ocean.laterLifeScale'));
+/** Seasons are shorter after the first life. */
+function lifeScale(w: World): number {
+  return w.firstLife ? 1 : w.p.get('ocean.laterLifeScale');
 }
 
 /** Is this a crowded (pink salmon) year at sea? */
 export const crowdedYear = (w: World): boolean => w.conditions.oceanCrowding > w.p.get('ocean.crowdedThreshold');
 
-function spawnHerring(w: World, n: number): void {
-  const c = st(w).ballCenter;
-  for (let i = 0; i < n; i++) {
-    w.spawn('herring', v3(c.x, c.y, c.z), { radius: 0.2, value: w.rng.range(0, Math.PI * 2), size: v3(w.rng.range(2.5, 6), w.rng.range(-2, 2), w.rng.range(0.6, 1.4)) });
+function currentPlan(w: World): SeasonPlan | null {
+  const s = st(w);
+  return s.plan[s.index] ?? null;
+}
+
+function warmthOf(w: World, plan: SeasonPlan): Warmth {
+  const s = st(w);
+  return s.warmth[Math.min(s.warmth.length - 1, plan.year - 1)] ?? 'typical';
+}
+
+function spawnFood(w: World, patch: Patch, n: number): void {
+  const k = Math.min(n, Math.floor(patch.budget));
+  for (let i = 0; i < k; i++) {
+    w.spawn('herring', v3(patch.center.x, patch.center.y, patch.center.z), { radius: 0.2, value: w.rng.range(0, Math.PI * 2), size: v3(w.rng.range(2.5, 6), w.rng.range(-2, 2), w.rng.range(0.6, 1.4)) }).home = patch.center;
   }
+  patch.budget -= k;
 }
 
 /** Decide maturation and adult size from genes and how well the fish fed. */
@@ -77,90 +114,165 @@ export function decideMaturation(w: World): void {
   pr.adultSize = adultSize(p, w.fish, pr.oceanYears, pr.growthPerf, w.conditions);
 }
 
-// ---------- moments ----------
+/** Feeding after the reveal nudges adult size up or down from a typical year's (0 change when typical). */
+export function lateSizeChange(p: { get(id: string): number }, bites: number, expected: number): number {
+  if (expected <= 0) return 0;
+  const score = Math.min(p.get('ocean.lateScoreCap'), bites / expected);
+  return p.get('ocean.lateFeedingEffect') * (score - p.get('ocean.lateTypical'));
+}
 
-function clearMoment(w: World): void {
+// ---------- seasons ----------
+
+function clearScene(w: World): void {
   for (const e of w.entities) e.alive = false;
   w.entities = [];
 }
 
-function setup(w: World, m: Moment): void {
+/** Set up the scene for the current season (or the reveal). */
+function setup(w: World, reveal = false): void {
   const s = st(w);
   const p = w.p;
-  clearMoment(w);
-  s.phase = m;
+  clearScene(w);
+  s.phase = reveal ? 'reveal' : 'season';
   s.phaseTime = 0;
   s.predatorSpawned = false;
   s.predatorDone = false;
-  s.settleLeft = -1;
+  s.goneAt = -1;
+  s.exposure = 0;
+  s.latePredator = null;
   s.revealed = false;
-  s.ballDrift = true;
+  s.seasonBites = 0;
+  s.patches = [];
   const b = w.body;
   b.vel = v3();
   b.pitch = 0;
   b.energy = Math.max(b.energy, 0.8);
-  switch (m) {
-    case 'baitball':
-      b.pos = v3(0, -12, -22);
-      b.yaw = Math.PI / 2;
-      s.ballCenter = v3(0, -12, 0);
-      spawnHerring(w, p.get('ocean.ballSize'));
-      break;
-    case 'orca':
-      b.pos = v3(0, -10, -18);
-      b.yaw = Math.PI / 2;
-      s.ballCenter = v3(0, -10, 0);
-      spawnHerring(w, p.get('ocean.ballSize') * 0.6);
-      break;
-    case 'seal':
-      // Near the surface, close to a small school of prey.
-      b.pos = v3(-14, -3, 0);
-      b.yaw = 0;
-      s.ballCenter = v3(0, -3, 0);
-      spawnHerring(w, p.get('ocean.ballSize') * 0.5);
-      break;
-    case 'pinks': {
-      b.pos = v3(0, -10, -16);
-      b.yaw = Math.PI / 2;
-      s.ballCenter = v3(0, -10, 0);
-      spawnHerring(w, p.get('ocean.ballSize') * 0.6);
-      const n = p.get('ocean.pinkCount');
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2;
-        const r = w.rng.range(8, 16);
-        w.spawn('pink', v3(Math.cos(a) * r, -10 + w.rng.range(-4, 4), Math.sin(a) * r), { radius: 0.4, yaw: a + Math.PI });
-      }
-      w.emit('caption', 'ocean.pinks');
-      break;
+  b.scale = sizeOnRoute(p, s.plan, s.index, w.progress.adultSize, s.feed);
+  if (reveal) {
+    // Open water, alone. The weight is in the caption.
+    b.pos = v3(0, -8, 0);
+    b.yaw = Math.PI / 2;
+    if (w.fish.sex === 'M' && !w.fish.lockedJack) w.emit('caption', 'ocean.autumnMale');
+    return;
+  }
+  const plan = currentPlan(w);
+  if (!plan) return;
+  b.pos = v3(0, -12, -8);
+  b.yaw = Math.PI / 2;
+  const food = seasonFood(p, plan, warmthOf(w, plan), crowdedYear(w));
+  const total = p.get('ocean.seasonFood') * food * (plan.encounter === 'home' ? p.get('ocean.homeFoodShare') : 1);
+  const share = shallowShare(p, plan.season);
+  const make = (shallow: boolean, x: number): Patch => {
+    const part = shallow ? share : 1 - share;
+    const base = v3(x, shallow ? p.get('ocean.shallowY') : p.get('ocean.deepY'), 4);
+    return { base, center: { ...base }, shallow, budget: total * part, shown: Math.max(4, Math.round(p.get('ocean.patchShown') * part * Math.min(1.2, food))) };
+  };
+  const gap = p.get('ocean.patchGap') / 2;
+  s.patches = [make(true, -gap), make(false, gap)];
+  for (const pa of s.patches) spawnFood(w, pa, pa.shown);
+  if (plan.encounter === 'pinks') {
+    const n = p.get('ocean.pinkCount');
+    const rich = richPatch(w);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const r = w.rng.range(8, 16);
+      w.spawn('pink', v3(rich.center.x + Math.cos(a) * r, rich.center.y + w.rng.range(-4, 4), rich.center.z + Math.sin(a) * r), { radius: 0.4, yaw: a + Math.PI, timer: w.rng.range(0, p.get('ocean.pinkEatPause')) });
     }
-    case 'shark':
-      b.pos = v3(0, -14, -14);
-      b.yaw = Math.PI / 2;
-      s.ballCenter = v3(0, -14, 0);
-      spawnHerring(w, p.get('ocean.ballSize') * 0.4);
-      break;
-    case 'reveal':
-      // Open water, alone. The weight is in the caption.
-      b.pos = v3(0, -8, 0);
-      b.yaw = Math.PI / 2;
-      s.ballDrift = false;
-      if (w.fish.sex === 'M' && !w.fish.lockedJack) w.emit('caption', 'ocean.autumnMale');
-      break;
+    w.emit('caption', 'ocean.pinks');
+  }
+  if (plan.encounter === 'home') w.emit('caption', 'ocean.homePull');
+  // Teach the choice once: the predator comes where the food is thickest.
+  else if (plan.encounter !== 'pinks') w.emitOnce('caption', 'ocean.huntZone');
+}
+
+/** The patch with more food this season (where the predator hunts, and pinks gather). */
+function richPatch(w: World): Patch {
+  const s = st(w);
+  const plan = currentPlan(w);
+  const shallow = plan ? huntsShallow(w.p, plan) : true;
+  return s.patches.find((pa) => pa.shallow === shallow) ?? s.patches[0]!;
+}
+
+/** Begin a time skip: the scene fades and clears, the map shows the next season. */
+function skipTo(w: World, reveal: boolean): void {
+  const s = st(w);
+  clearScene(w);
+  s.phase = 'skip';
+  s.phaseTime = 0;
+  s.revealNext = reveal;
+  s.skipLeft = w.p.get('ocean.skipSeconds');
+  w.body.vel = v3();
+  if (reveal) {
+    w.emit('caption', 'ocean.autumn');
+    return;
+  }
+  const plan = currentPlan(w);
+  if (!plan) return;
+  w.emit('caption', seasonCaption(plan), { year: plan.year });
+  const warmth = warmthOf(w, plan);
+  if (plan.encounter !== 'home') {
+    if (warmth === 'warm') w.emit('caption', 'ocean.warmYear');
+    else if (warmth === 'cool' && plan.season !== 'winter') w.emit('caption', 'ocean.coolYear');
+    if (crowdedYear(w) && plan.encounter === 'pinks') w.emit('caption', 'ocean.crowded');
   }
 }
 
-/** Begin a time skip: the scene fades and clears, then the next moment is set up. */
-function skipToNext(w: World): void {
+/** Finish the season being played and move on along the route. */
+function endSeason(w: World): void {
   const s = st(w);
-  const next = s.queue.shift();
-  if (!next) return;
-  clearMoment(w);
-  s.phase = 'skip';
-  s.phaseTime = 0;
-  s.skipLeft = w.p.get('ocean.skipSeconds');
-  s.queue.unshift(next);
-  w.body.vel = v3();
-  w.emit('caption', SKIP_CAPTION[next]);
+  const p = w.p;
+  const plan = currentPlan(w);
+  // How well the fish fed this season against a typical fish in a typical year (0.5), for its drawn size:
+  // a warm or crowded year shows as a smaller fish.
+  if (plan && plan.encounter !== 'home') {
+    const typical = p.get('ocean.seasonFood') * p.get(`ocean.food.${plan.season}`) * p.get('ocean.typicalEaten');
+    s.feed = 0.5 * s.feed + 0.5 * clamp((0.5 * s.seasonBites) / Math.max(1, typical), 0, 1);
+  }
+  if (plan?.encounter === 'home') {
+    finishStage(w);
+    return;
+  }
+  if (s.index === AFTER_REVEAL - 1 && !s.revealed && w.progress.isJack === null) {
+    skipTo(w, true);
+    return;
+  }
+  s.index++;
+  if (s.index >= s.plan.length) {
+    finishStage(w);
+    return;
+  }
+  skipTo(w, false);
+}
+
+/** The turn for home: later feeding sets the last of the adult size; the return begins. */
+function finishStage(w: World): void {
+  const s = st(w);
+  const pr = w.progress;
+  if (pr.adultSize !== null) pr.adultSize = Math.max(0.3, pr.adultSize + lateSizeChange(w.p, s.lateBites, s.lateExpected));
+  w.body.scale = pr.adultSize ?? w.body.scale;
+  w.completeStage();
+}
+
+/** Start of a season after the skip: a new year at sea rolls its unseen risk first, then the checkpoint. */
+function beginSeason(w: World): void {
+  const s = st(w);
+  const p = w.p;
+  const plan = currentPlan(w);
+  if (!plan) return;
+  const prev = s.plan[s.index - 1];
+  // Each extra year at sea is survived only with some chance (advisor: about half). Part of that risk is the
+  // predators the player meets in the later seasons; the rest stays an unseen roll at the turn of each year.
+  if (prev && plan.year > prev.year && plan.year >= 2 && plan.encounter !== 'home') {
+    const survive = Math.pow(Math.min(1, p.get('life.lateOceanSurvival')), p.get('ocean.lateRollShare'));
+    if (!w.rng.chance(survive)) {
+      w.die('sea');
+      return;
+    }
+  }
+  if (plan.season === 'spring' && plan.encounter !== 'home') w.setCheckpoint(s.index);
+  if (s.index === AFTER_REVEAL) w.setCheckpoint(s.index);
+  if (s.index >= AFTER_REVEAL && plan.encounter !== 'home') s.lateExpected += p.get('ocean.seasonFood') * p.get(`ocean.food.${plan.season}`) * p.get('ocean.typicalEaten');
+  setup(w);
 }
 
 /** Predators the food patch flees: an orca or shark on its charge, a seal on its lunge. */
@@ -178,20 +290,17 @@ function stepHerring(w: World, dt: number): void {
   const s = st(w);
   const fish = w.body.pos;
   const t = w.stageTime;
-  // How fast the patch's centre drifts (for the members' goal velocity).
-  const drift = v3();
-  if (s.ballDrift) {
-    // The bait ball drifts slowly around its starting point.
-    const base = s.phase === 'seal' ? -3 : s.ballCenter.y;
-    s.ballCenter.x = Math.sin(t * 0.15) * 8;
-    s.ballCenter.z = Math.cos(t * 0.11) * 8;
-    s.ballCenter.y = base;
-    drift.x = Math.cos(t * 0.15) * 1.2;
-    drift.z = -Math.sin(t * 0.11) * 0.88;
-  }
-  const c = s.ballCenter;
-  // Each member's place: its own orbit round the patch's centre.
+  const drift = v3(Math.cos(t * 0.15) * 0.9, 0, -Math.sin(t * 0.11) * 0.66);
+  // Each patch drifts slowly around its place.
+  s.patches.forEach((pa, i) => {
+    const k = i === 0 ? 1 : -1;
+    pa.center.x = pa.base.x + Math.sin(t * 0.15 + i) * 6 * k;
+    pa.center.z = pa.base.z + Math.cos(t * 0.11 + i) * 6;
+    pa.center.y = pa.base.y;
+  });
+  // Each member's place: its own orbit round its patch's centre.
   const place = (h: Entity): FlockGoal => {
+    const c = h.home ?? s.patches[0]?.center ?? v3();
     const sz = h.size ?? v3(4, 0, 1);
     const a = (h.value ?? 0) + t * sz.z;
     return {
@@ -210,35 +319,45 @@ function stepHerring(w: World, dt: number): void {
   }
   flockStep(all, place, patchThreats(w), flockTuning(w.p, 'flock.patch'), dt);
   const pinks = w.live('pink');
+  const late = s.index >= AFTER_REVEAL;
   for (const h of all) {
     h.pos = add(h.pos, scale(h.vel, dt));
     h.pos.y = clamp(h.pos.y, -29.5, -0.5);
     h.yaw = Math.atan2(h.vel.z, h.vel.x);
     if (dist(h.pos, fish) < 1.1) {
       h.alive = false;
-      w.progress.oceanBites += 1;
+      // Before the reveal, bites feed maturation (decideMaturation); after it, the last of the adult size.
+      // A later life's shorter season stands for the same months at sea, so each bite counts for more.
+      const bite = 1 / lifeScale(w);
+      if (late) s.lateBites += bite;
+      else w.progress.oceanBites += bite;
+      s.seasonBites += 1;
       w.emit('eat');
       continue;
     }
     for (const pk of pinks) {
-      if (dist(h.pos, pk.pos) < 0.9) {
+      if (pk.timer <= 0 && dist(h.pos, pk.pos) < 0.9) {
         h.alive = false;
+        pk.timer = w.p.get('ocean.pinkEatPause');
         break;
       }
     }
   }
-  const p = w.p;
-  const left = w.live('herring').length;
-  if (s.phase === 'pinks') {
-    if (left < p.get('ocean.pinkRefillBelow')) spawnHerring(w, 6);
-  } else if (s.phase !== 'reveal' && left < p.get('ocean.ballRefillBelow')) spawnHerring(w, 10);
+  // Each patch is topped up while its season's food lasts.
+  const live = w.live('herring');
+  for (const pa of s.patches) {
+    const n = live.filter((h) => h.home === pa.center).length;
+    if (n < pa.shown * 0.6 && pa.budget >= 1) spawnFood(w, pa, Math.ceil(pa.shown * 0.4));
+  }
 }
 
-/** Pink salmon: each heads for the nearest herring, crowding the player out. */
+/** Pink salmon: each heads for the nearest food, crowding the player out. */
 function stepPinks(w: World, dt: number): void {
   const herring = w.live('herring');
   const sp = w.p.get('ocean.pinkSpeed');
+  const home = richPatch(w).center;
   for (const pk of w.live('pink')) {
+    pk.timer -= dt;
     let best: Entity | null = null;
     let bd = Infinity;
     for (const h of herring) {
@@ -248,13 +367,30 @@ function stepPinks(w: World, dt: number): void {
         best = h;
       }
     }
-    const goal = best ? best.pos : st(w).ballCenter;
+    const goal = best ? best.pos : home;
     const dir = norm(add(sub(goal, pk.pos), v3(Math.sin(w.stageTime + pk.id) * 0.8, 0, Math.cos(w.stageTime * 1.3 + pk.id) * 0.8)));
     pk.vel = scale(dir, sp * (0.85 + 0.3 * ((pk.id * 37) % 10) / 10));
     pk.pos = add(pk.pos, scale(pk.vel, dt));
     pk.pos.y = clamp(pk.pos.y, -29, -1);
     pk.yaw = Math.atan2(pk.vel.z, pk.vel.x);
   }
+}
+
+/** Is the fish where this season's predator hunts (near the patch with more food)? */
+export function inHuntZone(w: World): boolean {
+  const plan = currentPlan(w);
+  if (!plan || st(w).phase !== 'season') return false;
+  const p = w.p;
+  const y = w.body.pos.y;
+  if (plan.encounter === 'seal') return y > p.get('ocean.sealZoneY');
+  if (plan.encounter === 'shark') return y < p.get('ocean.sharkZoneY');
+  if (plan.encounter === 'orca') return dist(w.body.pos, richPatch(w).center) < p.get('ocean.orcaZoneR');
+  return false;
+}
+
+/** After the reveal the fish is bigger and has seen it all before: a little more warning (`ocean.lateWarningScale`, a game device). */
+function lateWarning(w: World): number {
+  return st(w).index >= AFTER_REVEAL ? w.p.get('ocean.lateWarningScale') : 1;
 }
 
 /** Orca and salmon shark: a warning approach, then one straight charging pass. */
@@ -265,7 +401,7 @@ function spawnCharger(w: World, kind: 'orca' | 'shark'): void {
   if (kind === 'orca') {
     const start = add(fish, v3(Math.cos(ang) * 55, w.rng.range(-4, 4), Math.sin(ang) * 55));
     start.y = Math.min(-4, Math.max(-28, start.y));
-    const o = w.spawn('orca', start, { radius: 3, state: 'warn', timer: p.get('ocean.orcaWarning') });
+    const o = w.spawn('orca', start, { radius: 3, state: 'warn', timer: p.get('ocean.orcaWarning') * lateWarning(w) });
     o.timer *= personalityOf(w, o).patience;
     w.emit('warning', 'orca');
     w.emitOnce('caption', 'ocean.orca');
@@ -273,7 +409,7 @@ function spawnCharger(w: World, kind: 'orca' | 'shark'): void {
     // From below and to the side.
     const start = add(fish, v3(Math.cos(ang) * 30, -10, Math.sin(ang) * 30));
     start.y = Math.max(-28, start.y);
-    w.spawn('shark', start, { radius: 1.5, state: 'warn', timer: p.get('ocean.sharkWarning') });
+    w.spawn('shark', start, { radius: 1.5, state: 'warn', timer: p.get('ocean.sharkWarning') * lateWarning(w) });
     w.emit('warning', 'shark');
     w.emitOnce('caption', 'ocean.shark');
   }
@@ -320,7 +456,7 @@ function spawnSeal(w: World): void {
   const ang = w.rng.range(0, Math.PI * 2);
   const r = w.p.get('ocean.sealDistance');
   const start = v3(fish.x + Math.cos(ang) * r, Math.max(-12, fish.y - 5), fish.z + Math.sin(ang) * r);
-  const seal = w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: w.p.get('ocean.sealWarning') });
+  const seal = w.spawn('seal', start, { radius: 1.2, state: 'warn', timer: w.p.get('ocean.sealWarning') * lateWarning(w) });
   seal.timer *= personalityOf(w, seal).patience;
   w.emit('warning', 'seal');
   w.emitOnce('caption', 'ocean.seal');
@@ -359,31 +495,40 @@ function stepSeal(w: World, seal: Entity, dt: number): void {
   seal.yaw = Math.atan2(seal.vel.z, seal.vel.x);
 }
 
-/** The maturation reveal, then the extra-years-at-sea survival roll. */
+/** The maturation reveal; the route after it follows the years at sea. */
 function reveal(w: World): void {
-  const p = w.p;
+  const s = st(w);
   decideMaturation(w);
   const pr = w.progress;
   const key = w.fish.sex === 'F' ? 'ocean.revealFemale' : pr.isJack ? 'ocean.revealJack' : 'ocean.revealLarge';
   w.emit('reveal', key, { years: pr.oceanYears ?? 2 });
-  // Each extra year at sea is survived only with some chance; jacks skip it.
-  const extra = (pr.oceanYears ?? 1) - 1;
-  if (extra > 0) {
-    w.emitOnce('caption', 'ocean.yearsAtSea');
-    const survive = Math.pow(Math.min(1, p.get('life.lateOceanSurvival')), extra);
-    if (!w.rng.chance(survive)) w.die('sea');
-  }
+  s.plan = [...firstYearPlan(crowdedYear(w)), ...laterPlan(pr.oceanYears ?? 2, crowdedYear(w))];
+  // Each extra year at sea brings more growth, and more risk; jacks skip it.
+  if ((pr.oceanYears ?? 1) > 1) w.emitOnce('caption', 'ocean.yearsAtSea');
 }
 
 export interface OceanView {
   phase: OceanPhase;
-  /** The moment being played, or coming up after a skip. */
+  /** The scene being played, or coming up after a skip. */
   moment: Moment | null;
+  /** The season being played or coming up, and the route (for the ocean map). */
+  season: SeasonPlan | null;
+  plan: readonly SeasonPlan[];
+  index: number;
+  /** The years at sea once decided, else null (the map draws "2 or 3"). */
+  years: number | null;
+  warmth: Warmth;
+  /** Food this season relative to a typical summer. */
+  food: number;
   /** Light level 0..1 for the renderer. */
   light: number;
   /** 0..1: how far into darkness a time skip has faded the scene (0 outside skips). */
   fade: number;
   crowded: boolean;
+  /** Where the food patches are (shallow first). */
+  patches: { x: number; y: number; z: number; shallow: boolean; left: number }[];
+  /** The fish is where this season's predator hunts. */
+  exposed: boolean;
 }
 
 export function oceanView(w: World): OceanView | null {
@@ -391,20 +536,33 @@ export function oceanView(w: World): OceanView | null {
   const s = st(w);
   if (!s.phase) return null;
   const p = w.p;
-  const lightOf = (m: Moment | undefined): number => (m === 'shark' ? p.get('ocean.deepLight') : m === 'reveal' ? p.get('ocean.autumnLight') : 1);
+  const plan = currentPlan(w);
+  const lightOf = (m: SeasonPlan | null, reveal: boolean): number =>
+    reveal ? p.get('ocean.autumnLight') : !m ? 1 : m.season === 'winter' ? p.get('ocean.winterLight') : m.season === 'autumn' ? p.get('ocean.autumnLight') : m.encounter === 'shark' ? p.get('ocean.deepLight') : 1;
+  const revealing = s.phase === 'reveal' || (s.phase === 'skip' && s.revealNext);
   let light: number;
   let fade = 0;
-  let moment: Moment | null;
   if (s.phase === 'skip') {
-    moment = s.queue[0] ?? null;
     const t = 1 - s.skipLeft / p.get('ocean.skipSeconds');
     fade = 1 - Math.abs(1 - 2 * t);
-    light = 0.08 + 0.92 * Math.abs(1 - 2 * t) * (t < 0.5 ? 1 : lightOf(moment ?? undefined));
-  } else {
-    moment = s.phase;
-    light = lightOf(s.phase);
-  }
-  return { phase: s.phase, moment, light, fade, crowded: crowdedYear(w) };
+    light = 0.08 + 0.92 * Math.abs(1 - 2 * t) * lightOf(plan, revealing);
+  } else light = lightOf(plan, revealing);
+  const warmth = plan ? warmthOf(w, plan) : 'typical';
+  return {
+    phase: s.phase,
+    moment: revealing ? 'reveal' : (plan?.encounter ?? null),
+    season: plan,
+    plan: s.plan,
+    index: s.index,
+    years: w.progress.oceanYears,
+    warmth,
+    food: plan ? seasonFood(p, plan, warmth, crowdedYear(w)) : 1,
+    light,
+    fade,
+    crowded: crowdedYear(w),
+    patches: s.patches.map((pa) => ({ ...pa.center, shallow: pa.shallow, left: pa.budget })),
+    exposed: inHuntZone(w),
+  };
 }
 
 export const oceanStage: StageDef = {
@@ -419,25 +577,49 @@ export const oceanStage: StageDef = {
     floor: () => -30,
     current: () => v3(0.2, 0, 0.1),
   }),
-  init(w) {
-    w.body.scale = 0.85;
-    const queue: Moment[] = ['orca', 'seal'];
-    if (crowdedYear(w)) queue.push('pinks');
-    queue.push('shark', 'reveal');
+  init(w, marker) {
+    const p = w.p;
+    // Ocean warmth for each possible year at sea, rolled up front so every life draws the same number.
+    const warmth = [0, 1, 2, 3].map(() => warmthFrom(p, w.rng.next()));
+    const years = w.progress.oceanYears;
+    // A sibling resuming after the reveal keeps the decided route and starts at its checkpoint's season.
+    const resume = marker > 0 && years !== null;
     const s: OceanState = {
-      phase: 'baitball',
-      queue,
+      phase: 'season',
+      plan: resume ? fullPlan(years, crowdedYear(w)) : firstYearPlan(crowdedYear(w)),
+      index: resume ? marker : 0,
+      warmth,
       phaseTime: 0,
       skipLeft: 0,
-      ballCenter: v3(0, -12, 0),
-      ballDrift: true,
+      revealNext: false,
+      patches: [],
+      exposure: 0,
+      latePredator: null,
       predatorSpawned: false,
       predatorDone: false,
-      settleLeft: -1,
-      revealed: false,
+      goneAt: -1,
+      revealed: resume,
+      seasonBites: 0,
+      lateBites: 0,
+      lateExpected: 0,
+      feed: 0.5,
     };
     w.stage = s as unknown as Record<string, unknown>;
-    setup(w, 'baitball');
+    if (resume) {
+      // Feeding after the reveal starts over for a sibling; count from its season on.
+      for (let i = AFTER_REVEAL; i < marker; i++) {
+        const pl = s.plan[i];
+        if (pl && pl.encounter !== 'home') {
+          s.lateExpected += p.get('ocean.seasonFood') * p.get(`ocean.food.${pl.season}`) * p.get('ocean.typicalEaten');
+          s.lateBites += p.get('ocean.seasonFood') * p.get(`ocean.food.${pl.season}`) * p.get('ocean.typicalEaten') * p.get('ocean.lateTypical');
+        }
+      }
+      skipTo(w, false);
+      s.skipLeft = 0.01;
+      return;
+    }
+    setup(w);
+    w.emit('caption', 'ocean.intro');
   },
   step(w, intent, dt) {
     const p = w.p;
@@ -447,22 +629,47 @@ export const oceanStage: StageDef = {
       s.skipLeft -= dt;
       w.body.vel = v3();
       if (s.skipLeft <= 0) {
-        const next = s.queue.shift();
-        if (next) setup(w, next);
+        if (s.revealNext) setup(w, true);
+        else beginSeason(w);
       }
       return;
     }
-    swimStep(w, intent, dt);
+    // Small fish swim like a 0.6-size fish (`ocean.swimScaleFloor`), so the first year is not slower than before.
+    const b = w.body;
+    const bonus = (x: number) => 1 + p.get('swim.sizeSpeedBonus') * (x - 0.6);
+    swimStep(w, intent, dt, { thrustScale: bonus(Math.max(b.scale, p.get('ocean.swimScaleFloor'))) / bonus(b.scale) });
+    if (s.phase === 'reveal') {
+      if (!s.revealed && s.phaseTime >= p.get('ocean.revealDelay')) {
+        s.revealed = true;
+        reveal(w);
+      } else if (s.revealed && s.phaseTime >= p.get('ocean.revealDelay') + p.get('ocean.revealHold')) {
+        s.index = AFTER_REVEAL;
+        skipTo(w, false);
+      }
+      return;
+    }
+    const plan = currentPlan(w);
+    if (!plan) return;
     stepHerring(w, dt);
-    if (s.phase === 'pinks') stepPinks(w, dt);
+    if (plan.encounter === 'pinks') stepPinks(w, dt);
 
-    // Predators for this moment.
-    const lead = p.get('ocean.predatorLead');
-    if (!s.predatorSpawned && s.phaseTime >= lead) {
-      if (s.phase === 'orca') spawnCharger(w, 'orca');
-      else if (s.phase === 'shark') spawnCharger(w, 'shark');
-      else if (s.phase === 'seal') spawnSeal(w);
-      s.predatorSpawned = true;
+    // The season's predator comes for a fish that lingers where it hunts; a fish that keeps out of its way
+    // may still meet it late in the season (`ocean.unexposedChance`).
+    const dur = p.get(plan.encounter === 'home' ? 'ocean.homeSeconds' : 'ocean.seasonDuration') * lifeScale(w);
+    const hunter = plan.encounter === 'seal' || plan.encounter === 'orca' || plan.encounter === 'shark';
+    if (hunter && !s.predatorSpawned) {
+      if (inHuntZone(w)) s.exposure += dt;
+      const lead = s.phaseTime >= p.get('ocean.predatorLead');
+      let come = lead && s.exposure >= p.get('ocean.exposureNeeded');
+      if (!come && s.phaseTime >= dur * p.get('ocean.latestShare')) {
+        s.latePredator ??= w.rng.chance(p.get('ocean.unexposedChance'));
+        come = s.latePredator;
+      }
+      if (come) {
+        if (plan.encounter === 'seal') spawnSeal(w);
+        else spawnCharger(w, plan.encounter === 'orca' ? 'orca' : 'shark');
+        s.predatorSpawned = true;
+      }
     }
     for (const o of [...w.live('orca'), ...w.live('shark')]) {
       stepCharger(w, o, dt);
@@ -473,45 +680,24 @@ export const oceanStage: StageDef = {
       if (w.status !== 'playing') return;
     }
 
-    const settle = p.get('ocean.settleSeconds');
-    switch (s.phase) {
-      case 'baitball':
-        if (s.phaseTime >= dur(w, 'ocean.feedDuration')) skipToNext(w);
-        break;
-      case 'orca':
-      case 'seal':
-      case 'shark':
-        // A moment to breathe once it has gone (or vanished, for playtest tools).
-        if ((s.predatorDone || (s.predatorSpawned && w.live(s.phase).length === 0)) && s.settleLeft < 0) s.settleLeft = settle;
-        if (s.settleLeft >= 0) {
-          s.settleLeft -= dt;
-          if (s.settleLeft <= 0) skipToNext(w);
-        }
-        break;
-      case 'pinks':
-        if (s.phaseTime >= dur(w, 'ocean.pinkDuration')) {
-          w.emit('caption', 'ocean.pinksGone');
-          skipToNext(w);
-        }
-        break;
-      case 'reveal':
-        if (!s.revealed && s.phaseTime >= p.get('ocean.revealDelay')) {
-          s.revealed = true;
-          reveal(w);
-          if (w.status !== 'playing') return;
-        } else if (s.revealed && s.phaseTime >= p.get('ocean.revealDelay') + p.get('ocean.revealHold')) {
-          w.completeStage();
-        }
-        break;
+    // The season ends when its time is up and any predator has gone (or vanished, for playtest tools).
+    const active = hunter && s.predatorSpawned && !s.predatorDone && w.live(plan.encounter as 'seal' | 'orca' | 'shark').length > 0;
+    if (s.predatorSpawned && !active && s.goneAt < 0) s.goneAt = s.phaseTime;
+    const calm = s.predatorSpawned ? s.goneAt >= 0 && s.phaseTime - s.goneAt >= p.get('ocean.settleSeconds') : true;
+    if (s.phaseTime >= dur && !active && calm) {
+      if (plan.encounter === 'pinks') w.emit('caption', 'ocean.pinksGone');
+      endSeason(w);
     }
   },
   debugComplete(w) {
-    w.progress.oceanBites = Math.max(w.progress.oceanBites, 16);
-    decideMaturation(w);
+    // Half the full ocean feeding score, as before the journey (16 of the old 32).
+    w.progress.oceanBites = Math.max(w.progress.oceanBites, w.p.get('ocean.fullBites') / 2);
+    if (w.progress.isJack === null) decideMaturation(w);
+    w.body.scale = w.progress.adultSize ?? w.body.scale;
     w.completeStage();
   },
   fillProgress(w) {
-    w.progress.oceanBites = 16;
+    w.progress.oceanBites = w.p.get('ocean.fullBites') / 2;
     decideMaturation(w);
   },
 };

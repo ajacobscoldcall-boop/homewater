@@ -227,6 +227,30 @@ export function renderSummary(parsed: ParsedLogs, sources: string[] = []): strin
   );
   out.push('');
 
+  // The falls: leaps per attempt that tried, tries to clear, and why misses missed
+  const tried = lives.flatMap((l) => l.attempts).filter((a) => a.stage === 'return' && a.leaps?.length);
+  out.push('## Leaps at the falls', '');
+  if (!tried.length) out.push('No leaps logged (logs from before the leap was recorded have none).', '');
+  else {
+    const why: Record<string, number> = {};
+    let cleared = 0;
+    const toClear: number[] = [];
+    for (const a of tried) {
+      const leaps = a.leaps ?? [];
+      const first = leaps.findIndex(([, r]) => r === 'clear');
+      if (first >= 0) {
+        cleared++;
+        toClear.push(first + 1);
+      }
+      for (const [, r] of leaps) if (r !== 'clear') why[r] = (why[r] ?? 0) + 1;
+    }
+    out.push(
+      `- **Attempts that leapt:** ${tried.length}; cleared by a leap: ${cleared}${toClear.length ? `, in a median of ${median(toClear)} tries, within 3 tries ${toClear.filter((n) => n <= 3).length}` : ''}.`,
+      `- **Misses by reason:** ${Object.entries(why).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ') || 'none'} (slow: too little speed; deep: started too deep; close: into the falling water; spot: away from the standing wave and low step; nearly: good enough, unlucky).`,
+      '',
+    );
+  }
+
   // Every death
   const deaths = lives.flatMap((l) => l.attempts.filter((a) => a.outcome === 'died').map((a) => ({ l, a })));
   out.push('## Deaths, one by one', '');

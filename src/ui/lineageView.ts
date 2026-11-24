@@ -347,7 +347,7 @@ export function lineagesPanel(p: Params, current: Lineage | null, archive: reado
                 'button',
                 { class: 'choice line-row', 'data-lineage': String(i), onclick: () => detail(l) },
                 h('span', { class: 'line-name' }, `The ${sm.name} line`),
-                h('span', {}, `${DIFFICULTY_LABEL[l.difficulty]} · ${HABITAT_LABEL[l.current.habitat]} · ${plural(sm.generations, 'generation')} · score ${lineageScore(p, l).total.toLocaleString()} · ${status}`),
+                h('span', {}, `${DIFFICULTY_LABEL[l.difficulty]} · ${HABITAT_LABEL[l.current.habitat]}${l.riverMode === 'changing' ? ' · changing river' : ''} · ${plural(sm.generations, 'generation')} · score ${lineageScore(p, l).total.toLocaleString()} · ${status}`),
               );
             }),
           )
@@ -357,7 +357,7 @@ export function lineagesPanel(p: Params, current: Lineage | null, archive: reado
   };
   const detail = (l: Lineage) => {
     root.replaceChildren(
-      h('p', { class: 'label' }, `${DIFFICULTY_LABEL[l.difficulty]} · ${HABITAT_LABEL[l.current.habitat]}${l.extinct ? ' · extinct' : ''}`),
+      h('p', { class: 'label' }, `${DIFFICULTY_LABEL[l.difficulty]} · ${HABITAT_LABEL[l.current.habitat]}${l.riverMode === 'changing' ? ' · changing river' : ''}${l.extinct ? ' · extinct' : ''}`),
       h('h2', {}, `The ${lineageName(l)} line`),
       ...lineSections(p, l),
       h('div', { class: 'row' }, h('button', { class: 'primary', 'data-back': true, onclick: list }, 'All lineages')),

@@ -56,7 +56,27 @@ export function steer3(w: World, tx: number, ty: number, tz: number, over: Parti
   return { ...base, mouseY: -(want - b.pitch) / w.p.get('swim.mouseSensitivity') };
 }
 
-const pilotRun = new WeakMap<World, { running: boolean; leaps: number }>();
+/** One of the pilot's tries at the falls: where it launched from, how fast, and how it went ('clear' or why it missed). */
+export interface PilotTry {
+  x: number;
+  depth: number;
+  speed: number;
+  result: string;
+}
+const pilotRun = new WeakMap<World, { running: boolean; leaps: number; tries: PilotTry[]; pending: (Omit<PilotTry, 'result'> & { failures: number }) | null }>();
+
+/** The falls pilot's tries so far in this world, each with why it missed (a leap that has just landed included). */
+export function fallsPilotTries(w: World): PilotTry[] {
+  const mem = pilotRun.get(w);
+  const v = fallsView(w);
+  if (!mem) return [];
+  if (mem.pending && v && v.leapT === null) {
+    const { failures, ...at } = mem.pending;
+    mem.tries.push({ ...at, result: v.failures > failures ? (v.lastMiss ?? 'miss') : 'clear' });
+    mem.pending = null;
+  }
+  return mem.tries;
+}
 
 /**
  * Get past the rapids and falls (null outside them): dash up the rapids, wait
@@ -65,18 +85,24 @@ const pilotRun = new WeakMap<World, { running: boolean; leaps: number }>();
  */
 export function fallsPilot(w: World): Intent | null {
   const v = fallsView(w);
-  if (!v || v.passed) return null;
+  if (!v) return null;
   const b = w.body;
   const x = b.pos.x;
+  const mem = pilotRun.get(w) ?? { running: false, leaps: 0, tries: [], pending: null };
+  pilotRun.set(w, mem);
+  if (v.leapT !== null) {
+    // Note the launch once (the fish is already on its arc: the speed is the arc's), then how it went when it lands.
+    if (mem.leaps !== v.leaps && !mem.pending) mem.pending = { x: Math.round(x * 10) / 10, depth: Math.round(-b.pos.y * 10) / 10, speed: Math.round(b.vel.x * 10) / 10, failures: v.failures };
+    return intent();
+  }
+  fallsPilotTries(w);
+  if (v.passed) return null;
   if (x < v.rapidsStart - 3 || x > v.lipEnd) return null;
-  if (v.leapT !== null) return intent();
   if (v.sideOpen) {
     const cz = (v.chute[0] + v.chute[1]) / 2;
     return steer3(w, x + 6, -1.2, cz, { burst: b.energy > 0.4 });
   }
   if (x < v.poolStart) return steer3(w, x + 8, -1.6, v.notchZ, { burst: b.energy > 0.3 });
-  const mem = pilotRun.get(w) ?? { running: false, leaps: 0 };
-  pilotRun.set(w, mem);
   if (mem.leaps !== v.leaps || x < v.poolStart - 1 || x > v.face - 0.8) mem.running = false;
   mem.leaps = v.leaps;
   if (!mem.running) {

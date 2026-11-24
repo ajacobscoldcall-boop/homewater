@@ -167,7 +167,8 @@ test('a reload on the death screen keeps the death: the same screen comes back',
   await page.click('#btn-accept-name');
   await page.click('#btn-play');
   // An alevin that never reacts dies; reload on the death screen, before naming a sibling.
-  await page.evaluate(() => window.__hw?.step(60 * 90));
+  // (A first life's egg stage is about two minutes now: the flood comes after the pocket and the sculpin.)
+  await page.evaluate(() => window.__hw?.step(60 * 200));
   await expect(page.locator('#screen')).toContainText('A sibling carries on');
   await page.evaluate(async () => {
     await window.__hw?.app.save();

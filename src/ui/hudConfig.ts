@@ -14,6 +14,8 @@ export const VITALS = {
   burn: { warnSeconds: 75, criticalSeconds: 30, rateFollow: 0.35, minWatch: 3 },
   /** Energy (or yolk, or strength) ring: amber below `low`. */
   energy: { low: 0.3, critical: 0.15 },
+  /** Egg stage: oxygen and strength rings show while either is below `showBelow`; oxygen is amber below `low` (red below alevin.o2Low). */
+  oxygen: { showBelow: 0.97, low: 0.7 },
   /** The water chip shows from this many °C below the heat-stress temperature, or with any heat stress or low oxygen. */
   water: { showBelow: 1.5, stressShown: 0.02 },
   /**

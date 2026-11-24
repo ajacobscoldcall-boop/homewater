@@ -43,6 +43,7 @@ import { PlayHud } from './screens/play';
 import { hideScreen } from './screens/screen';
 import { showStageCard } from './screens/stageCard';
 import { showTitle } from './screens/title';
+import { weatherSound } from './weatherSound';
 
 const FILE = paramFile as ParamFile;
 
@@ -173,6 +174,8 @@ export class App {
       this.playHud.update(this, w, frameDt);
     }
     this.audio.update(frameDt, w, this.audioPhase());
+    // Rain and wind for the sound (a stub for the sound work; weatherSound.ts).
+    if (w) weatherSound(this.audio, this.renderer.weather);
     // Paused: the scene dims and captions, toasts and the guide hide behind the menu (styles.css).
     document.body.classList.toggle('paused', this.mode === 'paused');
     if (this.debug) this.debugPanel.update();

@@ -25,7 +25,7 @@ function keys(): [string, string][] {
 }
 
 const STAGES: [string, string][] = [
-  ['Egg and alevin', 'Hatch in the gravel, face the current, then swim up toward the light.'],
+  ['Egg and alevin', 'Hatch in the gravel, face the current, crawl out of still water and silt, keep still when a sculpin probes, then swim up toward the light.'],
   ['Fry in the lake', 'A year of short scenes: hide in the weeds, feed at dusk, wait out the winter.'],
   ['The smolt run', 'Leave the lake at night with your school, past char, birds and a seal.'],
   ['Ocean years', 'Feed where the krill gather, and dodge orca, seal and salmon shark.'],

@@ -11,11 +11,30 @@ describe('save migrations', () => {
     const deaths = [{ name: 'Alder', stage: 'return' as const, cause: 'bear' as const }];
     const v6 = { schemaVersion: 6, savedAt: '', game: 'homewater', lineage: { ...l, records: [] }, life: { checkpoint: { stageIndex: 4, marker: 3, progress: {} }, siblingsLeft: 2, firstLife: false, seed: 1, deaths, lakeYears: 1 }, pendingOffspring: null, archive: [] };
     const s = migrate(JSON.parse(JSON.stringify(v6)));
-    expect(s.schemaVersion).toBe(7);
+    expect(s.schemaVersion).toBe(SCHEMA_VERSION);
     expect(s.life?.deaths).toEqual(deaths);
     expect(s.life?.deaths[0]!.where).toBeUndefined();
     const v7 = { ...v6, schemaVersion: 7, life: { ...v6.life, deaths: [{ ...deaths[0]!, where: 'lake' }] } };
     expect(migrate(JSON.parse(JSON.stringify(v7))).life?.deaths[0]!.where).toBe('lake');
+  });
+
+  it('upgrades a version 7 save: the line and archived lines are on a healthy river, and their years are unchanged', () => {
+    const { riverMode: _mode, ...old } = lineage();
+    const v7 = { schemaVersion: 7, savedAt: '', game: 'homewater', lineage: old, life: null, pendingOffspring: null, archive: [{ ...old, id: 'Lold' }] };
+    const s = migrate(JSON.parse(JSON.stringify(v7)));
+    expect(s.schemaVersion).toBe(8);
+    expect(s.lineage.riverMode).toBe('healthy');
+    expect(s.archive[0]!.riverMode).toBe('healthy');
+    expect(s.lineage.conditions).toEqual(old.conditions);
+    expect(s.lineage.population).toEqual(old.population);
+  });
+
+  it('keeps a changing river through a JSON round trip', () => {
+    const l = foundLineage(params(), { preset: 'quick', sex: 'F', name: 'Alder', difficulty: 'fieldGuide', seed: 4, riverMode: 'changing' });
+    const save = { schemaVersion: SCHEMA_VERSION, savedAt: '', game: 'homewater', lineage: l, life: null, pendingOffspring: null, archive: [] };
+    const s = migrate(JSON.parse(JSON.stringify(save)));
+    expect(s.lineage.riverMode).toBe('changing');
+    expect(s.lineage.population.history.at(-1)!.change).toEqual(l.population.history.at(-1)!.change);
   });
 
   it('upgrades a version 1 save: no pending offspring choice', () => {

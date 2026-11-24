@@ -34,6 +34,8 @@ const REAL: Record<string, [number, number]> = {
   alevin: [0.018, 0.028],
   brood: [0.016, 0.028],
   egg: [0.0045, 0.0065],
+  // Coastrange and slimy sculpins, the common stream sculpins of Bristol Bay: adults about 6-12 cm (up to about 15).
+  sculpin: [0.06, 0.15],
   fry: [0.025, 0.035],
   fryGrown: [0.04, 0.08],
   plankton: [0.0005, 0.003],
@@ -99,7 +101,11 @@ describe('scale audit: models against the sim', () => {
     expect(smoltBig).toBeCloseTo(p.get('smolt.baseScale') + p.get('smolt.scalePerLakeGrowth') * p.get('fry.fullLakeGrowth'));
     expect(newWorld({ startStage: 0 }).w.body.scale).toBeCloseTo(STAGE_PLAYER.egg.scale);
     expect(newWorld({ startStage: 1 }).w.body.scale).toBeCloseTo(STAGE_PLAYER.fry.scale);
-    expect(newWorld({ startStage: 3 }).w.body.scale).toBeCloseTo(STAGE_PLAYER.ocean.scale);
+    // At sea the fish grows along the route (oceanRoute.ts): from its first-summer size to its adult size.
+    // The lineup's sockeye at sea sits within that range.
+    expect(newWorld({ startStage: 3 }).w.body.scale).toBeCloseTo(p.get('ocean.entryScale'));
+    expect(STAGE_PLAYER.ocean.scale).toBeGreaterThan(p.get('ocean.entryScale'));
+    expect(STAGE_PLAYER.ocean.scale).toBeLessThanOrEqual(p.get('size.oceanYear3'));
     expect(p.get('size.oceanYear3')).toBeCloseTo(STAGE_PLAYER.adult.scale);
   });
 

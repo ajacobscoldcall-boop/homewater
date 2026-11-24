@@ -1,0 +1,34 @@
+/* The ocean map during the ocean's time skips (oceanMapView.ts). */
+#hud-oceanmap {
+  position: absolute;
+  left: 16px;
+  top: 64px;
+  width: min(300px, calc(100vw - 32px));
+  padding: 10px 12px 8px;
+  border-radius: 10px;
+  background: rgba(6, 18, 28, 0.72);
+  color: #e6eef2;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+#hud-oceanmap[hidden] { display: block; opacity: 0; }
+.om-svg { width: 100%; height: auto; display: block; }
+.om-sea { fill: #123d5a; }
+.om-land { fill: #3c4a36; stroke: #6f7e5c; stroke-width: 1; }
+.om-route { fill: none; stroke: rgba(230, 240, 245, 0.4); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.om-done-route { fill: none; stroke: rgba(240, 220, 150, 0.85); stroke-width: 1.8; }
+.om-maybe { fill: none; stroke: rgba(230, 240, 245, 0.3); stroke-width: 1; stroke-dasharray: 2 4; }
+.om-maybe-label { fill: rgba(230, 240, 245, 0.6); font: 10px system-ui, sans-serif; }
+.om-mouth { fill: #e8d08a; }
+.om-stop { stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.8; }
+.om-done { fill: rgba(230, 240, 245, 0.45); }
+.om-next { fill: rgba(230, 240, 245, 0.15); }
+.om-now.om-spring { fill: #9fd88a; }
+.om-now.om-summer { fill: #f0d46a; }
+.om-now.om-autumn { fill: #e09a5a; }
+.om-now.om-winter { fill: #a8c4e0; }
+.om-ring { fill: none; stroke: #fff; stroke-width: 1.2; opacity: 0.8; }
+.om-title { margin-top: 6px; font-size: 14px; }
+.om-sub { font-size: 12px; opacity: 0.8; }
+body.paused #hud-oceanmap, body.photo-mode #hud-oceanmap { display: none; }

@@ -2,7 +2,9 @@
 import type { SpawnResult } from '../../types';
 import type { World } from '../../world';
 import { eggSurvival } from './female';
+import { siltEggSurvival } from '../../riverChange';
 import { st } from './shared';
+import { noSpawnCause } from '../heatToll';
 
 export function meanEggs(w: World): number {
   return w.p.get('spawn.eggCountBase') * w.p.get('spawn.meanEggShare');
@@ -15,7 +17,9 @@ export function result(w: World): SpawnResult {
   if (s.role === 'female') {
     const t = Math.max(-1, Math.min(1, w.fish.z.eggTradeoff / 2)) * p.get('spawn.eggTradeoffStrength');
     const eggs = Math.round(base * (1 - t));
-    const survival = eggSurvival(p, s.quality, s.burial, s.superimposed, s.eggsTaken);
+    // A changing river's silt year: fine silt in the gravel (riverChange.ts; 1 on a healthy river).
+    const silt = siltEggSurvival(p, w.conditions);
+    const survival = eggSurvival(p, s.quality, s.burial, s.superimposed, s.eggsTaken) * silt;
     const young = eggs * (1 + t) * survival;
     const dug = s.superimposed + s.steals;
     const taken = Math.round(s.eggsTaken * 100);
@@ -23,7 +27,7 @@ export function result(w: World): SpawnResult {
       eggs,
       young,
       relativeFitness: young / meanEggs(w),
-      detail: `Redd quality ${(s.quality * 100).toFixed(0)}%, eggs covered ${(s.burial * 100).toFixed(0)}%, ${dug === 0 ? 'never dug into' : `dug into ${dug === 1 ? 'once' : `${dug} times`}`}${taken > 0 ? `, ${taken}% of the eggs taken by char and gulls` : ''}`,
+      detail: `Redd quality ${(s.quality * 100).toFixed(0)}%, eggs covered ${(s.burial * 100).toFixed(0)}%, ${dug === 0 ? 'never dug into' : `dug into ${dug === 1 ? 'once' : `${dug} times`}`}${taken > 0 ? `, ${taken}% of the eggs taken by char and gulls` : ''}${silt < 1 ? ', silt in the gravel this year' : ''}`,
     };
   }
   const share = s.role === 'largeMale' ? s.firstShare + s.secondShare : s.share;
@@ -32,7 +36,9 @@ export function result(w: World): SpawnResult {
     s.role === 'jack'
       ? `${s.sneaks} successful sneak${s.sneaks === 1 ? '' : 's'}${s.jacksBeat ? `, ${s.jacksBeat} lost to other jacks` : ''}; jacks ${(s.jackFraction * 100).toFixed(1)}% of males`
       : `Fights won ${s.fightsWon}, lost ${s.fightsLost}; spawned with ${s.secondShare > 0 ? 'two females' : 'one female'}`;
-  return { eggs, young: eggs, relativeFitness: eggs / meanEggs(w), detail };
+  // A silt year smothers fertilized eggs too (1 on a healthy river).
+  const silt = siltEggSurvival(p, w.conditions);
+  return { eggs, young: eggs * silt, relativeFitness: (eggs * silt) / meanEggs(w), detail: silt < 1 ? `${detail}; silt in the gravel this year` : detail };
 }
 
 /** The season ends when strength runs out, or at the latest when the stage's time is up. */
@@ -45,5 +51,5 @@ export function endLife(w: World, caption: string): void {
   if (s.spawned) {
     w.emit('caption', caption);
     w.finishLife(result(w));
-  } else w.die('noSpawn');
+  } else w.die(noSpawnCause(w, s.vigour));
 }

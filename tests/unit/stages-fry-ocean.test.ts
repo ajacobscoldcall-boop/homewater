@@ -247,9 +247,10 @@ const oceanBot = (w: World): Intent => {
 describe('ocean years', () => {
   const crowd = (w: World, c: number) => ((w.conditions as { oceanCrowding: number }).oceanCrowding = c);
 
-  it('a sensible fish gets through every moment, uncrowded and crowded (Field guide)', () => {
+  it('a sensible fish travels the route through every season, uncrowded and crowded (Field guide)', () => {
     const times: number[] = [];
     let finished = 0;
+    const hunters = new Set<string>();
     for (const crowding of [1, 1.3]) {
       for (const seed of [1, 2, 3, 4, 5]) {
         const { w } = newWorld({ startStage: 3, seed, sex: 'F' });
@@ -258,92 +259,101 @@ describe('ocean years', () => {
         expect(crowdedYear(w)).toBe(crowding > 1.1);
         let steps = 0;
         const moments = new Set<string>();
-        run(w, 300 * SEC, (ww) => {
+        const seasons: string[] = [];
+        run(w, 700 * SEC, (ww) => {
           steps++;
           const v = oceanView(ww);
-          if (v?.phase && v.phase !== 'skip') moments.add(v.phase);
+          if (v?.moment && v.phase !== 'skip') moments.add(v.moment);
+          const key = v?.season ? `${v.season.year}${v.season.season}` : '';
+          if (v?.phase === 'season' && seasons[seasons.length - 1] !== key) seasons.push(key);
           return oceanBot(ww);
         });
-        const label = `crowding ${crowding} seed ${seed}: ${w.deathCause ?? ''} in ${oceanView(w)?.phase}`;
-        // Only the extra-years-at-sea roll may end a sensible fish.
-        expect(w.status === 'stageComplete' || w.deathCause === 'sea', label).toBe(true);
-        const want = ['baitball', 'orca', 'seal', 'shark', 'reveal', ...(crowding > 1.1 ? ['pinks'] : [])];
-        for (const m of want) expect(moments.has(m), `${label} ${m}`).toBe(true);
-        if (crowding <= 1.1) expect(moments.has('pinks')).toBe(false);
+        const label = `crowding ${crowding} seed ${seed}: ${w.deathCause ?? ''} in ${oceanView(w)?.season?.season}`;
+        // A sensible fish dies only to the unseen roll for later years, or now and then to a hunter.
+        if (w.status === 'stageComplete') {
+          finished++;
+          const years = w.progress.oceanYears ?? 0;
+          // Summer, autumn and winter of year 1; four seasons for each later year; the last spring.
+          expect(seasons.length, label).toBe(3 + 4 * (years - 1) + 1);
+          expect(seasons[0]).toBe('1summer');
+          expect(seasons[seasons.length - 1]).toBe(`${years + 1}spring`);
+          expect(moments.has('home')).toBe(true);
+        }
+        expect(moments.has('reveal'), label).toBe(true);
+        if (crowding > 1.1) expect(moments.has('pinks'), label).toBe(true);
+        else expect(moments.has('pinks')).toBe(false);
         const caps = captionsOf(w);
-        for (const id of ['ocean.orca', 'ocean.seal', 'ocean.shark', 'ocean.autumn']) expect(caps, `${label} ${id}`).toContain(id);
+        for (const id of ['ocean.intro', 'ocean.huntZone', 'ocean.shelf', 'ocean.autumn']) expect(caps, `${label} ${id}`).toContain(id);
+        for (const id of ['ocean.orca', 'ocean.seal', 'ocean.shark']) if (caps.includes(id)) hunters.add(id);
         if (crowding > 1.1) for (const id of ['ocean.crowded', 'ocean.pinks', 'ocean.pinksGone']) expect(caps, id).toContain(id);
         expect(caps.some((c) => c.startsWith('ocean.reveal'))).toBe(true);
         expect(w.progress.isJack).not.toBeNull();
-        if (w.status === 'stageComplete') finished++;
         times.push(steps / SEC);
       }
     }
     console.log(`ocean (later life) seconds: ${times.map((t) => t.toFixed(0)).join(', ')}`);
-    expect(finished).toBeGreaterThanOrEqual(4);
-    for (const t of times) expect(t).toBeLessThan(150);
+    expect(finished).toBeGreaterThanOrEqual(6);
+    expect(hunters.size).toBe(3);
+    // Later lives: about 1-4 minutes for 1-3 years at sea.
+    for (const t of times) expect(t).toBeLessThan(330);
   });
 
-  it('the first life is near two minutes', () => {
-    const { w } = newWorld({ startStage: 3, seed: 4, sex: 'M', preset: 'jack' });
-    (w as { firstLife: boolean }).firstLife = true;
-    crowd(w, 1.3);
-    w.debugJumpTo(3);
-    let steps = 0;
-    run(w, 400 * SEC, (ww) => (steps++, oceanBot(ww)));
-    expect(w.status, String(w.deathCause)).toBe('stageComplete');
-    console.log(`ocean first life (crowded): ${(steps / SEC).toFixed(0)} s, bites ${w.progress.oceanBites}`);
-    expect(steps / SEC).toBeGreaterThan(80);
-    expect(steps / SEC).toBeLessThan(170);
+  it('a first life at sea takes about 4-6 minutes for 2-3 years, under 2.5 for a jack', () => {
+    const lengthOf = (sex: 'M' | 'F', preset: 'quick' | 'jack', seed: number) => {
+      const { w } = newWorld({ startStage: 3, seed, sex, preset });
+      (w as { firstLife: boolean }).firstLife = true;
+      w.debugJumpTo(3);
+      let steps = 0;
+      run(w, 700 * SEC, (ww) => {
+        steps++;
+        // Hunters removed: this measures the route, not the dodging.
+        for (const e of ww.entities) if (e.kind === 'orca' || e.kind === 'seal' || e.kind === 'shark') e.alive = false;
+        return oceanBot(ww);
+      });
+      return { s: steps / SEC, years: w.progress.oceanYears, status: w.status, cause: w.deathCause };
+    };
+    const jack = lengthOf('M', 'jack', 4);
+    expect(jack.status).toBe('stageComplete');
+    expect(jack.years).toBe(1);
+    expect(jack.s).toBeGreaterThan(80);
+    expect(jack.s).toBeLessThan(150);
+    let checked = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const f = lengthOf('F', 'quick', seed);
+      if (f.status !== 'stageComplete') continue;
+      checked++;
+      console.log(`ocean first life: ${f.years} years, ${f.s.toFixed(0)} s`);
+      expect(f.s).toBeGreaterThan(f.years === 2 ? 200 : 300);
+      expect(f.s).toBeLessThan(f.years === 2 ? 290 : 400);
+    }
+    expect(checked).toBeGreaterThanOrEqual(3);
   });
 
   it('a fish that ignores the predators is taken', () => {
     let taken = 0;
     for (const seed of [1, 2, 3, 4, 5, 6]) {
       const { w } = newWorld({ startStage: 3, seed });
-      // Drift straight ahead, never turning.
-      run(w, 200 * SEC, () => intent({ forward: 0.5 }));
+      // Drift straight ahead, never turning: through the rich shallow patch in summer.
+      run(w, 600 * SEC, () => intent({ forward: 0.5, rise: true }));
       if (w.deathCause && ['orca', 'seal', 'shark'].includes(w.deathCause)) taken++;
     }
     expect(taken).toBeGreaterThanOrEqual(4);
   });
 
   it('pink salmon take food that would have been the player’s', () => {
-    const bitesIn = (crowding: number) => {
-      let total = 0;
-      for (const seed of [1, 2, 3]) {
-        const { w } = newWorld({ startStage: 3, seed, sex: 'F' });
-        crowd(w, crowding);
-        w.debugJumpTo(3);
-        let before = 0;
-        let during = 0;
-        run(w, 300 * SEC, (ww) => {
-          const v = oceanView(ww);
-          if (v?.moment === 'pinks' && v.phase === 'skip') before = ww.progress.oceanBites;
-          if (v?.phase === 'pinks') during = ww.progress.oceanBites - before;
-          for (const o of [...ww.live('orca'), ...ww.live('shark'), ...ww.live('seal')]) o.alive = false;
-          return oceanBot(ww);
-        });
-        total += during;
-        expect(w.live('pink').length).toBe(0);
-      }
-      return total;
-    };
-    // Compare against the same moment's food with the pinks removed.
-    const withPinks = bitesIn(1.3);
-    const without = (() => {
+    const bitesIn = (removePinks: boolean) => {
       let total = 0;
       for (const seed of [1, 2, 3]) {
         const { w } = newWorld({ startStage: 3, seed, sex: 'F' });
         crowd(w, 1.3);
         w.debugJumpTo(3);
-        let before = 0;
+        let before = -1;
         let during = 0;
-        run(w, 300 * SEC, (ww) => {
+        run(w, 120 * SEC, (ww) => {
           const v = oceanView(ww);
-          if (v?.moment === 'pinks' && v.phase === 'skip') before = ww.progress.oceanBites;
-          if (v?.phase === 'pinks') {
-            for (const pk of ww.live('pink')) pk.alive = false;
+          if (v?.moment === 'pinks' && v.phase === 'season') {
+            if (before < 0) before = ww.progress.oceanBites;
+            if (removePinks) for (const pk of ww.live('pink')) pk.alive = false;
             during = ww.progress.oceanBites - before;
           }
           for (const o of [...ww.live('orca'), ...ww.live('shark'), ...ww.live('seal')]) o.alive = false;
@@ -352,8 +362,10 @@ describe('ocean years', () => {
         total += during;
       }
       return total;
-    })();
-    console.log(`bites in the pink moment: with pinks ${withPinks}, without ${without}`);
+    };
+    const withPinks = bitesIn(false);
+    const without = bitesIn(true);
+    console.log(`bites in the pink season: with pinks ${withPinks}, without ${without}`);
     expect(withPinks).toBeLessThan(without * 0.8);
   });
 
@@ -368,26 +380,31 @@ describe('ocean years', () => {
     expect(deepest).toBeGreaterThanOrEqual(-30);
   });
 
-  it('extra years at sea are survived only with the late-ocean chance; jacks skip the roll', () => {
+  it('extra years at sea carry an unseen roll at the turn of each year; jacks skip it', () => {
     let lost = 0;
     let rolled = 0;
-    for (let seed = 1; seed <= 120; seed++) {
+    let extra = 0;
+    for (let seed = 1; seed <= 60; seed++) {
       const { w } = newWorld({ startStage: 3, seed, sex: 'F', difficulty: 'wild' });
-      const v = () => oceanView(w);
-      // Jump straight to the reveal.
-      run(w, 400 * SEC, (ww) => {
+      // No hunters: only the roll can end it.
+      run(w, 700 * SEC, (ww) => {
         for (const e of ww.entities) if (e.kind !== 'herring') e.alive = false;
-        return v()?.phase === 'reveal' ? intent() : oceanBot(ww);
+        return oceanBot(ww);
       });
       if ((w.progress.oceanYears ?? 1) > 1) rolled++;
+      extra += (w.progress.oceanYears ?? 1) - 1;
       if (w.deathCause === 'sea') lost++;
+      else expect(w.status, String(w.deathCause)).toBe('stageComplete');
     }
-    expect(rolled).toBe(120);
-    // Wild survives each extra year with life.lateOceanSurvival (0.5 x 1.4 = 0.7); 1-2 extra years,
-    // so between 1 - 0.7 and 1 - 0.7^2 are lost. Bounds allow for sampling noise.
-    const surv = params('wild').get('life.lateOceanSurvival');
-    expect(lost / rolled).toBeGreaterThan((1 - surv) * 0.75);
-    expect(lost / rolled).toBeLessThan((1 - surv * surv) * 1.25);
+    expect(rolled).toBe(60);
+    // Wild survives each extra year's unseen roll with life.lateOceanSurvival ^ ocean.lateRollShare; the rest of
+    // the later years' risk is the hunters in their seasons. Bounds allow for sampling noise.
+    const p = params('wild');
+    const surv = Math.pow(p.get('life.lateOceanSurvival'), p.get('ocean.lateRollShare'));
+    const mean = extra / rolled;
+    const expected = 1 - Math.pow(surv, mean);
+    expect(lost / rolled).toBeGreaterThan(expected * 0.4);
+    expect(lost / rolled).toBeLessThan(expected * 1.8 + 0.05);
 
     const { w: jack } = newWorld({ startStage: 3, seed: 3, sex: 'M', preset: 'jack', difficulty: 'wild' });
     run(jack, 400 * SEC, (ww) => {

@@ -1,0 +1,25 @@
+You are working on Homewater, a 3D sockeye salmon lifecycle game (TypeScript, three.js 0.180 WebGL, Vite, Vitest, Playwright). Start by reading CLAUDE.md (the handbook; follow its rules exactly) and docs/IMPROVEMENT_PLAN.md (the critical review and plan your task comes from, including the owner's decisions at the end).
+
+Ground rules for this session:
+- Work on the branch named below, created from the current claude/inspiring-heisenberg-gza4er. Commit as you go and push only to that branch. Do not open a pull request. Do not touch the public homewater repository or main.
+- Other sessions are working in parallel on other parts of the plan (listed below). Keep your changes inside your scope, keep edits to shared files (src/app/App.ts, src/render/Renderer.ts, src/sim/stages/*.ts, params.json, captions.json, CLAUDE.md, docs/milestones/M1.md) small and localised so the coordinator can merge everything.
+- The scientific advisor must never be named or credited in any player-facing or public text, and nobody they know may be contacted. Published papers may be cited in DESIGN.md sources and params.json.
+- Do not state biology that docs/ADVISOR_NOTES.md does not support; anything new that is a simplification or game device goes into ADVISOR_NOTES.md as an Open question under a heading for your stream.
+- Every number in game logic goes in src/data/params.json (with units, range, source, placeholder); every player-facing science line goes in src/data/captions.json by stable ID. Presentation tuning goes in a config file next to the render/UI code, not params.json.
+- If you change the simulation on purpose, re-record only the determinism hashes that should change (tests/unit/determinism.test.ts) and say why in the comment. If you change saved data, bump SCHEMA_VERSION with a migration and test.
+- Verified means: npm run verify passes (typecheck, unit tests, build, smoke). Run smoke with PW_PORT set to a free port (your port is given below) and, if the machine is busy, --workers 1. Look at the smoke screenshots and at your own review screenshots (use ?quality=high; save the ones worth keeping in docs/gallery/<stream>-*.png).
+- At the end: add a decision-log bullet to CLAUDE.md for your stream; add owner checklist items for anything about feel to docs/milestones/M1.md under a new "### <stream name>" heading at the end of the "Try these" list, numbered from 101 (the coordinator renumbers); push; and finish with a short report: what changed, files touched, tests, screenshots, open questions, and anything you left undone and why.
+- The owner is not a programmer: checklist items must say what to do and what to look for in plain words.
+
+Branch: claude/hw-science. Smoke port: 4217.
+Parallel sessions this round (stay out of their files; keep edits to shared files such as Renderer.ts, App.ts, params.json, captions.json, journal.json, tutorial.ts, lifeMap.ts, bots.ts small and additive): ocean journey (claude/hw-ocean, ocean.ts and ocean rendering), egg threats (claude/hw-egg, egg.ts), warm-year realism (claude/hw-heat, returnWater.ts and heat), changing river mode (claude/hw-change, population/lineage/setup; the only session allowed to change saved data, schema 8), weather and the world above (claude/hw-weather, render only), sound (claude/hw-sound, src/audio only), science integrity (claude/hw-science, captions/journal/docs).
+
+Track 4 of docs/IMPROVEMENT_PLAN.md: science integrity. 148 of 438+ parameters are placeholders and docs/ADVISOR_NOTES.md has dozens of open questions, yet captions state some game devices in the same voice as established biology.
+
+Your task:
+1. Tag every caption and journal entry (src/data/captions.json, src/data/journal.json) as established, simplified or device, with a short source reference for established ones (published papers already cited in docs/DESIGN.md's Sources, or the advisor notes' applied answers; never name the advisor). Store the tags in a new data file keyed by caption ID (for example src/data/claims.json), with a unit test that every caption has a tag and every tag a caption.
+2. Rewrite any caption that states an open question or a game device as fact (keep IDs when the meaning holds; new IDs when it changes, and update the recording script).
+3. In the Field journal: a 'How true is this?' note on simplified and device entries, and a Sources page listing the published research (no personal names beyond authors of cited papers).
+4. Sort the open questions in docs/ADVISOR_NOTES.md into the ten that most affect what the game tells players, with the caption IDs each affects; put that list in ADVISOR_NOTES.md.
+5. Draft the third round of questions for the scientific advisor (those ten first, short and answerable, plus a screenshot list from docs/gallery/). The project rule is that briefs written to the advisor are kept out of the repository: do not commit the brief. Put its full text in your final report message instead, so the coordinator can pass it to the owner.
+6. Checklist items for the owner (for example: open the journal, check a 'How true is this?' note reads well).

@@ -116,6 +116,8 @@ const ITEMS: Item[] = [
   { id: 'krill', label: 'Krill', note: 'main food at sea; about 2 cm, drawn at life size in play', group: 'animals', make: () => preyModel('krill', krillGeometry(), 0.78) },
   { id: 'squid', label: 'Small squid', note: 'occasional food at sea', group: 'animals', make: () => preyModel('squid', squidGeometry(), 0.85) },
   { id: 'char', label: 'Dolly Varden (char)', note: 'pale spots on dark, white fin edges', group: 'animals', make: ANIMALS.char! },
+  { id: 'sculpin', label: 'Sculpin', note: 'broad flat head, eyes on top, fan pectoral fins, mottled', group: 'animals', make: ANIMALS.sculpin! },
+  { id: 'sculpinProbe', label: 'Sculpin: probing', note: 'nose down into the gravel', group: 'animals', make: ANIMALS.sculpin!, pose: (t) => ({ mode: 'probe', t, pitch: -0.45 }) },
   { id: 'orca', label: 'Orca', note: 'tall dorsal fin, eye and flank patches', group: 'animals', make: ANIMALS.orca! },
   { id: 'shark', label: 'Salmon shark', note: 'stocky, crescent tail, white belly', group: 'animals', make: ANIMALS.shark! },
   { id: 'seal', label: 'Harbor seal', note: 'round head, short muzzle, whiskers, spotted grey', group: 'animals', make: ANIMALS.seal! },

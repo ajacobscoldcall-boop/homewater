@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { bearChoosiness, bearEatTime, bearPlentyRate, bearShareEaten, bearTargetWeight, runPlenty } from '../../src/sim/bearFeeding';
 import { flockStep, flockTuning, isFlashing, schoolSpread, type FlockGoal, type FlockTuning } from '../../src/sim/flock';
 import { curvedChase, personalityFrom, personalityOf } from '../../src/sim/personality';
+import { oceanView } from '../../src/sim/stages/ocean';
 import type { Entity } from '../../src/sim/types';
 import { dist, v3 } from '../../src/sim/vec';
 import { lateness, scavengerCounts } from '../../src/render/scavengers';
@@ -99,12 +100,14 @@ describe('flocking', () => {
   it('scatters the ocean food patch from a charging shark', () => {
     const { w } = newWorld({ startStage: 3, seed: 7 });
     run(w, 3 * SEC, () => intent());
-    const c = (w.stage as { ballCenter: { x: number; y: number; z: number } }).ballCenter;
-    const before = schoolSpread(w.live('herring'));
+    const c = oceanView(w)!.patches[0]!;
+    // The shallow patch (the season has two; oceanRoute.ts).
+    const patch = () => w.live('herring').filter((h) => h.home && h.home.y === c.y);
+    const before = schoolSpread(patch());
     w.spawn('shark', v3(c.x - 6, c.y, c.z), { radius: 1.5, state: 'charge', timer: 3, vel: v3(10, 0, 0) });
     run(w, 30, () => intent());
-    expect(w.live('herring').some(isFlashing)).toBe(true);
-    expect(schoolSpread(w.live('herring'))).toBeGreaterThan(before);
+    expect(patch().some(isFlashing)).toBe(true);
+    expect(schoolSpread(patch())).toBeGreaterThan(before);
   });
 });
 

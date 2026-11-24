@@ -16,6 +16,8 @@ export const MODEL_SCALE = {
   eggVary: 0.08,
   /** Brood-mates after hatching (the player's alevin is the sim's 0.35). */
   brood: 0.28,
+  /** A sculpin probing the gravel (about 9 cm; the model is about 1.1 units long, snout to tail tip). */
+  sculpin: 1.27,
 
   /** Fry stage: plankton drawn as small swarms; each speck's size, and how far the swarm spreads round the sim's food point. */
   planktonSpeck: 0.028,

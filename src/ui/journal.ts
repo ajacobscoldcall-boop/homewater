@@ -6,6 +6,7 @@
  * carries across lineages and needs no save migration. Everything works
  * without storage; unlocks then last only for the session.
  */
+import claimsFile from '../data/claims.json';
 import journalFile from '../data/journal.json';
 import type { SimEvent, StageId } from '../sim/types';
 import { h } from './dom';
@@ -18,6 +19,17 @@ export interface JournalEntry {
   text: string;
   /** Trigger keys; any one of them unlocks the entry. */
   unlock: string[];
+  /** "How true is this?": on entries tagged simplified or device in src/data/claims.json. */
+  howTrue?: string;
+}
+
+/** A published source on the journal's Sources page; src/data/claims.json cites it as `src:<id>`. */
+export interface JournalSource {
+  id: string;
+  /** Author and year, as shown under an entry. */
+  short: string;
+  cite: string;
+  about: string;
 }
 
 export interface JournalFact {
@@ -28,9 +40,26 @@ export interface JournalFact {
 export interface JournalData {
   facts: { title: string; intro: string; items: JournalFact[] };
   entries: JournalEntry[];
+  sources: { title: string; intro: string; items: JournalSource[] };
 }
 
 export const JOURNAL = journalFile as unknown as JournalData;
+
+/** How sure each entry is (src/data/claims.json; tests/unit/claims.test.ts keeps it whole). */
+type ClaimTag = 'established' | 'simplified' | 'device';
+const CLAIMS = (claimsFile as unknown as { journal: Record<string, { tag: ClaimTag; refs?: string[] }> }).journal;
+
+/** The published sources an entry's claims cite, in order. */
+export function entrySources(data: JournalData, id: string): JournalSource[] {
+  const ids = (CLAIMS[id]?.refs ?? []).filter((r) => r.startsWith('src:')).map((r) => r.slice(4));
+  return ids.map((s) => data.sources.items.find((it) => it.id === s)).filter((s): s is JournalSource => !!s);
+}
+
+export function entryTag(id: string): ClaimTag | undefined {
+  return CLAIMS[id]?.tag;
+}
+
+const TAG_LABEL: Record<ClaimTag, string> = { established: '', simplified: 'Simplified for the game', device: 'Partly a game rule' };
 
 const STORAGE_KEY = 'homewater.journal';
 
@@ -126,7 +155,7 @@ export class FieldJournal {
 // ---------- Screens ----------
 
 const STAGES: StageId[] = ['egg', 'fry', 'smolt', 'ocean', 'return', 'spawn'];
-type Page = 'facts' | 'life' | StageId;
+type Page = 'facts' | 'life' | 'sources' | StageId;
 let lastPage: Page = 'facts';
 
 /** A caption line of the current life (src/app/messages.ts `LifeLine`). */
@@ -186,6 +215,14 @@ export function journalPanel(journal: FieldJournal, onBack: () => void, page: Pa
           )
         : h('p', { class: 'muted' }, 'Nothing yet.'),
     );
+  } else if (page === 'sources') {
+    const src = journal.data.sources;
+    body = h(
+      'div',
+      { class: 'journal-body sources' },
+      h('p', { class: 'muted' }, src.intro),
+      h('ol', { class: 'source-list' }, ...src.items.map((s) => h('li', { 'data-source': s.id }, h('p', { class: 'cite' }, s.cite), h('p', { class: 'muted' }, s.about)))),
+    );
   } else if (page === 'facts') {
     const f = journal.data.facts;
     body = h(
@@ -201,7 +238,13 @@ export function journalPanel(journal: FieldJournal, onBack: () => void, page: Pa
       { class: 'journal-body entries' },
       ...entries.map((e) =>
         journal.unlocked.has(e.id)
-          ? h('article', { class: `entry${opts.fresh?.has(e.id) ? ' fresh' : ''}`, 'data-entry': e.id }, h('h3', {}, e.title, opts.fresh?.has(e.id) ? h('span', { class: 'new-badge' }, 'new') : null), h('p', {}, e.text))
+          ? h(
+              'article',
+              { class: `entry${opts.fresh?.has(e.id) ? ' fresh' : ''}`, 'data-entry': e.id },
+              h('h3', {}, e.title, opts.fresh?.has(e.id) ? h('span', { class: 'new-badge' }, 'new') : null),
+              h('p', {}, e.text),
+              ...entryFooter(journal.data, e, () => go('sources')),
+            )
           : h('article', { class: 'entry locked', 'data-entry': e.id }, h('h3', {}, 'Not yet seen'), h('p', {}, 'Live through it to fill in this page.')),
       ),
     );
@@ -209,16 +252,31 @@ export function journalPanel(journal: FieldJournal, onBack: () => void, page: Pa
 
   panel.append(
     h('p', { class: 'label' }, `Field journal · ${journal.count} of ${journal.total} entries`),
-    h('h2', {}, page === 'facts' ? journal.data.facts.title : page === 'life' ? 'This life' : STAGE_TITLES[page]),
+    h('h2', {}, page === 'facts' ? journal.data.facts.title : page === 'life' ? 'This life' : page === 'sources' ? journal.data.sources.title : STAGE_TITLES[page]),
     h(
       'nav',
       { class: 'tabs', 'aria-label': 'Journal pages' },
       tab('facts', 'Facts to remember'),
       opts.life ? tab('life', 'This life', String(opts.life.length)) : null,
       ...STAGES.map((s) => tab(s, STAGE_TITLES[s], stageCount(s))),
+      tab('sources', journal.data.sources.title),
     ),
     body,
     h('div', { class: 'row' }, h('button', { class: 'primary', id: 'btn-journal-back', onclick: onBack }, 'Back')),
   );
   return panel;
+}
+
+/** Under an unlocked entry: "How true is this?" on simplified and device entries, and the published sources it draws on. */
+function entryFooter(data: JournalData, e: JournalEntry, openSources: () => void): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const tag = entryTag(e.id);
+  if (e.howTrue && tag && tag !== 'established') {
+    out.push(h('details', { class: `how-true ${tag}` }, h('summary', {}, 'How true is this?', h('span', { class: 'tag' }, TAG_LABEL[tag])), h('p', {}, e.howTrue)));
+  }
+  const src = entrySources(data, e.id);
+  if (src.length) {
+    out.push(h('p', { class: 'entry-sources' }, 'Sources: ', h('button', { class: 'link', type: 'button', onclick: openSources }, src.map((s) => s.short).join('; '))));
+  }
+  return out;
 }

@@ -15,6 +15,7 @@ import type { ActiveThreat } from '../render/threats';
 import { threatFocus } from '../render/threats';
 import type { HudView, ThreatMarker, VitalRing } from './hudView';
 import { alevinView } from '../sim/stages/egg';
+import { fallsView } from '../sim/stages/falls';
 import { lakeView } from '../sim/stages/returnLake';
 import { returnWaterView } from '../sim/stages/returnWater';
 import { smoltView } from '../sim/stages/smolt';
@@ -100,7 +101,14 @@ export class Vitals {
     }
     const rings: VitalRing[] = [];
     const alevin = alevinView(w);
-    if (alevin) rings.push({ name: 'yolk', value: w.progress.yolk, level: energyLevel(w.progress.yolk) });
+    if (alevin) {
+      rings.push({ name: 'yolk', value: w.progress.yolk, level: energyLevel(w.progress.yolk) });
+      // The water around the alevin while it is short of oxygen or still recovering (eggThreats.ts): oxygen, and strength.
+      if (alevin.o2 < VITALS.oxygen.showBelow || alevin.vigour < VITALS.oxygen.showBelow) {
+        rings.push({ name: 'oxygen', value: alevin.o2, level: alevin.o2 < w.p.get('alevin.o2Low') ? 'critical' : alevin.o2 < VITALS.oxygen.low ? 'low' : 'ok' });
+        rings.push({ name: 'strength', value: alevin.vigour, level: energyLevel(alevin.vigour) });
+      }
+    }
     else rings.push({ name: 'energy', value: w.body.energy, level: energyLevel(w.body.energy) });
     if (w.stageId === 'return') {
       const fat = w.progress.fat;
@@ -109,6 +117,9 @@ export class Vitals {
       // In the lake: how far the spawning colours have come on (full when ready to go home).
       const lake = lakeView(w);
       if (lake?.entered) rings.push({ name: 'colours', value: lake.ripe, level: 'ok' });
+      // In the plunge pool below the falls: how good a leap from here, at this speed, would be (full: enough to clear).
+      const power = fallsView(w)?.leapPower ?? null;
+      if (power !== null) rings.push({ name: 'leap', value: power, level: power >= 1 ? 'ready' : 'ok' });
     }
     // The smolt run's last stretch: readiness for salt water, from the river mouth on.
     const sv = smoltView(w);

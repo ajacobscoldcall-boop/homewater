@@ -16,7 +16,8 @@
     "narration:script": "node scripts/recording-script.mjs",
     "narration:manifest": "node scripts/recording-script.mjs --manifest",
     "balance": "vite-node scripts/balance/run.ts",
-    "playlog": "vite-node scripts/playlog/run.ts"
+    "playlog": "vite-node scripts/playlog/run.ts",
+    "audio:render": "node scripts/audio-render.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

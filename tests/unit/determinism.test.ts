@@ -99,20 +99,27 @@ const EXPECTED: Record<string, string[]> = {
   // the return's home scent now depends on imprint and wrong rivers carry their own smell (more dice).
   // Earlier: the egg-stage flood and brood-mates, the smolt run's strike dilution and near-miss grace, return bears fishing
   // only the home branch past the fork, and a jack's charge for a hiding spot rolling once per press.
-  egg: ['7e8be5f1', 'c423faf7', '2ca63897', 'd766c633'],
+  // Re-recorded for the egg threats (Track 2.5, eggThreats.ts): the alevin crawls (forward), a low-oxygen pocket, a sculpin
+  // and silt join the flood in a queue of events, the yolk lasts longer, and oxygen wears down body.energy. The large stones
+  // and the event plan come from a copy of the rng state, so the egg init draws no more numbers and adds no entities:
+  // every other case hashed exactly as before.
+  egg: ['2efda30e', 'f283f131', 'bd3c9d02', '2a720f35'],
   fry: ['a22d3271', '4b2ec372', '14cb01b4', '0f20e1b1'], // updated: fry day cycle and birds (lake days with light, plankton, warm water and char sight; mergansers from above). Only fry moved: no other case plays the lake.
   // Re-recorded for the estuary (src/sim/stages/estuary.ts): the run is longer, bank cover stops at the estuary (fewer cover
   // dice at init), the stage scratch gained `salt` (readiness and salinity) and the arena's current and floor change seaward.
   // Only the smolt case starts in this stage; every other case hashed exactly as before.
   smolt: ['94ad2640', '44be812d', '3f64edcc', '70942aab'],
-  ocean: ['2a3b9f1d', '995cf30e', '60487b49', '6a396648'], // updated: behaviour stream (flocking schools, predator personalities, selective bears and carcasses)
+  ocean: ['ae858e85', 'f876a0b9', 'e5aee7e6', '89d1e35f'], // updated: the ocean as a journey (Track 2.6): seasons with two food patches and a food budget, hunters that come where the food is, warmth rolled per year, the fish's growing size
   // Re-recorded for the lake crossing (returnLake.ts): the return's init now lays out the lake and its bears (more dice), the
   // arena reaches past the river's end and the stage ends across the lake. Only the return moved; every other hash is as before.
-  return: ['9de1f3e0', 'fbf606e5', 'bf4c8231', '377c24ec'], // updated: home through the lake (earlier: falls, rapids, migrants, water)
-  'spawn female': ['6629c7c2', '926fddd8', 'fdeece5c', '1fa6d4e6'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
-  'spawn male': ['889a1cae', '1384cfac', '8d70bd24', '8c7121f0'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
-  'spawn jack': ['fc0fe3b6', 'cba8f12b', '92718c68', 'e24dee11'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
-  'spawn wild': ['22758110', 'b899eb22', '8c9c27b0', '0eed52a5'], // updated: crowded spawning grounds (Track 2.2): the crowd's entities and dice, rivals, males and bear choices out of the crowd, char and gulls at the eggs, Wild's bear interval. Egg to return hash as before.
+  // Re-recorded for the falls rework (falls.ts): the practice ledge in the rapids changes the floor and pushes the fish
+  // out of it, the leap starts on one input (burst) with a remembered run-up, wider tolerances, half-price misses, faster
+  // rest in the plunge pool, and the lip bear's Field guide grace. Only the return moved; every other hash is as before.
+  return: ['5e7b3967', 'a14326d8', 'b964fddc', '96dccc7d'], // updated: falls rework and ocean journey (the jump fills progress.oceanBites on the recalibrated scale)
+  'spawn female': ['eb90e44e', 'e3db8fde', '9030a1c4', '4b40c274'], // updated: falls rework and ocean journey (the jump fills progress.oceanBites on the recalibrated scale)
+  'spawn male': ['7d6e7a12', '9d50c36c', 'd4aebb22', '2c2fb1ac'], // updated: falls rework and ocean journey (the jump fills progress.oceanBites on the recalibrated scale)
+  'spawn jack': ['c52271dc', '62459c01', '6dbc689e', '1993a869'], // updated: falls rework and ocean journey (the jump fills progress.oceanBites on the recalibrated scale)
+  'spawn wild': ['67b0a278', 'ee64474c', '9b23d7b4', '9bf0f1eb'], // updated: falls rework and ocean journey (the jump fills progress.oceanBites on the recalibrated scale)
 };
 
 describe('simulation determinism', () => {

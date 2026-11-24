@@ -56,6 +56,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 .vital .track { fill: none; stroke: rgba(255, 255, 255, 0.16); }
 .vital .arc { fill: none; stroke: var(--silver); stroke-linecap: round; transition: stroke 0.3s; }
 .vital[data-vital='colours'] .arc { stroke: var(--sockeye); }
+/* The leap gauge in the plunge pool: foam white, bright when a leap from here would clear. */
+.vital[data-vital='leap'] .arc { stroke: #9fc6cf; }
+.vital.ready { opacity: 1; color: #fff; }
+.vital.ready .arc { stroke: #fff; }
+.vital.ready svg { filter: drop-shadow(0 0 4px rgba(220, 245, 250, 0.9)); }
 .vital.low { opacity: 1; color: var(--warn); }
 .vital.low .arc { stroke: var(--warn); }
 .vital.critical { opacity: 1; color: var(--sockeye); }
@@ -143,6 +148,17 @@ input[type='text'] { font: 500 18px var(--f-body); color: var(--fg); background:
 .facts li { counter-increment: fact; display: grid; grid-template-columns: 44px 1fr; gap: 4px 14px; border-top: 1px solid var(--rule); padding-top: 14px; }
 .facts li::before { content: counter(fact); grid-row: span 2; font: 800 34px/1 var(--f-display); color: var(--sockeye); }
 .facts p { font-size: 15px; max-width: none; }
+/* Science integrity: "How true is this?" and sources under an entry; the Sources page (src/data/claims.json). */
+.how-true { border-top: 1px dashed var(--rule); padding-top: 6px; margin-top: 2px; }
+.how-true summary { cursor: pointer; font: 500 12.5px var(--f-body); color: var(--warn); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.how-true summary .tag { font: 400 11px var(--f-mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.how-true p { font-size: 13px; color: var(--silver); margin-top: 6px; }
+.entry .entry-sources { font-size: 12px; color: var(--muted); }
+.entry .entry-sources button.link { color: var(--muted); font-size: 12px; text-align: left; }
+.source-list { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 12px; }
+.source-list li { font-size: 14px; line-height: 1.45; }
+.source-list .cite { color: var(--fg); }
+.source-list .muted { font-size: 12.5px; }
 
 /* New journal entries: one small chip, top centre (src/app/messages.ts). */
 #journal-chip { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; background: rgba(8, 26, 30, 0.85); border: 1px solid var(--rule); border-radius: 14px; padding: 4px 6px 4px 12px; font: 500 13px var(--f-body); pointer-events: none; z-index: 5; opacity: 0; transition: opacity 0.5s; }
@@ -279,6 +295,13 @@ button.link:hover { background: none; color: #fff; }
 .run-spark .goal { stroke: var(--kype); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
 .run-spark .hit { fill: transparent; }
 .run-spark .hit:hover { fill: rgba(195, 209, 213, 0.18); }
+.run-spark.changing { height: 114px; }
+.run-spark .chg-warm, .run-chart .k-warm { fill: #d77ad0; background: #d77ad0; }
+.run-spark .chg-silt, .run-chart .k-silt { fill: #a07a4a; background: #a07a4a; }
+.run-spark .chg-hatch, .run-chart .k-hatch { fill: #6fa8d6; background: #6fa8d6; }
+.run-spark .chg-nets, .run-chart .k-nets { fill: var(--fg); background: var(--fg); opacity: 0.75; }
+.run-chart .change-key { justify-content: center; }
+.change-since { margin: 2px 0 6px; font-size: 14px; }
 /* Controls and readability (src/ui/controls.ts, src/ui/accessibility.ts). Options apply as attributes on <html>. */
 :root { --threat-warn: var(--warn); --threat-hot: var(--sockeye); --threat-open: var(--kype); --flash-warn: 240, 179, 90; --flash-open: 143, 160, 74; }
 .threat { color: var(--threat-warn); }

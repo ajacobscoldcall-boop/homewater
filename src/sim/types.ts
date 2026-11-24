@@ -50,6 +50,17 @@ export interface YearConditions {
   fryCrowding?: number;
   /** Share of this year's run the fishery takes. */
   harvestRate?: number;
+  /**
+   * The changing river (src/sim/riverChange.ts, saves schema 8): absent on a
+   * healthy river. `warming` is already included in `temperature`.
+   */
+  warming?: number;
+  /** Fine silt from logging in the spawning gravel this year. */
+  silt?: boolean;
+  /** Share of the run that is hatchery strays. */
+  hatchery?: number;
+  /** Extra set-net and subsistence lines on the approach. */
+  setNets?: number;
 }
 
 /** Things that change over the course of one life. Snapshotted at checkpoints. */
@@ -114,7 +125,9 @@ export type EntityKind =
   /** A crowd fish that died on the grounds (state: 'male' | 'female' | 'jack'; value: size; timer: seconds dead). */
   | 'crowdCarcass'
   /** A gull taking loose eggs at the surface over a shallow redd (spawn/eggThieves.ts). */
-  | 'gull';
+  | 'gull'
+  /** A sculpin probing the gravel for eggs and alevin (egg stage, eggThreats.ts): 'warn' coming in, 'move', 'probe', 'strike', 'leave'; home: the spot it probes. */
+  | 'sculpin';
 
 export interface Entity {
   id: number;
@@ -147,7 +160,9 @@ export type SimEventType =
   | 'spawned'
   | 'lifeComplete'
   /** A near miss that would leave a mark (key: 'net'). Drawn as a wound; changes nothing in the sim. */
-  | 'graze';
+  | 'graze'
+  /** A leap at the return's falls (key: 'clear', or why it missed: 'slow', 'deep', 'close', 'spot', 'nearly'). */
+  | 'leap';
 
 export interface SimEvent {
   t: number;
@@ -193,7 +208,7 @@ export const NO_INTENT: Intent = {
   risePressed: false,
 };
 
-export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn' | 'heat' | 'gull';
+export type DeathCause = 'silt' | 'scour' | 'exposed' | 'char' | 'merganser' | 'seal' | 'sea' | 'shark' | 'angler' | 'trout' | 'bird' | 'orca' | 'gillnet' | 'bear' | 'exhaustion' | 'yolk' | 'noSpawn' | 'heat' | 'gull' | 'prespawn' | 'sculpin';
 
 export interface SpawnResult {
   /** Eggs laid (female) or eggs fertilized (male). */

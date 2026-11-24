@@ -13,6 +13,7 @@
  * and scaled by the renderer; the bear, gull and merganser are built at game
  * scale (the salmon is about 1 unit, roughly 0.75 m).
  */
+import { createSculpin } from './sculpin';
 import * as THREE from 'three';
 import { bell, col, decal, finPatch, GeoBuilder, hash3, keyed, loft, noise3, ringPoint, smooth, spline, surfacePatch, surfaceStrip, tube, type Ring } from './geo';
 import { quality } from './quality';
@@ -1689,4 +1690,5 @@ export const ANIMALS: Record<string, () => Animal> = {
   mergMale: () => createMerganser(true),
   mergFemale: () => createMerganser(false),
   char: createChar,
+  sculpin: createSculpin,
 };

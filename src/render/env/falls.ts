@@ -9,7 +9,10 @@
  *   curtain down the face, the boil in the plunge pool, the standing wave and
  *   the side channel's small steps);
  * - a driftwood jam across the top of the side channel that swings aside
- *   when the sim opens it.
+ *   when the sim opens it (its white water shows the way is there from the start);
+ * - the launch spot: brighter foam over the standing wave under the low step,
+ *   and the curtain brighter where the low step pours;
+ * - the practice ledge in the rapids: a rock shelf by one bank, just awash.
  * Particle counts follow the scenery detail level (Low keeps 40%).
  */
 import * as THREE from 'three';
@@ -28,7 +31,7 @@ export interface FallsParts {
 /** Extra grid lines so the terrain's rock step has a sharp face. */
 export function fallsBreaks(w: World): number[] {
   const lay = fallsLayout(w);
-  return lay ? [lay.rapidsStart, lay.poolStart, lay.face - 0.06, lay.face, lay.lipEnd, lay.lipEnd + 0.06] : [];
+  return lay ? [lay.rapidsStart, lay.practiceX[0] - 0.06, lay.practiceX[0], lay.practiceX[1], lay.practiceX[1] + 0.06, lay.poolStart, lay.face - 0.06, lay.face, lay.lipEnd, lay.lipEnd + 0.06].sort((a, b) => a - b) : [];
 }
 
 export function buildFalls(w: World, detail: Detail): FallsParts | null {
@@ -92,6 +95,23 @@ export function buildFalls(w: World, detail: Detail): FallsParts | null {
     const s = range(rand, 0.4, 0.6);
     stones.push({ x, y: floor(x, wallZ - lay.chuteSide * 0.6) - 0.1, z: wallZ, s: [s, s * 1.6, s * 0.7], yaw: rand() * 6, colour: dark() });
   }
+  // The practice ledge: a shelf of broad, flat-topped boulders by the bank, its top just under the surface,
+  // with a lower step of stones in front so it reads as a ledge rather than a wall.
+  {
+    const [px0, px1] = lay.practiceX;
+    const [pz0, pz1] = lay.practiceZ;
+    const base = floor(px0 - 1.5, (pz0 + pz1) / 2);
+    const top = floor((px0 + px1) / 2, (pz0 + pz1) / 2);
+    const nz = Math.max(3, Math.round((pz1 - pz0) / 0.7));
+    for (let i = 0; i < nz; i++) {
+      const z = pz0 + ((i + 0.5) * (pz1 - pz0)) / nz;
+      const w = (pz1 - pz0) / nz;
+      const hTop = top - base + 0.25;
+      stones.push({ x: (px0 + px1) / 2 + range(rand, -0.08, 0.08), y: base - 0.25 + hTop / 2, z, s: [(px1 - px0) * 0.72, hTop * 0.55, w * 0.85], yaw: range(rand, -0.2, 0.2), colour: stoneTint(rand, 0.28) });
+      const hLow = (top - base) * 0.45;
+      stones.push({ x: px0 - 0.45 + range(rand, -0.1, 0.1), y: base + hLow * 0.35, z: z + range(rand, -0.15, 0.15), s: [0.55, hLow * 0.6, w * 0.7], yaw: rand() * 6, colour: dark() });
+    }
+  }
   const rocks = instanced(big, rockMat, stones);
   if (rocks) group.add(rocks);
 
@@ -117,7 +137,7 @@ export function buildFalls(w: World, detail: Detail): FallsParts | null {
   const water = whiteWater(w, lay, half, hm, detail, rand);
   group.add(water.points);
   const sheet = fallsSheet(w, lay, half, hm);
-  group.add(sheet.curtain, sheet.churn);
+  group.add(sheet.curtain, sheet.churn, launchSpot(w, lay));
 
   let open = 0;
   return {
@@ -194,6 +214,18 @@ function whiteWater(w: World, lay: FallsLayout, half: number, hm: number, detail
     const x = lay.waveX + range(rand, -0.5, 0.9) + 0.4 * notchK(z);
     add(x + 0.5, -range(rand, 0.05, 0.3), z, -range(rand, 0.6, 1.4), range(rand, -0.15, 0.1), range(rand, -0.3, 0.3), 0, range(rand, 0.6, 1.1), range(rand, 3.5, 5.5), 0.55);
   }
+  // The launch spot: a dense boil of bubbles just under the standing wave below the low step (where a leap goes best).
+  const rx = w.p.get('return.leapWaveReach');
+  const rz = w.p.get('return.leapNotchReach');
+  for (let i = 0; i < n(F.launchBoil); i++) {
+    const a = rand() * Math.PI * 2;
+    const r = Math.sqrt(rand());
+    const z = lay.notchZ + Math.sin(a) * r * rz * 0.8;
+    if (inChute(z)) continue;
+    const y = -range(rand, 0.4, 1.6);
+    const rise = range(rand, 0.6, 1.2);
+    add(lay.waveX + Math.cos(a) * r * rx * 0.7, y, z, -range(rand, 0.2, 0.6), rise, range(rand, -0.15, 0.15), 0, -y / rise, range(rand, 3, 5), 0.6);
+  }
   // Surface foam drifting away from the falls across the pool.
   for (let i = 0; i < n(F.poolFoam); i++) {
     const z = hm + range(rand, -half + 0.2, half - 0.2);
@@ -210,6 +242,11 @@ function whiteWater(w: World, lay: FallsLayout, half: number, hm: number, detail
   for (let i = 0; i < n(F.rapids); i++) {
     const x = range(rand, lay.rapidsStart - 1, lay.poolStart + 0.5);
     add(x, -range(rand, 0.03, 0.35), hm + range(rand, -half + 0.3, half - 0.3), -range(rand, 3.5, 5.5), 0, 0, 0, range(rand, 0.6, 1.4), range(rand, 2, 3.5), 0.35);
+  }
+  // The practice ledge: water breaking over the shelf and pouring off its downstream edge.
+  for (let i = 0; i < n(F.practice); i++) {
+    const z = range(rand, lay.practiceZ[0] + 0.1, lay.practiceZ[1] - 0.1);
+    add(lay.practiceX[1] + 0.1, -range(rand, 0.02, 0.12), z, -range(rand, 2.5, 3.5), -range(rand, 0, 0.6), 0, -4, range(rand, 0.4, 0.7), range(rand, 2.5, 4), 0.55);
   }
   // The side channel: tumbling over each small step.
   for (let i = 0; i < n(F.chute); i++) {
@@ -279,6 +316,7 @@ function fallsSheet(w: World, lay: FallsLayout, half: number, hm: number) {
     uTime: sharedWater.uTime,
     uLight: sharedWater.uLight,
     uNotch: { value: new THREE.Vector2(lay.notchZ, lay.notchHalf) },
+    uBright: { value: F.notchBright as number },
     uFar: { value: new THREE.Vector2(F.fadeNear + 6, F.fadeFar + 10) },
   };
   const vertexShader = /* glsl */ `
@@ -304,11 +342,12 @@ function fallsSheet(w: World, lay: FallsLayout, half: number, hm: number) {
     uniforms,
     vertexShader,
     fragmentShader: /* glsl */ `
-      uniform float uTime; uniform float uLight; uniform vec2 uNotch; uniform vec2 uFar;
+      uniform float uTime; uniform float uLight; uniform vec2 uNotch; uniform vec2 uFar; uniform float uBright;
       varying vec3 vW; varying vec2 vUv; varying float vDist;
       ${noise}
       void main() {
         float notch = max(0.0, 1.0 - abs(vW.z - uNotch.x) / uNotch.y);
+        notch = notch * (1.0 + uBright);
         // Streaks pouring down: stretched noise moving down fast.
         float s = vn(vec2(vW.z * 3.0, vW.y * 0.7 + uTime * 3.2)) * 0.6 + vn(vec2(vW.z * 9.0, vW.y * 1.6 + uTime * 5.0)) * 0.4;
         float a = smoothstep(0.35, 0.85, s) * (0.32 + 0.4 * notch);
@@ -355,4 +394,63 @@ function fallsSheet(w: World, lay: FallsLayout, half: number, hm: number) {
   churn.name = 'fallsChurn';
   churn.frustumCulled = false;
   return { curtain, churn };
+}
+
+/**
+ * The launch spot: brighter foam on the underside of the surface over the
+ * standing wave, centred under the low step and as wide as the sim's reach for
+ * the spot's bonus. Natural white water, just more of it where a leap goes
+ * best; shown in every view, Documentary included. One draw.
+ */
+function launchSpot(w: World, lay: FallsLayout): THREE.Mesh {
+  const F = FALLS_FX.launch;
+  const rx = w.p.get('return.leapWaveReach');
+  const rz = w.p.get('return.leapNotchReach');
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uTime: sharedWater.uTime,
+      uLight: sharedWater.uLight,
+      uLook: { value: new THREE.Vector3(F.opacity, F.breathe, F.pulse) },
+      uFar: { value: new THREE.Vector2(FALLS_FX.fadeNear + 10, FALLS_FX.fadeFar + 14) },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv; varying vec3 vW; varying float vDist;
+      void main() {
+        vUv = uv;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vW = wp.xyz;
+        vec4 mv = viewMatrix * wp;
+        vDist = -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform float uTime; uniform float uLight; uniform vec3 uLook; uniform vec2 uFar;
+      varying vec2 vUv; varying vec3 vW; varying float vDist;
+      float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+      }
+      void main() {
+        vec2 d = vUv * 2.0 - 1.0;
+        float r = length(d);
+        float body = smoothstep(1.0, 0.35, r);
+        float foam = vn(vec2(vW.x * 3.0 + uTime * 1.4, vW.z * 2.2)) * 0.6 + vn(vec2(vW.x * 7.0 - uTime * 2.1, vW.z * 6.0 + uTime)) * 0.4;
+        float breathe = 1.0 - uLook.y * (0.5 + 0.5 * sin(uTime * 6.2832 / uLook.z));
+        float a = body * (0.45 + 0.55 * smoothstep(0.25, 0.7, foam)) * uLook.x * breathe;
+        a *= 1.0 - smoothstep(uFar.x, uFar.y, vDist);
+        gl_FragColor = vec4(vec3(0.94, 0.98, 1.0) * (0.6 + 0.4 * uLight), clamp(a, 0.0, 0.9));
+      }`,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * rx, 2 * rz, 1, 1), mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(lay.waveX, -0.04, lay.notchZ);
+  mesh.renderOrder = 2;
+  mesh.name = 'fallsLaunch';
+  // Placed by its transform, which the scenery's fog culling doesn't read: always drawn.
+  mesh.frustumCulled = false;
+  return mesh;
 }

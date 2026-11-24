@@ -59,6 +59,13 @@ export const SHORE = {
   /** ...to about this height (m), with this much variation (share). */
   treeHeight: 14,
   treeVary: 0.3,
+  /** Alder and willow: a low band (m high) from this far back from the water to about this far. */
+  alderHeight: 4.5,
+  alderFrom: 0.6,
+  alderTo: 4,
+  /** Broadleaf stands: noise scale (1/m) and the noise level above which they replace the conifers. */
+  broadleafScale: 0.03,
+  broadleafFrom: 0.56,
   /** Margin (m) of land mapped around the arena. Beyond it the edge of the map repeats. */
   margin: 50,
   /** Height map cells across the longer side. */

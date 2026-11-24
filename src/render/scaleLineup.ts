@@ -57,6 +57,7 @@ export const LINEUP: Record<ScaleStage, LineupItem[]> = {
     { id: 'alevin', label: 'Alevin (player)', make: fishModel('alevin', { depth: 0.8, yolk: 1 }), scale: STAGE_PLAYER.egg.scale },
     { id: 'brood', label: 'Brood-mate alevin', make: fishModel('alevin', { depth: 0.8, yolk: 1 }), scale: MODEL_SCALE.brood },
     { id: 'egg', label: 'Egg', make: geoModel(() => buildEggGeometry(), 0.8), scale: MODEL_SCALE.eggRadius },
+    { id: 'sculpin', label: 'Sculpin', make: animal('sculpin'), scale: MODEL_SCALE.sculpin },
   ],
   fry: [
     { id: 'fry', label: 'Fry at emergence (player)', make: fishModel('fry', { depth: 0.95 }), scale: STAGE_PLAYER.fry.scale },

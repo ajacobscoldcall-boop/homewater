@@ -5,10 +5,11 @@
  */
 import type { Difficulty } from '../../sim/params';
 import type { StartPreset } from '../../sim/lineage';
+import type { RiverMode } from '../../sim/riverChange';
 import { TRAIT_IDS, type Habitat, type Sex, type TraitValues } from '../../sim/types';
 import { readSave } from '../../save/save';
 import { h } from '../../ui/dom';
-import { sexSymbol } from '../../ui/text';
+import { caption, sexSymbol } from '../../ui/text';
 import type { App } from '../App';
 import { showNaming } from './naming';
 import { showScreen } from './screen';
@@ -31,6 +32,8 @@ export function showSetup(app: App): void {
   let sex: Sex = 'F';
   let difficulty: Difficulty = 'fieldGuide';
   let habitat: Habitat = 'creek';
+  // The changing river is optional and off by default (owner decision); the main game is a healthy river.
+  let riverMode: RiverMode = 'healthy';
   const custom: TraitValues = Object.fromEntries(TRAIT_IDS.map((t) => [t, 0])) as TraitValues;
   // First run: the content warning and gore choice come first, once (kept with the settings, not the save).
   const firstRun = !app.settings.contentSeen;
@@ -40,6 +43,8 @@ export function showSetup(app: App): void {
     const sexBtn = (s: Sex) => h('button', { class: 'choice', 'aria-pressed': String(sex === s), disabled: preset === 'jack', onclick: () => ((sex = s), render()) }, sexSymbol(s));
     const habBtn = (hb: Habitat, title: string, desc: string) =>
       h('button', { class: 'choice', 'aria-pressed': String(habitat === hb), 'data-habitat': hb, onclick: () => ((habitat = hb), render()) }, title, h('span', {}, desc));
+    const riverBtn = (m: RiverMode, title: string, desc: string) =>
+      h('button', { class: 'choice', 'aria-pressed': String(riverMode === m), 'data-river': m, id: `btn-river-${m}`, onclick: () => ((riverMode = m), render()) }, title, h('span', {}, desc));
     const diffBtn = (d: Difficulty, title: string, desc: string) =>
       h('button', { class: 'choice', 'aria-pressed': String(difficulty === d), onclick: () => ((difficulty = d), render()) }, title, h('span', {}, desc));
     const sliders =
@@ -86,6 +91,14 @@ export function showSetup(app: App): void {
           habBtn('river', 'River', 'Deeper and faster. Larger, deeper-bodied fish, and bears catch fewer.'),
           habBtn('beach', 'Lake beach', 'Still water on a lake shore. The largest fish; little cover.'),
         ),
+        h('p', { class: 'label' }, 'River'),
+        h(
+          'div',
+          { class: 'grid3' },
+          riverBtn('healthy', 'Healthy river', 'A healthy Bristol Bay-type river. Recommended.'),
+          riverBtn('changing', 'Changing river', 'Optional. The river changes as your line goes on.'),
+        ),
+        h('p', { class: 'muted small', id: 'river-note' }, caption('change.mode') ?? ''),
         h('p', { class: 'label' }, 'Difficulty'),
         h('div', { class: 'grid3' }, diffBtn('fieldGuide', 'Field guide', 'Forgiving. Five siblings per life. Recommended.'), diffBtn('wild', 'Wild', 'Harsher, closer to real odds. Three siblings.')),
         h(
@@ -104,7 +117,7 @@ export function showSetup(app: App): void {
                 }
                 const seed = Math.floor(Math.random() * 2 ** 31);
                 showNaming(seed, [], (name) => {
-                  app.foundLineage({ preset, sex: preset === 'jack' ? ('M' as Sex) : sex, name, difficulty, seed, habitat, ...(preset === 'custom' ? { custom } : {}) });
+                  app.foundLineage({ preset, sex: preset === 'jack' ? ('M' as Sex) : sex, name, difficulty, seed, habitat, riverMode, ...(preset === 'custom' ? { custom } : {}) });
                 });
               },
             },

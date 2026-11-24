@@ -160,3 +160,50 @@ The review found up to three caption boxes, three journal toasts and the guide b
 - **Onboarding:** the first lake stage of a guided life starts with three steps done by doing: swim and turn both ways (0.6 rad each), dive and rise (0.6 m each), and a burst. A controls picture (`src/ui/controlsPicture.ts`) shows the player's own keys and lights the ones the step needs; the egg stage's steps light steer, dive and rise. The first time the pointer locks, `help.mouseLock` says the mouse now steers and how to get the pointer back (once per browser, `homewater.mouseLockSeen`).
 - Shots: `node tests/smoke/text-shots.mjs docs/gallery text-after` against a preview on 4195 (`BEFORE=1` skips the onboarding part); saved as `docs/gallery/text-before-*.png` and `text-after-*.png`.
 
+
+## The falls and the magnetic track after a playtest (2026-11-24)
+
+A playtester could not get the fish to break the surface at the falls, even when following the leap instruction. They also could not work out how to leap, kept failing, ran out of fat and energy, had trouble with the bear there, and found the magnetic track's blue shimmer hard to see.
+
+### Bug hunt: what happened
+
+Reproduced in the real build (Playwright, `?quality=low` and `high`, Field guide and Wild) by holding the keys the old caption named ("Build up speed, then burst and rise together (Shift) (Space) just under the surface"), at the place it described.
+
+- **The bug: a fish at the falling water could never leap.** The rock step (`pushOut` in `falls.ts`) zeroes the fish's upstream speed every step it presses against the face, and a leap needed upstream speed over 1 u/s on that same step. A player who swims to the falls first and then presses Shift and Space sits at the surface with its nose in the curtain, burning energy until it is exhausted. Nothing ever happens and nothing says why. In the browser this is exactly the playtest: the fish pinned at the surface under the white water, the energy ring empty.
+- **The leap fired at the edge of the zone, not at the spot.** With burst and rise held from the start of the pool, the leap began the moment the fish entered the launch zone (5 units below the face). That is 2.8 units short of the standing wave, at whatever speed the fish had there, so the spot bonus was lost. On Wild those leaps missed.
+- **Too deep, too easily.** A leap needed the fish within 1.6 units of the surface. The fish swims at about 2 units deep in the river, and holding rise pitches it up, which costs forward speed. On a 7-unit pool at 10 u/s, a fish that starts rising too late reaches the face before it is shallow enough (and then the first bug traps it).
+- **Bursting without forward does nothing.** The swim step refuses a burst with no forward input. A player who reads "burst and rise together" and lets go of W gets no burst and no leap. This is still how swimming works; a leap no longer needs it (below).
+- **Energy.** The rapids drain energy, and a burst is refused below 8%. Waiting at the face drains the rest. A miss cost 0.32 energy, so after one miss and some waiting the fish often could not burst.
+- **What it was not:** the surface clamp in `constrain` is fine (the fish can't leave the water except by a leap, as intended); hold and toggle burst both reach the sim; pointer lock doesn't eat keys; the renderer draws a leap that starts. The side-on pool camera makes the pool's depth hard to judge but doesn't hide the fish.
+
+### What changed
+
+- **One input.** A burst near the surface, heading upstream, is the leap. Below the white water a burst builds speed. Held, it leaps at the standing wave; a fresh press leaps anywhere in the white water. Burst and rise together still work once the fish is moving fast. The run-up speed is kept for a moment (`return.leapRunDecay`), so a fish that has just reached the face still leaps. Too close is a miss that says so.
+- **Wider tolerances:** depth with no penalty to 2.2 units (deeper costs score, up to 3.2), the launch zone 6 units, speed for a full score 7.5 u/s (was 8.5), the spot's reach across and along the river 2.8 and 1.8 units (`return.leapNotchReach`, `leapWaveReach`), too close 0.5. Wild needs a little more (`leapNeed` ×1.2, was ×1.1): full speed alone isn't enough there; the low step or the standing wave is.
+- **Field guide help:** from the second try, every leap gets `return.leapAssist.fieldGuide` (0.25). Wild gets none.
+- **Every miss says why** (`return.leapMiss.slow`, `.deep`, `.close`, `.spot`, `.nearly`), and a burst that starts no leap says why too (`return.noLeap.deep`, `.slow`, `.heading`, `.tired`, at most every 4 s). The new `leap` sim event carries the result to the play log.
+- **Cheaper failure:** a miss costs half (energy 0.16 in all, fat 0.01). Resting deep in the plunge pool recovers energy faster (`return.poolRegen`). The side channel opens after 2 misses on Field guide and 3 on Wild. Its white water shows from the start, behind the driftwood, and the falls caption names it as the longer way round.
+- **Readable:** a **leap** ring joins energy and fat in the plunge pool. It shows how good a leap from here, at this speed, would be, and glows white when full. A patch of brighter foam and a boil of bubbles sit over the standing wave under the low step, and the curtain is brighter where the low step pours.
+- **Taught before it matters:** a low rock ledge by one bank in the rapids can be hopped once for practice (optional: the river goes round it). The Field guide has a step for it, with the controls picture.
+- **The lip bear:** on Field guide it doesn't strike at the player for the first two tries, and it leaves alone a fish that got over within them. On Wild it warns 1.4× longer, and a caption says to drop deep when it reaches in.
+
+### Probe, before and after
+
+`npx vite-node scripts/balance/probe.ts -- return 150` (one fish, no siblings, 150 lives per row; the probe now prints a falls column). "Falls deaths" are deaths between the rapids and just above the lip, per fish.
+
+| | tries per fish that reached the pool | cleared by a leap within 3 tries | up the side channel | falls deaths | home-river deaths | all return deaths |
+|---|---|---|---|---|---|---|
+| Field guide novice | 1.4 → 1.1 | 86 of 102 → 103 of 103 | 5 → 0 | 9% → 0% | 47% → 37% | 82% → 71% |
+| Field guide average | 1.3 → 1.0 | 128 of 133 → 133 of 133 | 3 → 0 | 2% → 1% | 35% → 30% | 46% → 43% |
+| Field guide skilled | 1.2 → 1.0 | 145 of 145 → 145 of 145 | 0 → 0 | 1% → 1% | 15% → 14% | 23% → 20% |
+| Wild novice | 2.2 → 2.6 | 33 of 77 → 55 of 84 | 9 → 20 | 29% → 11% | 63% → 61% | 99% → 95% |
+| Wild average | 2.0 → 1.6 | 92 of 116 → 116 of 122 | 2 → 3 | 16% → 10% | 44% → 43% | 64% → 57% |
+| Wild skilled | 1.7 → 1.2 | 123 of 134 → 129 of 136 | 1 → 0 | 12% → 14% | 32% → 32% | 37% → 35% |
+
+Misses after the change, by reason (all lives in the row): Field guide novice spot 5, slow 3, nearly 3; Wild novice slow 77, spot 66, nearly 21; Wild average slow 45, nearly 19, spot 18; Wild skilled slow 21, nearly 10, deep 4. The bot now climbs nearly in place before its run, so its run-up stays long (`scripts/balance/bots.ts`). Wild skilled falls deaths did not fall (12% → 14%, within the noise of 150 lives) even though their misses did; the causes there were not split out in this pass. Bear deaths for Wild skilled rose from 2% to 6% over the whole return: worth a look with the lip bear's longer warning in mind.
+
+Bots know where to launch, so they never hit the face bug; the numbers show the cost side (cheaper misses, help, the side channel sooner) rather than the bug fix. Wild novices still miss a lot ("slow" and "spot"), by design: Wild keeps a skill check, now explained. The rest of the home river's deaths are mostly fat (exhaustion), anglers and bears below the falls, which this pass didn't change.
+
+### The magnetic track
+
+The markers were 0.1-unit octahedra (about a tenth of the fish) inside the sea's fog, so beyond a few lengths they vanished, more so on Low. They are now soft glows of blue light (`src/render/trackGlow.ts`, tuning `trackConfig.ts`): a bright core in a halo, a slight twinkle, never smaller than about 0.8° on screen, fading by distance from the camera instead of by fog, so they read the same at every preset and from the low chase camera. Documentary view keeps them softer and larger, with no twinkle. No arrows or rings. The caption now says the shimmer stands for the magnetic sense (`return.track`), rather than being something the fish sees.

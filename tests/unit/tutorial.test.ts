@@ -52,7 +52,8 @@ describe('guide steps', () => {
       const steps = guideSteps(stage, role);
       expect(steps.length, stage).toBeGreaterThanOrEqual(3);
       // The fry stage carries the onboarding (steer, depth, burst) in front of its own steps, and its lake days.
-      expect(steps.length, stage).toBeLessThanOrEqual(stage === 'fry' ? 8 : 5);
+      // The fry's lake days, the egg stage's threats and the return's falls practice need more steps.
+      expect(steps.length, stage).toBeLessThanOrEqual(stage === 'fry' || stage === 'egg' ? 8 : stage === 'return' ? 6 : 5);
       const last = steps.at(-1);
       expect(last?.done(snap({ stage, role }), { eat: 99 }, freshGuideState('x').obs)).toBe(false);
     }
@@ -60,7 +61,7 @@ describe('guide steps', () => {
 });
 
 describe('guide progression', () => {
-  it('egg: hatch, face the current after it swings, ride out the flood, then rise when ready', () => {
+  it('egg: hatch, face the current after it swings, crawl out of the pocket, hide from the sculpin, ride out the flood and the silt, then rise when ready', () => {
     let s = snap({ alevin: { hatched: false, aligned: true, turning: false, ready: false } });
     let st = advanceGuide(start(s), s, 0.1);
     expect(st.index).toBe(0);
@@ -77,19 +78,46 @@ describe('guide progression', () => {
     expect(st.index).toBe(1); // needs to hold it for half a second
     st = advanceGuide(st, s, 0.3);
     expect(st.index).toBe(2);
+    // The pocket: done once the alevin has been in moving water for a second after it came.
+    st = countGuideEvents(st, [ev('warning', 'pocket')]);
+    s = snap({ alevin: { hatched: true, aligned: true, turning: false, ready: false, flowing: false, pocketSet: true } });
+    st = advanceGuide(st, s, 2);
+    expect(st.index).toBe(2);
+    // Still in moving water while the pocket is only forming: not yet.
+    s = snap({ alevin: { hatched: true, aligned: true, turning: false, ready: false, flowing: true, pocketSet: false } });
+    st = advanceGuide(st, s, 2);
+    expect(st.index).toBe(2);
+    s = snap({ alevin: { hatched: true, aligned: true, turning: false, ready: false, flowing: true, pocketSet: true } });
+    st = advanceGuide(st, s, 0.6);
+    st = advanceGuide(st, s, 0.6);
+    expect(st.index).toBe(3);
+    // The sculpin: done once it has gone.
+    st = countGuideEvents(st, [ev('warning', 'sculpin')]);
+    st = advanceGuide(st, s, 5);
+    expect(st.index).toBe(3);
+    st = countGuideEvents(st, [ev('caption', 'egg.sculpinGone')]);
+    st = advanceGuide(st, s, 0.1);
+    expect(st.index).toBe(4);
     // The flood: done once it has passed.
     st = advanceGuide(st, s, 5);
-    expect(st.index).toBe(2);
+    expect(st.index).toBe(4);
     st = countGuideEvents(st, [ev('caption', 'egg.floodOver')]);
     st = advanceGuide(st, s, 0.1);
-    expect(st.index).toBe(3);
+    expect(st.index).toBe(5);
+    // The silt: done once it has been flushed.
+    st = countGuideEvents(st, [ev('warning', 'silt')]);
+    st = advanceGuide(st, s, 5);
+    expect(st.index).toBe(5);
+    st = countGuideEvents(st, [ev('caption', 'egg.siltOver')]);
+    st = advanceGuide(st, s, 0.1);
+    expect(st.index).toBe(6);
     expect(guidePrompt(st, s)?.progress).toBe('yolk 100%');
     s = snap({ alevin: { hatched: true, aligned: true, turning: false, ready: true } });
     st = advanceGuide(st, s, 0.1);
-    expect(st.index).toBe(4);
+    expect(st.index).toBe(7);
     st = advanceGuide(st, s, 10);
-    expect(st.index).toBe(4);
-    expect(guidePrompt(st, s)).toMatchObject({ step: 5, total: 5 });
+    expect(st.index).toBe(7);
+    expect(guidePrompt(st, s)).toMatchObject({ step: 8, total: 8 });
     expect(guidePrompt(st, s)?.text).toMatch(/Space/);
   });
 
@@ -177,24 +205,29 @@ describe('guide progression', () => {
     expect(st.index).toBe(3);
   });
 
-  it('ocean: an early orca skips the feeding step', () => {
+  it('ocean: an early hunter skips the feeding step; the patch lesson ends with the first summer', () => {
     const s = snap({ stage: 'ocean' });
-    let st = advanceGuide(countGuideEvents(start(s), [ev('eat'), ev('warning', 'orca')]), s, 0.1);
+    let st = advanceGuide(countGuideEvents(start(s), [ev('eat'), ev('warning', 'seal')]), s, 0.1);
     expect(st.index).toBe(1);
-    st = advanceGuide(countGuideEvents(st, [ev('caption', 'ocean.orcaGone')]), s, 0.1);
+    st = advanceGuide(countGuideEvents(st, [ev('caption', 'ocean.shelf')]), s, 0.1);
     expect(st.index).toBe(2);
-    st = advanceGuide(countGuideEvents(st, [ev('caption', 'ocean.sharkGone')]), s, 0.1);
+    st = advanceGuide(countGuideEvents(st, [ev('caption', 'ocean.orcaGone')]), s, 0.1);
     expect(st.index).toBe(3);
   });
 
-  it('return: a sibling resuming in the home river goes straight to the falls, or past them to the last step', () => {
-    const s = snap({ stage: 'return', coast: 90, x: 140 });
+  it('return: a sibling resuming in the home river goes straight to the practice ledge and the falls, or past them to the last step', () => {
+    const s = snap({ stage: 'return', coast: 90, x: 138 });
     let st = advanceGuide(start(s), s, 0.1);
     expect(st.index).toBe(3);
-    st = advanceGuide(countGuideEvents(st, [ev('caption', 'return.firstLeap')]), s, 0.1);
+    st = advanceGuide(countGuideEvents(st, [ev('caption', 'return.practiceLeap')]), s, 0.1);
     expect(st.index).toBe(4);
+    st = advanceGuide(countGuideEvents(st, [ev('caption', 'return.firstLeap')]), s, 0.1);
+    expect(st.index).toBe(5);
+    // Past the ledge without trying it: straight to the falls.
+    const pool = snap({ stage: 'return', coast: 90, x: 150 });
+    expect(advanceGuide(start(pool), pool, 0.1).index).toBe(4);
     const above = snap({ stage: 'return', coast: 90, x: 165 });
-    expect(advanceGuide(start(above), above, 0.1).index).toBe(4);
+    expect(advanceGuide(start(above), above, 0.1).index).toBe(5);
     const atSea = snap({ stage: 'return', coast: 90, x: 10 });
     expect(advanceGuide(start(atSea), atSea, 0.1).index).toBe(0);
     expect(advanceGuide(start(atSea), snap({ stage: 'return', coast: 90, x: 50 }), 0.1).index).toBe(1);

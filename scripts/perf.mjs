@@ -4,6 +4,7 @@
  *
  *   npm run build && PW_PORT=4182 npm run perf -- [presets...] [--seconds=3] [--stages=fry,ocean] [--aa=on|off] [--shots=dir] [--dir=dist] [--lake]
  * --lake measures the return in the lake at its end instead of at sea.
+ * --weather=rain|clear fixes the weather (weather.ts): rain is the costliest look (heavy cloud, rain rings, wind); clear has none.
  * --run=x sets the year's run size (1 = typical) before the spawning grounds are filled, so the crowd there is a known size.
  *
  * --dir serves another build folder (e.g. a build of an older commit, to compare).
@@ -22,6 +23,7 @@ const shots = args.find((a) => a.startsWith('--shots='))?.split('=')[1];
 const forceAA = args.find((a) => a.startsWith('--aa='))?.split('=')[1];
 const only = args.find((a) => a.startsWith('--stages='))?.split('=')[1]?.split(',');
 const lake = args.includes('--lake');
+const weather = args.find((a) => a.startsWith('--weather='))?.split('=')[1];
 const runSize = Number(args.find((a) => a.startsWith('--run='))?.split('=')[1] ?? NaN);
 const dir = args.find((a) => a.startsWith('--dir='))?.split('=')[1] ?? 'dist';
 const presets = args.filter((a) => !a.startsWith('--'));
@@ -89,6 +91,11 @@ try {
           w.body.pos = { x: lay.start + 40, y: -3, z: 0 };
           w.body.yaw = 0.2;
         });
+      }
+      if (weather) {
+        await page.evaluate((wx) => {
+          window.__hw.app.renderer.weatherOverride = wx === 'rain' ? { overcast: 1, rain: 1, wind: 0.6 } : { overcast: 0, rain: 0, wind: 0 };
+        }, weather);
       }
       await page.evaluate(() => window.__hw?.step(90));
       // Shader compiles are slow in software GL (seconds each): let them finish

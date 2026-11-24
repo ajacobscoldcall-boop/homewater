@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "notes": "Field journal entries. Each unlocks the first time the player meets any of its triggers: a caption id (as in captions.json), 'warning.<kind>', 'death.<cause>', 'spawned.<habitat>' or 'life.complete'. Science text must agree with docs/ADVISOR_NOTES.md; where the notes are silent, stay general. Unlocks are kept per browser, not in the save file.",
+  "notes": "Field journal entries. Each unlocks the first time the player meets any of its triggers: a caption id (as in captions.json), 'warning.<kind>', 'death.<cause>', 'spawned.<habitat>' or 'life.complete'. Science text must agree with docs/ADVISOR_NOTES.md; where the notes are silent, stay general. Unlocks are kept per browser, not in the save file. An entry tagged simplified or device in src/data/claims.json carries a 'howTrue' note, shown in the journal as 'How true is this?'. 'sources' lists the published research the game draws on, shown on the journal's Sources page; claims.json refers to it by id.",
   "facts": {
     "title": "Facts to remember",
     "intro": "Three things worth taking away from a sockeye's life.",
@@ -72,6 +72,34 @@
       ]
     },
     {
+      "id": "egg.oxygen",
+      "stage": "egg",
+      "title": "Water through the gravel",
+      "text": "Eggs and alevin breathe the oxygen carried by water seeping between the stones, and an alevin faces into the flow to keep it moving over its gills. Where the gravel is fine, less water gets through and the eggs get less oxygen. In the game, still pockets form and fine silt settles into the redd, clogging the gaps, while the water keeps moving beside the larger stones.",
+      "howTrue": "Alevin do need water flowing through the gravel to bring oxygen. The sudden pocket of still water, and crawling out of it, are how the game shows that.",
+      "unlock": [
+        "egg.pocket",
+        "warning.pocket",
+        "egg.siltComing",
+        "egg.silt",
+        "warning.silt",
+        "death.silt"
+      ]
+    },
+    {
+      "id": "egg.sculpin",
+      "stage": "egg",
+      "title": "Something in the gravel",
+      "text": "Sculpins are small bottom fish with broad, flat heads and big fan-shaped fins that live among the stones of streams and lake beaches. In the game, a sculpin noses into the gaps one spot after another: movement draws it, and an alevin high in the gravel is easy to find, while one that keeps still, deep and close against a large stone is not.",
+      "howTrue": "Sculpins are known to eat salmon eggs and alevin in the gravel. How the game's sculpin finds an alevin (movement, height, cover beside a stone) is a game rule.",
+      "unlock": [
+        "egg.sculpin",
+        "warning.sculpin",
+        "egg.sculpinGone",
+        "death.sculpin"
+      ]
+    },
+    {
       "id": "fry.lake",
       "stage": "fry",
       "title": "A year in the lake",
@@ -100,17 +128,19 @@
         "fry.day",
         "fry.dusk",
         "fry.dawn"
-      ]
+      ],
+      "howTrue": "Deep by day and up at dusk and dawn is described in published studies of several nursery lakes, but lakes differ, and the game squeezes a day into about a minute. The cost of warm water and the char that follow the fry up and down are the game's own choices."
     },
     {
       "id": "fry.birds",
       "stage": "fry",
       "title": "Hunters from above",
-      "text": "Mergansers are diving birds that hunt young salmon. One floats on the surface, then dives and chases under water. A fry near the surface or in the shallows is within reach; deep water is the way out.",
+      "text": "Mergansers are diving ducks that hunt young salmon on their way to the sea. In the game one also hunts fry over the lake: it floats on the surface, then dives and chases under water. A fry near the surface or in the shallows is within its reach; deep water is the way out.",
       "unlock": [
         "fry.merganser",
         "fry.mergDeep"
-      ]
+      ],
+      "howTrue": "Mergansers are known to take smolts on the way out. Whether they hunt sockeye fry in nursery lakes, and how deep they chase, is still an open question, so the merganser over the lake is a game choice. Other birds are left out until we know more."
     },
     {
       "id": "fry.winter",
@@ -119,7 +149,8 @@
       "text": "Through the winter, growth slows to a crawl. How fast a young fish grows matters later: for a male, fast early growth raises the odds that he will mature early as a jack.",
       "unlock": [
         "fry.winter"
-      ]
+      ],
+      "howTrue": "Fast early growth is known to raise a male's odds of becoming a jack. Whether growth in the lake counts, or mainly growth in the first months at sea, is still an open question; the game counts both."
     },
     {
       "id": "smolt.run",
@@ -153,7 +184,8 @@
         "warning.bird",
         "death.bird",
         "death.gull"
-      ]
+      ],
+      "howTrue": "Birds taking more smolts nearer the sea is well supported. The shelter of overhanging banks is a game choice."
     },
     {
       "id": "smolt.merganser",
@@ -196,7 +228,8 @@
         "estuary.enter",
         "estuary.edge",
         "estuary.saltStress"
-      ]
+      ],
+      "howTrue": "The layers of an estuary are textbook physics, but some estuaries are mixed by the tides, which the game leaves out. Sockeye smolts pass through quickly; finishing the change to salt water there, and tiring in salt water too soon, are game rules."
     },
     {
       "id": "ocean.sea",
@@ -246,6 +279,32 @@
       "unlock": [
         "ocean.yearsAtSea",
         "death.sea"
+      ]
+    },
+    {
+      "id": "ocean.route",
+      "stage": "ocean",
+      "title": "The years at sea",
+      "text": "Sockeye spend one to three years at sea, near the surface, and are thought to find their way home by the Earth's magnetic field. The game draws those years as a simple route: out along the coast, over the shelf edge, a loop offshore for each year with the winters far out, and the turn for home. The route and the seasons are a game device: real fish travel widely, and their paths vary.",
+      "howTrue": "The seasons and places are a simplified route. Real sockeye spread widely over the North Pacific, and their paths vary from fish to fish and year to year.",
+      "unlock": [
+        "ocean.shelf",
+        "ocean.winter",
+        "ocean.spring",
+        "ocean.turnHome",
+        "ocean.homePull"
+      ]
+    },
+    {
+      "id": "ocean.food",
+      "stage": "ocean",
+      "title": "Food, warmth and growth",
+      "text": "Ocean conditions, prey and temperature all vary from year to year, and competition with pink salmon is a commonly implicated reason for slow growth. In the game, a warm year at sea, winter, and a crowded year all mean thinner food, and hunters come where the food is thickest. Those rules are game devices, so every season is a choice between growing and staying safe.",
+      "howTrue": "Two patches of food, with hunters at the richer one, are a game rule that stands for the trade between feeding and safety.",
+      "unlock": [
+        "ocean.warmYear",
+        "ocean.coolYear",
+        "ocean.huntZone"
       ]
     },
     {
@@ -307,7 +366,8 @@
         "return.netSlip",
         "return.pastNets",
         "death.gillnet"
-      ]
+      ],
+      "howTrue": "Gillnets catching larger males most is supported. The game's fishery is a simple rule: it lets a set share of the run through to spawn, takes some of the rest, and closes in small runs. Real fisheries are managed day by day and are more complicated."
     },
     {
       "id": "return.anglers",
@@ -319,22 +379,25 @@
         "return.hooked",
         "warning.hooked",
         "death.angler"
-      ]
+      ],
+      "howTrue": "Anglers and commercial nets both take returning sockeye. Fighting free of a hook, and what it costs, is a game rule."
     },
     {
       "id": "return.falls",
       "stage": "return",
       "title": "Falls and rapids",
-      "text": "Rivers have rapids and falls on the way upstream. Salmon pass rapids by resting in slack water behind rocks between hard dashes, and leap falls from the pool below, often after several tries. Every hard effort burns stored reserves. Bears often wait at the lip of a falls, where leaping fish are easiest to catch. Many fish make the journey at once, and a bear can only take one at a time.",
+      "text": "Rivers have rapids and falls on the way upstream, and salmon leap falls from the pool below. In the game a fish passes rapids by resting in the slack water behind rocks between hard dashes, may need several tries at a leap, and a bear waits at the lip of the falls. Every hard effort burns stored reserves the fish cannot replace. Many fish make the journey at once, and in the game a bear takes only one of them at a time.",
       "unlock": [
         "return.rapids",
         "return.falls",
         "return.firstLeap",
         "return.leapFail",
+        "return.practiceLeap",
         "return.sideChannel",
         "return.migrants",
         "return.migrantTaken"
-      ]
+      ],
+      "howTrue": "Salmon do leap falls from the pool below. How they pick their spot, how many tries it takes, whether they rest behind boulders, and whether a group shares out a bear's risk are all game choices for now. The side channel that opens after failed leaps is there so nobody is stuck."
     },
     {
       "id": "return.wrongRiver",
@@ -351,13 +414,29 @@
       "id": "return.lowWater",
       "stage": "return",
       "title": "Warm, low water",
-      "text": "Rivers vary from year to year. In warm, low-water years, heat stress and low oxygen kill fish before they can spawn: warm water holds less oxygen and burns stored energy faster. Deep pools and cold springs seeping up through the gravel stay cooler, and a fish can wait there for the heat to ease, though the wait still costs fat. In flood years the danger shifts to the eggs.",
+      "text": "Rivers vary from year to year. In warm, low-water years, heat stress and low oxygen kill fish before they can spawn: warm water holds less oxygen. In the game, warm water also burns stored energy faster, and deep pools and cold springs seeping up through the gravel stay cooler, so a fish can wait there for the heat to ease, though the wait still costs fat. In flood years the danger shifts to the eggs.",
       "unlock": [
         "return.heat",
         "return.coolSeep",
         "return.coolPool",
         "return.heatStress",
         "death.heat"
+      ],
+      "howTrue": "Heat and low oxygen killing fish in warm, low-water years is supported. Where the cool water is, how much it helps and how fast a fish recovers are the game's choices. In real warm years, much of the harm may come later, as disease or fish that die on the grounds before spawning."
+    },
+    {
+      "id": "return.heatToll",
+      "stage": "return",
+      "title": "The toll of a warm river",
+      "text": "Low water causes deaths before spawning. In the game, the time a fish spends heat-stressed on the way up stays with it: it reaches the spawning grounds with less strength, fades sooner there, and may die before it spawns. Crowding in warm water adds to the strain. How much of this is heat damage carried up from the river, and how much is disease spreading among crowded fish in warm water, is still an open question, so the game keeps a quick death from heat only for the very hottest water.",
+      "howTrue": "Warm, low-water years do kill salmon before they spawn. A single toll that never eases, carried to the grounds, is the game's way to show that.",
+      "unlock": [
+        "return.heatToll",
+        "return.heatTollHigh",
+        "spawn.heatToll",
+        "spawn.heatTollHigh",
+        "spawn.warmCrowd",
+        "death.prespawn"
       ]
     },
     {
@@ -402,11 +481,12 @@
       "id": "return.lakeHome",
       "stage": "return",
       "title": "Home through the lake",
-      "text": "Many sockeye grow up in a lake and spawn in the streams that feed it or along its beaches, so the way home leads up the river and across the lake. Each fish looks for its own stream or stretch of beach, by the smell of home.",
+      "text": "Many sockeye grow up in a lake and spawn in the streams that feed it or along its beaches, so the way home leads up the river and across the lake. Each fish finds its own stream or stretch of beach; in the game it follows the smell of home across the lake.",
       "unlock": [
         "return.lake.enter",
         "return.lake.enterBeach"
-      ]
+      ],
+      "howTrue": "Lake-rearing sockeye do spawn in the lake's inflows and on its beaches. How they find their own stream or beach across a lake is not settled, so the home plume is a game device. The wait in the lake while the colours come on is a game device too."
     },
     {
       "id": "return.lakeLayers",
@@ -416,7 +496,8 @@
       "unlock": [
         "return.lake.warm",
         "return.lake.coolDeep"
-      ]
+      ],
+      "howTrue": "Summer layering is textbook for many lakes. Whether waiting sockeye use the cool water below as a refuge, and how deep it lies, the game simply assumes."
     },
     {
       "id": "spawn.grounds",
@@ -483,7 +564,8 @@
         "spawn.patchContested",
         "spawn.crowdReddTaken",
         "spawn.crowdOpening"
-      ]
+      ],
+      "howTrue": "Crowded grounds in big years are real. How many fish the game puts on its short stretch of gravel, and how the crowd changes rivals, openings and the bear's choice, are game rules."
     },
     {
       "id": "spawn.eggThieves",
@@ -497,7 +579,8 @@
         "spawn.eggsSafe",
         "warning.char",
         "warning.gull"
-      ]
+      ],
+      "howTrue": "Fish eat loose salmon eggs, and females guard against egg predators. Which thieves matter most on sockeye grounds, how much they take, and the gull at shallow redds are game choices."
     },
     {
       "id": "spawn.sneaker",
@@ -562,7 +645,8 @@
       "unlock": [
         "spawn.bury",
         "spawn.buried"
-      ]
+      ],
+      "howTrue": "Females covering their eggs with gravel is real. How much better covered eggs survive in the game is a placeholder number."
     },
     {
       "id": "spawn.jackFrequency",
@@ -572,7 +656,8 @@
       "unlock": [
         "spawn.jackCommon",
         "spawn.jackRare"
-      ]
+      ],
+      "howTrue": "Jacks being rare, and doing less well at spawning than large males, is supported. A sneak being worth less when jacks are common is a game rule built on an idea from published research; how strong the effect is remains open."
     },
     {
       "id": "spawn.spent",
@@ -603,6 +688,121 @@
       "unlock": [
         "life.complete"
       ]
+    },
+    {
+      "id": "spawn.changingRiver",
+      "stage": "spawn",
+      "title": "A changing river",
+      "text": "Bristol Bay's rivers are still healthy, without dams. Salmon rivers elsewhere have faced changes like the ones in the changing river mode: warmer summers, fine silt from logging in the spawning gravel, hatchery fish joining the run, and more fishing. Silt in the gravel lowers egg survival, and hatchery fish stray more than wild fish. How strongly each change works in the game, and how quickly it comes, are game choices.",
+      "howTrue": "Warming, silt, hatchery strays and fishing are real pressures on salmon rivers. How strong each one is, and how fast it grows, are game numbers.",
+      "unlock": [
+        "change.warming",
+        "change.silt",
+        "change.hatchery",
+        "change.setNets"
+      ]
     }
-  ]
+  ],
+  "sources": {
+    "title": "Sources",
+    "intro": "Published research and books the game draws on. Some numbers are simplified or tuned so the game plays well; entries say so under \"How true is this?\".",
+    "items": [
+      {
+        "id": "burgner1991",
+        "short": "Burgner 1991",
+        "cite": "Burgner, R. L. (1991). Life history of sockeye salmon. In C. Groot & L. Margolis (eds), Pacific Salmon Life Histories. UBC Press.",
+        "about": "Eggs, lake life, smolts, years at sea and spawning."
+      },
+      {
+        "id": "quinn2018",
+        "short": "Quinn 2018",
+        "cite": "Quinn, T. P. (2018). The Behavior and Ecology of Pacific Salmon and Trout, 2nd edition. University of Washington Press.",
+        "about": "Homing, the change to salt water, spawning and the end of life."
+      },
+      {
+        "id": "dittman1996",
+        "short": "Dittman & Quinn 1996",
+        "cite": "Dittman, A. H. & Quinn, T. P. (1996). Homing in Pacific salmon: mechanisms and ecological basis. Journal of Experimental Biology 199.",
+        "about": "Learning the smell of home."
+      },
+      {
+        "id": "defilippoPhD",
+        "short": "DeFilippo (dissertation)",
+        "cite": "DeFilippo, L. B. Salmon life histories and fisheries management. PhD dissertation, University of Washington.",
+        "about": "Jacks, life-history diversity and fisheries."
+      },
+      {
+        "id": "defilippo2018",
+        "short": "DeFilippo et al. 2018",
+        "cite": "DeFilippo, L. B. et al. (2018). Associations of stream geomorphic conditions and prevalence of alternative reproductive tactics among sockeye salmon populations. Journal of Evolutionary Biology 31.",
+        "about": "Why jacks are commoner in some streams."
+      },
+      {
+        "id": "defilippo2019",
+        "short": "DeFilippo et al. 2019",
+        "cite": "DeFilippo, L. B. et al. (2019). Recruitment variation disrupts the stability of alternative life histories in an exploited salmon population. Evolutionary Applications 12.",
+        "about": "How common jacks are, and why their numbers swing."
+      },
+      {
+        "id": "narver1970",
+        "short": "Narver 1970",
+        "cite": "Narver, D. W. (1970). Diel vertical movements and feeding of underyearling sockeye salmon and the limnetic zooplankton in Babine Lake, British Columbia. Journal of the Fisheries Research Board of Canada 27.",
+        "about": "Fry deep by day, up at dusk."
+      },
+      {
+        "id": "clark1988",
+        "short": "Clark & Levy 1988",
+        "cite": "Clark, C. W. & Levy, D. A. (1988). Diel vertical migrations by juvenile sockeye salmon and the antipredation window. American Naturalist 131.",
+        "about": "Why the half-light is the time to feed."
+      },
+      {
+        "id": "scheuerell2003",
+        "short": "Scheuerell & Schindler 2003",
+        "cite": "Scheuerell, M. D. & Schindler, D. E. (2003). Diel vertical migration by juvenile sockeye salmon: empirical evidence for the antipredation window. Ecology 84.",
+        "about": "Fry deep by day, up at dusk, measured."
+      },
+      {
+        "id": "brett1971",
+        "short": "Brett 1971",
+        "cite": "Brett, J. R. (1971). Energetic responses of salmon to temperature. American Zoologist 11.",
+        "about": "Warm water costs a fish more energy."
+      },
+      {
+        "id": "wetzel2001",
+        "short": "Wetzel 2001",
+        "cite": "Wetzel, R. G. (2001). Limnology: Lake and River Ecosystems, 3rd edition. Academic Press.",
+        "about": "Warm water over cold in a summer lake."
+      },
+      {
+        "id": "heard1991",
+        "short": "Heard 1991",
+        "cite": "Heard, W. R. (1991). Life history of pink salmon. In C. Groot & L. Margolis (eds), Pacific Salmon Life Histories. UBC Press.",
+        "about": "Pink salmon, abundant every other year."
+      },
+      {
+        "id": "ruggerone2003",
+        "short": "Ruggerone et al. 2003",
+        "cite": "Ruggerone, G. T. et al. (2003). Competition between Asian pink salmon and Alaskan sockeye salmon in the North Pacific Ocean. Fisheries Oceanography 12.",
+        "about": "Sockeye grow less in pink salmon years."
+      },
+      {
+        "id": "ricker1954",
+        "short": "Ricker 1954",
+        "cite": "Ricker, W. E. (1954). Stock and recruitment. Journal of the Fisheries Research Board of Canada 11.",
+        "about": "How the number of spawners shapes the next run."
+      },
+      {
+        "id": "gende2001",
+        "short": "Gende et al. 2001",
+        "cite": "Gende, S. M., Quinn, T. P. & Willson, M. F. (2001). Consumption choice by bears feeding on salmon. Oecologia 127.",
+        "about": "Bears eat less of each fish when salmon are plentiful."
+      },
+      {
+        "id": "gende2002",
+        "short": "Gende et al. 2002",
+        "cite": "Gende, S. M., Edwards, R. T., Willson, M. F. & Wipfli, M. S. (2002). Pacific salmon in aquatic and terrestrial ecosystems. BioScience 52.",
+        "about": "How salmon bodies feed streams, lakes and forests."
+      }
+    ]
+  }
 }

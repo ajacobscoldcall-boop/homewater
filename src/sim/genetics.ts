@@ -125,8 +125,11 @@ export function makeOffspring(
   parent: FishIdentity,
   count: number,
   names: () => string,
+  /** How the mate differs from the river's own fish (a changing river's hatchery strays); empty draws nothing extra. */
+  mateShift: Partial<TraitValues> = {},
 ): FishIdentity[] {
-  const mate = populationBv(p, rng, parent.habitat);
+  const base = populationBv(p, rng, parent.habitat);
+  const mate = mapTraits((t) => base[t] + (mateShift[t] ?? 0));
   // A jack father passes on jack-leaning genes; the mate is a typical population fish.
   const [mother, father] = parent.sex === 'F' ? [parent.bv, mate] : [mate, parent.bv];
   const sexes: Sex[] = [];

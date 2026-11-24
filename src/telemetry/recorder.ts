@@ -79,6 +79,11 @@ export class PlayLogRecorder {
     this.lastSeen = now;
     this.lastStageTime = w.stageTime;
     for (const ev of events) {
+      if (ev.type === 'leap') {
+        a.leaps ??= [];
+        if (a.leaps.length < PLAYLOG.maxMoments) a.leaps.push([r1(w.stageTime), ev.key ?? 'miss']);
+        continue;
+      }
       if (ev.type !== 'warning') continue;
       const kind = ev.key ?? 'unknown';
       a.warnings[kind] = (a.warnings[kind] ?? 0) + 1;

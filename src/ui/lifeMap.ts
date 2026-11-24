@@ -363,7 +363,9 @@ const DEATH_PLACE: Partial<Record<StageId, (cause: DeathCause, k: number) => Sto
   egg: () => 'nest',
   fry: (_c, k) => 0.55 + 0.1 * (k % 4),
   smolt: (c) => (c === 'merganser' ? 'fork' : c === 'bird' ? 'rapids' : c === 'seal' || c === 'gull' ? 'mouth' : 'falls'),
-  ocean: (c, k) => (c === 'seal' ? 0.08 : 0.25 + ((k * 0.17 + (c === 'shark' ? 0.3 : 0)) % 0.6)),
+  // Hunters meet the fish in any season at sea (oceanRoute.ts), so their marks spread along the loops; the unseen
+  // roll at the turn of a later year sits in the later loops.
+  ocean: (c, k) => (c === 'sea' ? 0.55 + ((k * 0.13) % 0.35) : 0.08 + ((k * 0.17 + (c === 'shark' ? 0.3 : c === 'orca' ? 0.15 : 0)) % 0.8)),
   return: (c) => (c === 'gillnet' || c === 'seal' ? 'nets' : c === 'angler' || c === 'heat' ? 'rapids' : c === 'sea' ? 'mouth' : 'falls'),
   spawn: () => 'grounds',
 };
@@ -389,6 +391,8 @@ export const DEATH_LABEL: Record<DeathCause, string> = {
   noSpawn: 'no spawn',
   heat: 'heat stress',
   gull: 'a gull',
+  prespawn: 'died before spawning',
+  sculpin: 'a sculpin',
 };
 
 // ---------- Inputs ----------

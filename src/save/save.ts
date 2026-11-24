@@ -10,7 +10,7 @@ import { populationFromConditions, yearFromPopulation } from '../sim/population'
 import type { FishIdentity, YearConditions } from '../sim/types';
 import type { Checkpoint } from '../sim/world';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export interface LifeSave {
   checkpoint: Checkpoint;
@@ -71,7 +71,19 @@ const migrations: Record<number, Migration> = {
   },
   // 6 -> 7: a death may note where on the return it happened (`where: 'lake'`, the lake crossing); older deaths don't say, which reads as the river.
   6: (old) => old,
+  // 7 -> 8: lineages say whether their river is healthy or changing (the changing river mode); older lines are healthy.
+  // Year conditions and population years gain optional change fields (absent on a healthy river), so nothing else moves.
+  7: (old) => {
+    const lineage = old.lineage ? upgradeLineage8(old.lineage as Record<string, unknown>) : old.lineage;
+    const archive = Array.isArray(old.archive) ? (old.archive as Record<string, unknown>[]).map(upgradeLineage8) : [];
+    return { ...old, lineage, archive };
+  },
 };
+
+/** Schema 8 lineage: a river mode, healthy for every line founded before the mode existed. */
+function upgradeLineage8(l: Record<string, unknown>): Record<string, unknown> {
+  return { riverMode: 'healthy', ...l };
+}
 
 /** Schema 6 lineage: records gain lakeYears, unknown (null) for lives recorded before. */
 function upgradeLineage6(l: Record<string, unknown>): Record<string, unknown> {

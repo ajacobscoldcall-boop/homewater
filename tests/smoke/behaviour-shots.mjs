@@ -118,7 +118,7 @@ if (want('patch')) {
   await steps(page, 60);
   await page.evaluate(() => {
     const w = window.__hw.app.world;
-    const c = w.stage.ballCenter;
+    const c = w.stage.patches?.[0]?.center; // the shallow food patch (ocean journey: two patches a season)
     w.body.pos = { x: c.x, y: c.y + 1, z: c.z - 9 };
     w.body.yaw = Math.PI / 2;
     w.body.vel = { x: 0, y: 0, z: 0 };
@@ -127,7 +127,7 @@ if (want('patch')) {
   await snap(page, 'patch-calm');
   await page.evaluate(() => {
     const w = window.__hw.app.world;
-    const c = w.stage.ballCenter;
+    const c = w.stage.patches?.[0]?.center; // the shallow food patch (ocean journey: two patches a season)
     w.spawn('shark', { x: c.x - 9, y: c.y - 1, z: c.z + 2 }, { radius: 1.5, state: 'charge', timer: 3, vel: { x: 12, y: 1, z: 0 } });
     w.body.pos = { x: c.x, y: c.y + 1, z: c.z - 9 };
   });

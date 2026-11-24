@@ -4,6 +4,7 @@
  */
 import { habitatOffset, makeFish, makeOffspring, populationBv } from './genetics';
 import { nextYear, seedPopulation, type Population } from './population';
+import { mateShift, type RiverMode } from './riverChange';
 import type { Difficulty, Params } from './params';
 import { Rng } from './rng';
 import { HABITATS, TRAIT_IDS, type DeathCause, type Habitat, type FishIdentity, type Sex, type SpawnResult, type StageId, type TraitValues, type YearConditions } from './types';
@@ -67,6 +68,8 @@ export interface Lineage {
   ancestor: { id: string; name: string } | null;
   /** The river's run, carried from generation to generation (schema 4). */
   population: Population;
+  /** Healthy (the main game) or a changing river, chosen when the line was founded (schema 8; older lines are healthy). */
+  riverMode: RiverMode;
 }
 
 /** A lineage is known by its founder's name. */
@@ -87,6 +90,8 @@ export interface FoundOptions {
   habitat?: Habitat;
   /** For custom starts: trait z-scores the player chose (-2..2). */
   custom?: Partial<TraitValues>;
+  /** The changing river mode (off by default). */
+  riverMode?: RiverMode;
 }
 
 export function foundLineage(p: Params, o: FoundOptions): Lineage {
@@ -101,7 +106,8 @@ export function foundLineage(p: Params, o: FoundOptions): Lineage {
   if (lockedJack) bv.jack = p.get('genetics.jackStartBreedingValue');
   const fish = makeFish(p, rng, { sex: lockedJack ? 'M' : o.sex, name: o.name, generation: 1, bv, lockedJack, habitat });
   const population = seedPopulation(p, rng);
-  const conditions = nextYear(p, rng, population, 1);
+  const riverMode: RiverMode = o.riverMode ?? 'healthy';
+  const conditions = nextYear(p, rng, population, 1, riverMode);
   return {
     id: `L${o.seed.toString(36)}`,
     createdAt: new Date().toISOString(),
@@ -116,6 +122,7 @@ export function foundLineage(p: Params, o: FoundOptions): Lineage {
     usedNames: [o.name],
     ancestor: null,
     population,
+    riverMode,
   };
 }
 
@@ -133,11 +140,20 @@ export function siblingsFor(p: Params, l: Lineage): number {
 export function offerOffspring(p: Params, l: Lineage, parent: FishIdentity): FishIdentity[] {
   const rng = lineageRng(l);
   const used = [...l.usedNames];
-  const kids = makeOffspring(p, rng, parent, p.get('lineage.offspringChoices'), () => {
-    const n = suggestName(rng, used);
-    used.push(n);
-    return n;
-  });
+  // On a changing river the mate comes from a run that hatchery strays have joined (riverChange.mateShift; nothing on a healthy river).
+  const shift = mateShift(p, rng, l.conditions);
+  const kids = makeOffspring(
+    p,
+    rng,
+    parent,
+    p.get('lineage.offspringChoices'),
+    () => {
+      const n = suggestName(rng, used);
+      used.push(n);
+      return n;
+    },
+    shift,
+  );
   l.rngState = rng.state;
   const last = l.records.at(-1);
   if (last && last.generation === parent.generation) last.offspring = kids.map((k) => ({ id: k.id, name: k.name, sex: k.sex, bv: { ...k.bv } }));
@@ -151,7 +167,7 @@ export function offerOffspring(p: Params, l: Lineage, parent: FishIdentity): Fis
  */
 export function peekNextYear(p: Params, l: Lineage, generation = l.generation + 1): YearConditions {
   const population: Population = { history: l.population.history.map((y) => ({ ...y })) };
-  return nextYear(p, lineageRng(l), population, generation);
+  return nextYear(p, lineageRng(l), population, generation, l.riverMode);
 }
 
 export function recordLife(l: Lineage, rec: LifeRecord): void {
@@ -170,7 +186,7 @@ export function advanceGeneration(p: Params, l: Lineage, chosen: FishIdentity, n
   chosen.name = name;
   l.current = chosen;
   l.generation = chosen.generation;
-  l.conditions = nextYear(p, rng, l.population, chosen.generation);
+  l.conditions = nextYear(p, rng, l.population, chosen.generation, l.riverMode);
   l.usedNames.push(name);
   l.rngState = rng.state;
 }
@@ -184,7 +200,7 @@ export function strayRescue(p: Params, l: Lineage, name: string): void {
   l.current = makeFish(p, rng, { sex, name, generation: l.generation + 1, bv: populationBv(p, rng, habitat), isStray: true, habitat });
   l.generation += 1;
   // The stray joins this river's run, so the population carries on.
-  l.conditions = nextYear(p, rng, l.population, l.generation);
+  l.conditions = nextYear(p, rng, l.population, l.generation, l.riverMode);
   l.usedNames.push(name);
   l.rngState = rng.state;
 }
@@ -201,7 +217,9 @@ export function foundFromStray(p: Params, extinct: Lineage, seed: number, name: 
   // Same river: the run's history carries on from the line that died out, renumbered so this line's first generation is 1.
   const last = extinct.population.history.at(-1)?.generation ?? 0;
   const population: Population = { history: extinct.population.history.map((y) => ({ ...y, generation: y.generation - last })) };
-  const conditions = nextYear(p, rng, population, 1);
+  // Same river, so the same mode: a changing river keeps changing.
+  const riverMode: RiverMode = extinct.riverMode ?? 'healthy';
+  const conditions = nextYear(p, rng, population, 1, riverMode);
   return {
     id: `L${seed.toString(36)}`,
     createdAt: new Date().toISOString(),
@@ -216,6 +234,7 @@ export function foundFromStray(p: Params, extinct: Lineage, seed: number, name: 
     usedNames: [name],
     ancestor: { id: extinct.id, name: lineageName(extinct) },
     population,
+    riverMode,
   };
 }
 

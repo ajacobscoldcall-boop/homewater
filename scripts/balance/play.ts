@@ -2,6 +2,7 @@
  * Plays whole lives and whole lineages with a bot, through the public World
  * and lineage API only, the same way src/app/App.ts drives them.
  */
+import type { RiverMode } from '../../src/sim/riverChange';
 import paramFile from '../../src/data/params.json';
 import { randomPopulationYear } from '../../src/sim/population';
 import { advanceGeneration, foundLineage, markExtinct, offerOffspring, recordLife, siblingsFor, strayRescue } from '../../src/sim/lineage';
@@ -229,6 +230,8 @@ export interface GenerationRow {
   bv: TraitValues;
   conditions: YearConditions;
   fitness?: number;
+  /** Causes of every death in this life (siblings included), for the changing river probe. */
+  causes?: string[];
 }
 
 export interface LineageResult {
@@ -241,11 +244,11 @@ export interface LineageResult {
 }
 
 /** A multi-generation run: offspring picked at random from the three offered. */
-export function playLineage(difficulty: Difficulty, skill: SkillName, index: number, gens: number, baseSeed: number): LineageResult {
+export function playLineage(difficulty: Difficulty, skill: SkillName, index: number, gens: number, baseSeed: number, riverMode: RiverMode = 'healthy'): LineageResult {
   const p = paramsFor(difficulty);
   const seed = hashSeed(baseSeed, difficulty, `lineage/${skill}`, index);
   const r = new Rng(seed);
-  const l = foundLineage(p, { preset: 'quick', sex: r.chance(0.5) ? 'F' : 'M', name: 'Line', difficulty, seed: r.int(1, 2 ** 31) });
+  const l = foundLineage(p, { preset: 'quick', sex: r.chance(0.5) ? 'F' : 'M', name: 'Line', difficulty, seed: r.int(1, 2 ** 31), riverMode });
   const out: LineageResult = { difficulty, skill, generations: [], extinctAt: null, strays: 0, timeouts: 0 };
   let names = 0;
   for (let g = 0; g < gens; g++) {
@@ -271,6 +274,7 @@ export function playLineage(difficulty: Difficulty, skill: SkillName, index: num
       brood: result.brood,
       bv: { ...played.bv },
       conditions: l.conditions,
+      causes: result.attempts.filter((a) => a.outcome === 'dead').map((a) => a.cause ?? 'unknown'),
     };
     if (result.failedAt) row.failedAt = result.failedAt;
     if (result.fitness !== undefined) row.fitness = result.fitness;

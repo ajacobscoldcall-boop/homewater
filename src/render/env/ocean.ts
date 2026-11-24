@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import type { World } from '../../sim/world';
 import { sharedWater } from '../water';
+import { oceanSchools } from '../oceanLook';
 import type { EnvParts } from './index';
 import { bladeClumpGeometry, byDetail, envMaterial, instanced, range, seeded, TubeBuilder, type Detail, type Placement } from './kit';
 
@@ -44,12 +45,14 @@ export function buildOcean(w: World, detail: Detail, fog: THREE.FogExp2): EnvPar
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    uniforms: { uTime: sharedWater.uTime, uLight: sharedWater.uLight, uFog: { value: fog.color } },
+    uniforms: { uTime: sharedWater.uTime, uLight: sharedWater.uLight, uFog: { value: fog.color }, uAmount: oceanSchools.uAmount },
     vertexShader: /* glsl */ `
       attribute vec3 aCentre; attribute float aPhase;
       uniform float uTime;
       varying float vFlash;
+      varying float vKeep;
       void main() {
+        vKeep = fract(aCentre.x * 0.137 + aCentre.z * 0.071) * 1.25;
         // The school wheels around its centre; each fish flashes as it turns.
         float t = uTime * 0.25 + aPhase * 0.01;
         float c = cos(t), s = sin(t);
@@ -60,9 +63,12 @@ export function buildOcean(w: World, detail: Detail, fog: THREE.FogExp2): EnvPar
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `
-      uniform float uLight; uniform vec3 uFog;
+      uniform float uLight; uniform vec3 uFog; uniform float uAmount;
       varying float vFlash;
+      varying float vKeep;
       void main() {
+        // Fewer far schools in winter, more in spring (oceanLook.ts): each school keeps or drops its fish together.
+        if (vKeep > uAmount) discard;
         vec2 q = gl_PointCoord - 0.5;
         float d = smoothstep(0.5, 0.0, length(q));
         vec3 col = mix(uFog * 1.6, vec3(0.85, 0.92, 1.0), 0.35 + 0.65 * vFlash);
